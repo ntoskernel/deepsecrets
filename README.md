@@ -29,7 +29,7 @@ Only through the code by the moment. Formalizing the rules and moving them into 
 
 > I still have a question
 
-Feel free to communicate with the [maintainer](https://github.com/avito-tech/deepsecrets/blob/main/pyproject.toml#L6-L8)
+Feel free to communicate with the [maintainer](https://github.com/ntoskernel/deepsecrets/blob/main/pyproject.toml#L6-L8)
 
 ## Installation
 

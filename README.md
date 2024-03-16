@@ -9,12 +9,18 @@ DeepSecrets also introduces a new way to find secrets: just use hashed values of
 
 Under the hood story is in articles here: https://hackernoon.com/modernizing-secrets-scanning-part-1-the-problem 
 
+### But what about Semgrep Secrets? Looks like you're cloning their thing.
+DeepSecrets was released in April 2023 — half a year before the Semgrep Secrets and I'm very glad to be followed. We share the same ideas and principles under the hood but:
+- DeepSecrets is free, SS is a commercial product
+- Code analysis in DeepSecrets is wider and not limited to a specific set of languages like in Semgrep
+
+
 ## Contacts
 
 - Nikolai Khechumov ([@ntoskernel](https://github.com/ntoskernel)) — creator and maintainer
 
 
-## Mini-FAQ after release :)
+## Mini-FAQ
 > Pff, is it still regex-based?
 
 Yes and no. Of course, it uses regexes and finds typed secrets like any other tool. But language understanding (the lexing stage) and variable detection also use regexes under the hood. So regexes is an instrument, not a problem.
@@ -35,7 +41,7 @@ Feel free to communicate with the [maintainer](https://github.com/ntoskernel/dee
 
 From Github via pip
 
-`$ pip install git+https://github.com/avito-tech/deepsecrets.git`
+`$ pip install git+https://github.com/ntoskernel/deepsecrets.git`
 
 From PyPi
 

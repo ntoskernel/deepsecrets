@@ -25,4 +25,4 @@ def test_js_react(file_js_react):
     lf = LexerFinder()
     lexer = lf.find(file_js_react)
 
-    assert lexer.name == 'react'
+    assert lexer.name == 'JSX'

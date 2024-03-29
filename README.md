@@ -10,8 +10,8 @@ DeepSecrets also introduces a new way to find secrets: just use hashed values of
 Under the hood story is in articles here: https://hackernoon.com/modernizing-secrets-scanning-part-1-the-problem 
 
 ### But what about Semgrep Secrets? Looks like you're cloning their thing.
-DeepSecrets was released in April 2023 — half a year before the Semgrep Secrets and I'm very glad to be followed. We share the same ideas and principles under the hood but:
-- DeepSecrets is free, SS is a commercial product
+DeepSecrets was released in April 2023 — half a year before the Semgrep Secrets release and I'm very glad to be followed. We share the same ideas and principles under the hood but:
+- DeepSecrets is free, Semgrep is a commercial product
 - Code analysis in DeepSecrets is wider and not limited to a specific set of languages like in Semgrep
 
 
@@ -54,7 +54,7 @@ The easiest way:
 `$ deepsecrets --target-dir /path/to/your/code --outfile report.json`
 
 This will run a scan against `/path/to/your/code` using the default configuration:
-- Regex checks by the built-in ruleset
+- Regex checks by a small built-in ruleset
 - Semantic checks (variable detection, entropy checks)
 
 Report will be saved to `report.json`
@@ -62,7 +62,9 @@ Report will be saved to `report.json`
 ### Fine-tuning
 Run `deepsecrets --help` for details.
 
-Basically, you can use your own ruleset by specifying `--regex-rules`. Paths to be excluded from scanning can be set via `--excluded-paths`.
+Basically, you can (and should) use your own regex-ruleset by specifying `--regex-rules`. Building rulesets is described in the next section.
+
+Paths to be excluded from scanning can be set via `--excluded-paths`. The default set of excluded paths is here: `/deepsecrets/rules/excluded_paths.json`, you can write your own following the format.
 
 ## Building rulesets
 
@@ -72,7 +74,7 @@ The built-in ruleset for regex checks is located in `/deepsecrets/rules/regexes.
 
 ### HashedSecret
 
-Example ruleset for regex checks is located in `/deepsecrets/rules/regexes.json`. You're free to follow the format and create a custom ruleset.
+Example ruleset for hashed checks is located in `/tests/fixtures/hashed_secrets.json`. You're free to follow the format and create a custom ruleset.
 
 
 ## Contributing

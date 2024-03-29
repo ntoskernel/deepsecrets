@@ -32,10 +32,9 @@ class DeepSecretsCliTool:
         logger.info('')
         logger.info(f'{" "*8}{bar*25} DeepSecrets {bar*25}')
         logger.info(f'{" "*10}A better tool for secret scanning')
-        logger.info(f'{" "*10}version 1.1')
-        logger.info(f'')
+        logger.info(f'{" "*10}version 1.1.4')
+        logger.info('')
         logger.info(f'{" "*8}{bar*63}')
-
 
     def _build_argparser(self) -> None:
         parser = argparse.ArgumentParser(

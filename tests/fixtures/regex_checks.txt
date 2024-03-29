@@ -64,3 +64,5 @@ amqp://login:$password@example.com
 amqp://login:${password}@example.com
 amqp://login:%password%@example.com
 //	redis://<user>:<password>@<host>:<port>
+http://localhost:3001/@whatever/path/more
+http://user:sneakypass@localhost:3001/@whatever/path/more

@@ -75,7 +75,7 @@
         "id": "S19",
         "name": "Password in URL",
         "confidence": 9,
-        "pattern": "://([^.\"]+):([^.\"]+)@\\S+",
+        "pattern": "://([^.\"/@]+):([^.\"/@]+)@\\S+",
         "target_group": 2,
         "match_rules": {
             "2": {
@@ -140,6 +140,30 @@
             ".*.txt$"
         ],
         "pattern": "amzn\\.mws\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    {
+        "id": "S31",
+        "name": "Github App Token",
+        "confidence": 9,
+        "pattern": "(ghu|ghs)_[0-9a-zA-Z]{36}"
+    },
+    {
+        "id": "S32",
+        "name": "Github OAuth",
+        "confidence": 9,
+        "pattern": "gho_[0-9a-zA-Z]{36}"
+    },
+    {
+        "id": "S33",
+        "name": "Github Personal Access Token",
+        "confidence": 9,
+        "pattern": "ghp_[0-9a-zA-Z]{36}"
+    },
+
+    {
+        "id": "S34",
+        "name": "Gitlab Personal Access Token",
+        "confidence": 9,
+        "pattern": "glpat-[0-9a-zA-Z\\-\\_]{20}"
     }
-    
 ]

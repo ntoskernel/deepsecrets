@@ -47,7 +47,7 @@ def test_1(file: File, regex_engine: RegexEngine):
         finding.map_on_file(file=file, relative_start=finding.start_pos)
         finding.choose_final_rule()
 
-    assert len(findings) == 9
+    assert len(findings) == 10
     assert findings[0].rules[0].id == 'S0'
     assert findings[1].rules[0].id == 'S0'
     assert findings[2].rules[0].id == 'S1'
@@ -58,8 +58,11 @@ def test_1(file: File, regex_engine: RegexEngine):
     assert findings[7].rules[0].id == 'S19'
     assert findings[8].rules[0].id == 'S19'
 
+    assert findings[9].rules[0].id == 'S19'
+    assert findings[9].detection == 'sneakypass'
+
     findings = FindingMerger(findings).merge()
-    assert len(findings) == 9
+    assert len(findings) == 10
 
     response = FindingResponse.from_list(findings)
 

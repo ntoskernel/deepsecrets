@@ -7,7 +7,7 @@
   "iat": {{now '1h' 'unix'}} ,
   "jti": "gggg",
   "authkey": "ggg",
-  "uid": "avito",
+  "uid": "toodaloo",
   "scope": "client_credentials",
   "time": {{now '' 'unix'}}
 }

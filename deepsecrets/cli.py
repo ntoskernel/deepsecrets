@@ -32,7 +32,7 @@ class DeepSecretsCliTool:
         logger.info('')
         logger.info(f'{" "*8}{bar*25} DeepSecrets {bar*25}')
         logger.info(f'{" "*10}A better tool for secret scanning')
-        logger.info(f'{" "*10}version 1.1.4')
+        logger.info(f'{" "*10}version 1.2.0')
         logger.info('')
         logger.info(f'{" "*8}{bar*63}')
 

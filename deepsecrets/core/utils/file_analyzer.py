@@ -1,6 +1,6 @@
 from multiprocessing import RLock
 from multiprocessing.pool import Pool
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel
 
@@ -25,6 +25,8 @@ class FileAnalyzer:
     engine_tokenizers: List[EngineWithTokenizer]
     tokens: Dict[Type, List[Token]]
     pool_class: Type
+    progress: Any
+
 
     def __init__(self, file: File, pool_class: Optional[Type] = None):
         if pool_class is not None:
@@ -75,6 +77,7 @@ class FileAnalyzer:
         tokens: List[Token] = self.tokens[et.tokenizer]
 
         for token in tokens:
+            self.progress[0] += 1
             is_known_content = processed_values.get(token.val_hash())
             if is_known_content is not None and is_known_content is False:
                 continue

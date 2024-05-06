@@ -48,7 +48,7 @@ class CliScanMode(ScanMode):
 
 
     @staticmethod
-    def _per_file_analyzer(bundle, file: Any) -> List[Finding]:
+    def _per_file_analyzer(bundle: Any, file: Any, progress) -> List[Finding]:  # type: ignore
         if logger.level == logging.DEBUG:
             logger.debug(f'Starting analysis for {file}')
 
@@ -62,6 +62,8 @@ class CliScanMode(ScanMode):
             return results
 
         file_analyzer = FileAnalyzer(file)
+        file_analyzer.progress = progress
+
         fct = FullContentTokenizer()
         lex = LexerTokenizer(deep_token_inspection=True)
 

@@ -1,16 +1,18 @@
 import logging
-from multiprocessing import get_context
+from multiprocessing import Event, Manager, get_context
+import multiprocessing
+from multiprocessing.managers import ListProxy
 import os
 from abc import abstractmethod, abstractstaticmethod
 from datetime import datetime
 from functools import partial
-from multiprocessing.pool import Pool
+from time import sleep
 from typing import Any, Callable, List, Optional, Type
 import regex as re
 
 from dotwiz import DotWiz
 
-from deepsecrets import PLATFORM, PROFILER_ON, logger
+from deepsecrets import PROFILER_ON, logger
 from deepsecrets.config import Config
 from deepsecrets.core.model.finding import Finding, FindingMerger
 from deepsecrets.core.model.rules.exlcuded_path import ExcludePathRule
@@ -19,6 +21,15 @@ from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.fs import get_abspath
 
+# Experimental approach                        
+def watchdog_and_logger(progress: Any, event: Any) -> None:
+    while True:
+        if event.is_set():
+            return
+        
+        logger.debug(f'{progress[0]} tokens processed')
+        sleep(0.4)
+
 
 class ScanMode:
     config: Config
@@ -26,17 +37,20 @@ class ScanMode:
     path_exclusion_rules: List[ExcludePathRule] = []
     file_analyzer: FileAnalyzer
     pool_engine: Type
+    progress: ListProxy
 
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
         if pool_engine is None:
-            if PLATFORM == 'Darwin':
-                self.pool_engine = get_context('fork').Pool
-            else:
-                self.pool_engine = Pool
+            self.pool_engine = get_context('spawn').Pool
         else:
             self.pool_engine = pool_engine
 
+        m = Manager()
+        self.progress = m.list([0])
+        
+        # Should potentially fix silent crashes of per-file scanner processes
         self.config = config
+        
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
 
@@ -55,17 +69,24 @@ class ScanMode:
         proc_count = self._get_process_count_for_runner()
         if proc_count == 0:
             return final
+        
+        event = Event()
+        watchdog = multiprocessing.Process(target=watchdog_and_logger, args=(self.progress, event))
+        watchdog.start()
 
         if PROFILER_ON:
             for file in self.filepaths:
                 final.extend(self._per_file_analyzer(file=file, bundle=bundle))
         else:
             with self.pool_engine(processes=proc_count) as pool:
+                runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.progress)
                 per_file_findings: List[List[Finding]] = pool.map(
-                    partial(pool_wrapper, bundle, self._per_file_analyzer),
+                    runnable,
                     self.filepaths,
                 )  # type: ignore
-                
+            event.set()
+            watchdog.join()
+
             for file_findings in list(per_file_findings):
                 if not file_findings:
                     continue
@@ -115,11 +136,11 @@ class ScanMode:
         )
 
     @abstractstaticmethod
-    def _per_file_analyzer(bundle, file: Any) -> List[Finding]:  # type: ignore
+    def _per_file_analyzer(bundle: Any, file: Any) -> List[Finding]:  # type: ignore
         pass
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
-        false_finding_rules = self.rulesets.get(FalseFindingsBuilder.ruleset_name)
+        false_finding_rules = self.config.rulesets.get(FalseFindingsBuilder)
         if false_finding_rules is None:
             return results
         
@@ -139,9 +160,11 @@ class ScanMode:
         return final
 
 
-def pool_wrapper(bundle: DotWiz, runner: Callable, file: str) -> List[Finding]:  # pragma: nocover
+def pool_wrapper(bundle: DotWiz, runner: Callable, progress: ListProxy, file: str) -> List[Finding]:  # pragma: nocover
+
     start_ts = datetime.now()
-    result = runner(bundle, file)
+    result = runner(bundle, file, progress)
+    progress
     if logger.level == logging.DEBUG:
         logger.debug(
             f' ✓ [{file}] {(datetime.now() - start_ts).total_seconds()}s elapsed \t {len(result)} potential findings'

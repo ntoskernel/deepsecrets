@@ -180,9 +180,11 @@ class DeepSecretsCliTool:
             logger.info(f'[!] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
 
         logger.info(80 * '=')
-        findings: List[Finding] = CliScanMode(config=self.config).run()
+        mode = CliScanMode(config=self.config)
+        findings: List[Finding] = mode.run()
         logger.info(80 * '=')
         logger.info('Scanning finished')
+        logger.info(f'{mode.progress[0]} tokens processed')
         logger.info(f'{len(findings)} potential secrets found')
         report_path = get_abspath(self.config.output.path)
 

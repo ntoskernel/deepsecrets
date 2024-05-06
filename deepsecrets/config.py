@@ -38,7 +38,7 @@ class Config:
     def set_workdir(self, path: str) -> None:
         self._set_path(path, 'workdir_path')
     
-    def set_process_count(self, count: int):
+    def set_process_count(self, count: int) -> None:
         if count > 0:
             self.process_count = count
             return

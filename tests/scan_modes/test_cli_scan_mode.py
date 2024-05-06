@@ -9,7 +9,7 @@ from deepsecrets.scan_modes.cli import CliScanMode
 FP_TO_BE_EXCLUDED = '/app/tests/fixtures/service.postman_collection.json'
 
 @pytest.fixture(scope='module')
-def config():
+def config() -> Config:
     config = Config()
     config.set_workdir('tests/fixtures')
     config.engines.append(RegexEngine)
@@ -19,7 +19,7 @@ def config():
     return config
 
 
-def test_cli_scan_mode(config: Config):
+def test_cli_scan_mode(config: Config) -> None:
     mode = CliScanMode(config=config)
     assert FP_TO_BE_EXCLUDED in mode.filepaths
 

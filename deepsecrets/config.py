@@ -19,6 +19,7 @@ class Config:
     logging_level: int
     workdir_path: str
     max_file_size: int = 0  # 0 means no limit
+    mp_context: str = 'spawn'
     engines: List[Type] = []
     rulesets: Dict[Type, List[str]] = {}
     global_exclusion_paths: List[str] = []
@@ -48,6 +49,9 @@ class Config:
 
     def set_max_file_size(self, size: int) -> None:
         self.max_file_size = size
+
+    def set_mp_context(self, context: str) -> None:
+        self.mp_context = context
     
     def set_process_count(self, count: int) -> None:
         if count > 0:
@@ -60,7 +64,6 @@ class Config:
             return
         
         self.process_count = FALLBACK_PROCESS_COUNT
-
 
     def set_global_exclusion_paths(self, paths: List[str]) -> None:
         for path in paths:

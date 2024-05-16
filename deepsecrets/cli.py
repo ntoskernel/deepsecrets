@@ -136,6 +136,14 @@ class DeepSecretsCliTool:
             'Default: 0, which means "no limit".\n'
         )
 
+        parser.add_argument(
+            '--multiprocessing-context',
+            type=str,
+            default='spawn',
+            choices=['fork', 'spawn', 'forkserver'],
+            help='Experimental: control the multiprocessing context\n'
+        )
+
         parser.add_argument('--outfile', required=True, type=str)
         parser.add_argument('--outformat', default='json', type=str, choices=['json'])
         self.argparser = parser
@@ -153,6 +161,7 @@ class DeepSecretsCliTool:
         config.set_workdir(user_args.target_dir)
         config.set_max_file_size(user_args.max_file_size)
         config.set_process_count(user_args.process_count)
+        config.set_mp_context(user_args.multiprocessing_context)
         config.output = Output(type=user_args.outformat, path=user_args.outfile)
 
         if user_args.reflect_findings_in_return_code:

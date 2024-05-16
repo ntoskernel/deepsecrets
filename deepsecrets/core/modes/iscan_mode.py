@@ -44,16 +44,15 @@ class ScanMode:
 
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
         if pool_engine is None:
-            self.pool_engine = get_context('spawn').Pool
+            self.pool_engine = get_context(config.mp_context).Pool
         else:
             self.pool_engine = pool_engine
 
         m = Manager()
         self.progress = m.list([0])
-        
-        # Should potentially fix silent crashes of per-file scanner processes
+
         self.config = config
-        
+
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
 
@@ -73,9 +72,10 @@ class ScanMode:
         if proc_count == 0:
             return final
         
-        event = Event()
-        watchdog = multiprocessing.Process(target=watchdog_and_logger, args=(self.progress, event))
-        watchdog.start()
+        if self.config.logging_level == logging.DEBUG:
+            event = Event()
+            watchdog = multiprocessing.Process(target=watchdog_and_logger, args=(self.progress, event))
+            watchdog.start()
 
         if PROFILER_ON:
             for file in self.filepaths:
@@ -87,6 +87,8 @@ class ScanMode:
                     runnable,
                     self.filepaths,
                 )  # type: ignore
+
+        if self.config.logging_level == logging.DEBUG:
             event.set()
             watchdog.join()
 
@@ -163,7 +165,6 @@ class ScanMode:
         if false_finding_rules is None:
             return results
         
-
         final: List[Finding] = []       
         for result in results:
             good_result = True

@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Type
 
 from dotwiz import DotWiz
 
-from deepsecrets import PROFILER_ON, logger
+from deepsecrets import PROFILER_ON
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
@@ -15,6 +15,7 @@ from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from deepsecrets.core.utils.log import logger
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 
 

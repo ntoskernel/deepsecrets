@@ -1,7 +1,7 @@
 import regex as re
 from typing import List
 
-from deepsecrets import logger
+from deepsecrets.core.utils.log import logger
 from deepsecrets.core.engines.iengine import IEngine
 from deepsecrets.core.helpers.content_analyzer import ContentAnalyzer
 from deepsecrets.core.helpers.entropy import EntropyHelper

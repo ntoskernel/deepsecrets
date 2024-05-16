@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel
 
-from deepsecrets import logger
+from deepsecrets.core.utils.log import logger
 from deepsecrets.core.engines.iengine import IEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding

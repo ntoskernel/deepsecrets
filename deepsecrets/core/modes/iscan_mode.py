@@ -3,7 +3,7 @@ from multiprocessing import Event, Manager, get_context
 import multiprocessing
 from multiprocessing.managers import ListProxy
 import os
-from abc import abstractmethod, abstractstaticmethod
+from abc import abstractmethod
 from datetime import datetime
 from functools import partial
 from time import sleep
@@ -12,7 +12,7 @@ import regex as re
 
 from dotwiz import DotWiz
 
-from deepsecrets import PROFILER_ON, logger
+from deepsecrets import PROFILER_ON
 from deepsecrets.config import Config
 from deepsecrets.core.model.finding import Finding, FindingMerger
 from deepsecrets.core.model.rules.exlcuded_path import ExcludePathRule
@@ -20,14 +20,17 @@ from deepsecrets.core.rulesets.excluded_paths import ExcludedPathsBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.fs import get_abspath
+from deepsecrets.core.utils.log import logger, build_logger
+
 
 # Experimental approach                        
 def watchdog_and_logger(progress: Any, event: Any) -> None:
+    logger = build_logger(level=logging.DEBUG)
     while True:
         if event.is_set():
             return
         
-        logger.debug(f'{progress[0]} tokens processed')
+        logger.debug(f'\n ===== LIVENESS: {progress[0]} tokens processed =====\n')
         sleep(0.4)
 
 
@@ -111,6 +114,10 @@ class ScanMode:
                 rel_path = full_path.replace(f'{self.config.workdir_path}/', '')
                 if not self._path_included(rel_path):
                     continue
+        
+                if not self._size_check(full_path):
+                    logger.info(f'File size exceeds --max-file-path and will be skipped: {rel_path}')
+                    continue
 
                 flist.append(full_path)
 
@@ -124,18 +131,30 @@ class ScanMode:
             return False
         return True
 
+    def _size_check(self, path: str):
+        if self.config.max_file_size == 0:
+            return True
+        
+        size = os.path.getsize(path)
+        if size > self.config.max_file_size:
+            return False
+        return True
+
     @abstractmethod
     def prepare_for_scan(self) -> None:
         pass
 
     def analyzer_bundle(self) -> DotWiz:
         return DotWiz(
+            logging_level=self.config.logging_level,
+            max_file_size=self.config.max_file_size,
             workdir=self.config.workdir_path,
             path_exclusion_rules=self.path_exclusion_rules,
             engines={}
         )
 
-    @abstractstaticmethod
+    @staticmethod
+    @abstractmethod
     def _per_file_analyzer(bundle: Any, file: Any) -> List[Finding]:  # type: ignore
         pass
 
@@ -161,10 +180,11 @@ class ScanMode:
 
 
 def pool_wrapper(bundle: DotWiz, runner: Callable, progress: ListProxy, file: str) -> List[Finding]:  # pragma: nocover
+    logger = build_logger(bundle.logging_level)
 
     start_ts = datetime.now()
     result = runner(bundle, file, progress)
-    progress
+
     if logger.level == logging.DEBUG:
         logger.debug(
             f' ✓ [{file}] {(datetime.now() - start_ts).total_seconds()}s elapsed \t {len(result)} potential findings'

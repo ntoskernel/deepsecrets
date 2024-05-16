@@ -25,7 +25,7 @@ classifiers = [
 "Bug Tracker" = "https://github.com/ntoskernel/deepsecrets/issues"
 
 [tool.poetry.scripts]
-deepsecrets = "deepsecrets:__main__"
+deepsecrets = "deepsecrets:__main__.runnable_entrypoint"
 
 
 [tool.poetry.dependencies]

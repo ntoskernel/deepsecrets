@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, Optional
 
 from dotwiz import DotWiz
 
@@ -49,7 +49,7 @@ class CliScanMode(ScanMode):
 
 
     @staticmethod
-    def _per_file_analyzer(bundle: Any, file: Any, progress) -> List[Finding]:  # type: ignore
+    def _per_file_analyzer(bundle: Any, file: Any, progress: Optional[Any] = None) -> List[Finding]:  # type: ignore
         if logger.level == logging.DEBUG:
             logger.debug(f'Starting analysis for {file}')
 

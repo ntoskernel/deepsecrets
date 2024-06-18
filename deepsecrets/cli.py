@@ -6,7 +6,7 @@ from argparse import RawTextHelpFormatter
 from typing import List
 
 from deepsecrets import MODULE_NAME
-from deepsecrets.config import config, Output
+from deepsecrets.config import Config, config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding, FindingResponse
@@ -192,6 +192,9 @@ class DeepSecretsCliTool:
         conf_false_findings_ruleset = user_args.false_findings
         if conf_false_findings_ruleset is not None:
             config.add_ruleset(FalseFindingsBuilder, conf_false_findings_ruleset)
+
+    def get_current_config(self) -> Config:
+        return config
 
     def start(self) -> None:  # pragma: nocover
         try:

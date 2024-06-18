@@ -38,6 +38,7 @@ class FileAnalyzer:
         self.file = file
         self.tokens = {}
         self.tokenizers_lock = RLock()
+        self.progress=None
 
     def add_engine(self, engine: IEngine, tokenizers: List[Tokenizer]) -> None:
         for tokenizer in tokenizers:
@@ -77,7 +78,7 @@ class FileAnalyzer:
         tokens: List[Token] = self.tokens[et.tokenizer]
 
         for token in tokens:
-            self.progress[0] += 1
+            self._on_token_processing_start(token=token)
             is_known_content = processed_values.get(token.val_hash())
             if is_known_content is not None and is_known_content is False:
                 continue
@@ -96,3 +97,9 @@ class FileAnalyzer:
                 continue
 
         return results
+    
+    def _on_token_processing_start(self, token: Token) -> None:
+        if self.progress is None:
+            return
+        
+        self.progress[0] += 1

@@ -1,4 +1,6 @@
 import logging
+import regex as re
+
 from multiprocessing import Event, Manager, get_context
 import multiprocessing
 from multiprocessing.managers import ListProxy
@@ -8,7 +10,6 @@ from datetime import datetime
 from functools import partial
 from time import sleep
 from typing import Any, Callable, List, Optional, Type
-import regex as re
 
 from dotwiz import DotWiz
 
@@ -79,7 +80,7 @@ class ScanMode:
 
         if PROFILER_ON:
             for file in self.filepaths:
-                final.extend(self._per_file_analyzer(file=file, bundle=bundle))
+                final.extend(self._per_file_analyzer(file=file, bundle=bundle, progress=self.progress))
         else:
             with self.pool_engine(processes=proc_count) as pool:
                 runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.progress)
@@ -92,10 +93,10 @@ class ScanMode:
             event.set()
             watchdog.join()
 
-            for file_findings in list(per_file_findings):
-                if not file_findings:
-                    continue
-                final.extend(file_findings)
+        for file_findings in list(per_file_findings):
+            if file_findings is None or len(file_findings) == 0:
+                continue
+            final.extend(file_findings)
 
         fin = FindingMerger(final).merge()
         fin = self.filter_false_positives(fin)
@@ -157,11 +158,11 @@ class ScanMode:
 
     @staticmethod
     @abstractmethod
-    def _per_file_analyzer(bundle: Any, file: Any) -> List[Finding]:  # type: ignore
+    def _per_file_analyzer(bundle: Any, file: Any, progress: Optional[Any] = None) -> List[Finding]:  # type: ignore
         pass
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
-        false_finding_rules = self.config.rulesets.get(FalseFindingsBuilder)
+        false_finding_rules = self.rulesets.get(FalseFindingsBuilder.ruleset_name)
         if false_finding_rules is None:
             return results
         

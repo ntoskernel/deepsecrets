@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Type
 
 from pydantic import BaseModel
@@ -8,13 +9,17 @@ from deepsecrets.core.utils.fs import get_abspath, path_exists
 
 FALLBACK_PROCESS_COUNT = 4
 
+
 class Output(BaseModel):
     type: str
     path: str
 
 
 class Config:
+    logging_level: int
     workdir_path: str
+    max_file_size: int = 0  # 0 means no limit
+    mp_context: str = 'spawn'
     engines: List[Type] = []
     rulesets: Dict[Type, List[str]] = {}
     global_exclusion_paths: List[str] = []
@@ -29,6 +34,10 @@ class Config:
         self.return_code_if_findings = False
         # equals to CPU count
         self.process_count = FALLBACK_PROCESS_COUNT
+        self.logging_level = logging.INFO
+
+    def set_logging_level(self, level: int):
+        self.logging_level = level
 
     def _set_path(self, path: str, field: str) -> None:
         if not path_exists(path):
@@ -37,8 +46,14 @@ class Config:
 
     def set_workdir(self, path: str) -> None:
         self._set_path(path, 'workdir_path')
+
+    def set_max_file_size(self, size: int) -> None:
+        self.max_file_size = size
+
+    def set_mp_context(self, context: str) -> None:
+        self.mp_context = context
     
-    def set_process_count(self, count: int):
+    def set_process_count(self, count: int) -> None:
         if count > 0:
             self.process_count = count
             return
@@ -49,7 +64,6 @@ class Config:
             return
         
         self.process_count = FALLBACK_PROCESS_COUNT
-
 
     def set_global_exclusion_paths(self, paths: List[str]) -> None:
         for path in paths:
@@ -73,3 +87,6 @@ class Config:
             raise FileNotFoundException(f'File {path} does not exist')
 
         return
+
+
+config = Config()

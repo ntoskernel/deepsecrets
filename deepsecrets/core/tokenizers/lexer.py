@@ -1,6 +1,6 @@
 from typing import List, Optional, Sequence, Set, Type, Union
 
-from deepsecrets import logger
+from deepsecrets.core.utils.log import logger
 
 from ordered_set import OrderedSet
 from pygments import highlight

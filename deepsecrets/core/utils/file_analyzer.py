@@ -1,10 +1,10 @@
 from multiprocessing import RLock
 from multiprocessing.pool import Pool
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel
 
-from deepsecrets import logger
+from deepsecrets.core.utils.log import logger
 from deepsecrets.core.engines.iengine import IEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
@@ -25,6 +25,8 @@ class FileAnalyzer:
     engine_tokenizers: List[EngineWithTokenizer]
     tokens: Dict[Type, List[Token]]
     pool_class: Type
+    progress: Any
+
 
     def __init__(self, file: File, pool_class: Optional[Type] = None):
         if pool_class is not None:
@@ -36,6 +38,7 @@ class FileAnalyzer:
         self.file = file
         self.tokens = {}
         self.tokenizers_lock = RLock()
+        self.progress=None
 
     def add_engine(self, engine: IEngine, tokenizers: List[Tokenizer]) -> None:
         for tokenizer in tokenizers:
@@ -75,6 +78,7 @@ class FileAnalyzer:
         tokens: List[Token] = self.tokens[et.tokenizer]
 
         for token in tokens:
+            self._on_token_processing_start(token=token)
             is_known_content = processed_values.get(token.val_hash())
             if is_known_content is not None and is_known_content is False:
                 continue
@@ -93,3 +97,9 @@ class FileAnalyzer:
                 continue
 
         return results
+    
+    def _on_token_processing_start(self, token: Token) -> None:
+        if self.progress is None:
+            return
+        
+        self.progress[0] += 1

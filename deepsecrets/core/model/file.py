@@ -1,7 +1,7 @@
 import regex as re
 from typing import Dict, Optional, Tuple
 
-from deepsecrets import logger
+from deepsecrets.core.utils.log import logger
 from deepsecrets.core.utils.fs import get_abspath
 
 
@@ -37,7 +37,7 @@ class File:
             try:
                 self.content = self._get_contents()
             except Exception as e:
-                logger.error('Error during fetching file contents')
+                logger.error(f'Error during fetching file contents: {e}')
 
         self.length = len(self.content)
 
@@ -54,7 +54,6 @@ class File:
     def _get_name(self) -> str:
         by_slash = self.path.split('/')
         return by_slash[-1].split('.')[0]
-
 
     def _get_extension(self) -> Optional[str]:
         by_dot = self.path.split('.')

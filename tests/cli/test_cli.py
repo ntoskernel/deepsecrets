@@ -36,18 +36,22 @@ def test_1_cli(args_1):
     tool = DeepSecretsCliTool(args=args_1)
     tool.parse_arguments()
 
-    assert tool.config is not None
-    assert len(tool.config.rulesets) == 2
-    assert len(tool.config.engines) == 2
-    assert len(tool.config.global_exclusion_paths) == 1
+    config = tool.get_current_config()
 
-    assert tool.config.output.path == './fdsafad.json'
-    assert tool.config.workdir_path == '/app/tests/fixtures/'
+    assert config is not None
+    assert len(config.rulesets) == 2
+    assert len(config.engines) == 2
+    assert len(config.global_exclusion_paths) == 1
+
+    assert config.output.path == './fdsafad.json'
+    assert config.workdir_path == '/app/tests/fixtures/'
 
 
 def test_2_cli(args_2):
     tool = DeepSecretsCliTool(args=args_2)
     tool.parse_arguments()
 
-    assert tool.config is not None
-    assert len(tool.config.global_exclusion_paths) == 2
+    config = tool.get_current_config()
+
+    assert config is not None
+    assert len(config.global_exclusion_paths) == 2

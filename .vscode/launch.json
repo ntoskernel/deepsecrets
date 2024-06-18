@@ -22,11 +22,13 @@
                 "--outfile",
                 "test.json",
                 "--target-dir",
-                "/app/tests/fixtures/",
+                "./tests/fixtures",
                 "--outfile",
                 "./fdsafad.json",
+                "--reflect-findings-in-return-code",
                 "--verbose",
-                "--reflect-findings-in-return-code"
+                "--process-count", "1",
+                "--max-file-size", "5000"
             ],
             "justMyCode": true
         },

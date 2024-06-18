@@ -5,7 +5,6 @@ from typing import Optional
 from puppetparser.parser import parse
 
 
-
 class FileTypeGuesser:
 
     def __init__(self) -> None:

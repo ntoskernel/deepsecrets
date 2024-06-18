@@ -15,15 +15,15 @@ class CpuHelper:
 
         final = cgroup if cgroup != -1 else multiproc_limit
         return final if final > 0 else 0
-    
+
     def _by_multiproc(self):
         return cpu_count()
-    
+
     def _by_cgroup(self):
         quota = 1
         period = -1
 
-	    # cgroup 2: https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html
+        # cgroup 2: https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html
         if path_exists(CGROUP_2_MAX):
             try:
                 quota, period = self.__cgroup2()
@@ -40,20 +40,19 @@ class CpuHelper:
                 pass
 
         return quota // period
-    
+
     def __cgroup1(self):
         quota = 1
         period = -1
 
         with open(QUOTA_FILE) as f:
             quota = int(f.read())
-        
+
         with open(PERIOD_FILE) as f:
             period = int(f.read())
 
         return quota, period
 
-    
     def __cgroup2(self):
         quota = 1
         period = -1
@@ -62,6 +61,5 @@ class CpuHelper:
             str_quota_period = f.read().split(' ')
             quota = int(str_quota_period[0])
             period = int(str_quota_period[1])
-        
-        return quota, period
 
+        return quota, period

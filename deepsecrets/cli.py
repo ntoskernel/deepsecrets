@@ -5,15 +5,18 @@ import sys
 from argparse import RawTextHelpFormatter
 from typing import List
 
-from deepsecrets import MODULE_NAME, logger, set_logging_level
-from deepsecrets.config import Config, Output
+from deepsecrets import MODULE_NAME
+from deepsecrets.config import Config, config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding, FindingResponse
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
-from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
+from deepsecrets.core.rulesets.hashed_secrets import (
+    HashedSecretsRulesetBuilder
+)
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
+from deepsecrets.core.utils.log import logger, build_logger
 from deepsecrets.scan_modes.cli import CliScanMode
 
 DISABLED = 'disabled'
@@ -32,7 +35,7 @@ class DeepSecretsCliTool:
         logger.info('')
         logger.info(f'{" "*8}{bar*25} DeepSecrets {bar*25}')
         logger.info(f'{" "*10}A better tool for secret scanning')
-        logger.info(f'{" "*10}version 1.1.4')
+        logger.info(f'{" "*10}version 1.2.0')
         logger.info('')
         logger.info(f'{" "*8}{bar*63}')
 
@@ -123,50 +126,75 @@ class DeepSecretsCliTool:
             'If all checks are failed the fallback value is 4'
         )
 
+        parser.add_argument(
+            '--max-file-size',
+            type=int,
+            default=0,
+            help='Maximum size of a file (in bytes) the tool should analyze,\n'
+            'files with exceeding size will be ingored.\n'
+            'Big files (more than 5M) may contain useless blobs and cause performance degradation\n'
+            'Default: 0, which means "no limit".\n'
+        )
+
+        parser.add_argument(
+            '--multiprocessing-context',
+            type=str,
+            default='spawn',
+            choices=['fork', 'spawn', 'forkserver'],
+            help='Experimental: control the multiprocessing context\n'
+        )
+
         parser.add_argument('--outfile', required=True, type=str)
         parser.add_argument('--outformat', default='json', type=str, choices=['json'])
         self.argparser = parser
 
     def parse_arguments(self) -> None:
+        logger = build_logger()
+
         user_args = self.argparser.parse_args(args=self.args[1:])
+        if user_args.verbose:
+            config.set_logging_level(logging.DEBUG)
+            logger = build_logger(config.logging_level)  # flake8: noqa
+
         self.say_hello()
 
-        if user_args.verbose:
-            set_logging_level(logging.DEBUG)
-
-        self.config = Config()
-        self.config.set_workdir(user_args.target_dir)
-        self.config.set_process_count(user_args.process_count)
-        self.config.output = Output(type=user_args.outformat, path=user_args.outfile)
+        config.set_workdir(user_args.target_dir)
+        config.set_max_file_size(user_args.max_file_size)
+        config.set_process_count(user_args.process_count)
+        config.set_mp_context(user_args.multiprocessing_context)
+        config.output = Output(type=user_args.outformat, path=user_args.outfile)
 
         if user_args.reflect_findings_in_return_code:
-            self.config.return_code_if_findings = True
+            config.return_code_if_findings = True
 
         EXCLUDE_PATHS_BUILTIN = get_path_inside_package('rules/excluded_paths.json')
         if user_args.excluded_paths is not None:
             rules = [rule.replace('built-in', EXCLUDE_PATHS_BUILTIN) for rule in user_args.excluded_paths]
-            self.config.set_global_exclusion_paths(rules)
+            config.set_global_exclusion_paths(rules)
 
-        self.config.engines = []
+        config.engines = []
 
         REGEX_BUILTIN_RULESET = get_path_inside_package('rules/regexes.json')
         if user_args.regex_rules is not None:
             rules = [rule.replace('built-in', REGEX_BUILTIN_RULESET) for rule in user_args.regex_rules]
-            self.config.engines.append(RegexEngine)
-            self.config.add_ruleset(RegexRulesetBuilder, rules)
+            config.engines.append(RegexEngine)
+            config.add_ruleset(RegexRulesetBuilder, rules)
 
         conf_semantic_analysis = user_args.semantic_analysis
         if conf_semantic_analysis is not None and conf_semantic_analysis != DISABLED:
-            self.config.engines.append(SemanticEngine)
+            config.engines.append(SemanticEngine)
 
         conf_hashed_ruleset = user_args.hashed_values
         if conf_hashed_ruleset is not None and conf_hashed_ruleset != DISABLED:
-            self.config.engines.append(RegexEngine)
-            self.config.add_ruleset(HashedSecretsRulesetBuilder, conf_hashed_ruleset)
+            config.engines.append(RegexEngine)
+            config.add_ruleset(HashedSecretsRulesetBuilder, conf_hashed_ruleset)
 
         conf_false_findings_ruleset = user_args.false_findings
         if conf_false_findings_ruleset is not None:
-            self.config.add_ruleset(FalseFindingsBuilder, conf_false_findings_ruleset)
+            config.add_ruleset(FalseFindingsBuilder, conf_false_findings_ruleset)
+
+    def get_current_config(self) -> Config:
+        return config
 
     def start(self) -> None:  # pragma: nocover
         try:
@@ -175,16 +203,18 @@ class DeepSecretsCliTool:
             logger.exception(e)
             sys.exit(1)
 
-        logger.info(f'Starting scan against {self.config.workdir_path} using {self.config.process_count} processes...')
-        if self.config.return_code_if_findings is True:
+        logger.info(f'Starting scan against {config.workdir_path} using {config.process_count} processes...')
+        if config.return_code_if_findings is True:
             logger.info(f'[!] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
 
         logger.info(80 * '=')
-        findings: List[Finding] = CliScanMode(config=self.config).run()
+        mode = CliScanMode(config=config)
+        findings: List[Finding] = mode.run()
         logger.info(80 * '=')
         logger.info('Scanning finished')
+        logger.info(f'{mode.progress[0]} tokens processed')
         logger.info(f'{len(findings)} potential secrets found')
-        report_path = get_abspath(self.config.output.path)
+        report_path = get_abspath(config.output.path)
 
         logger.info(f'Writing report to {report_path}')
         with open(report_path, 'w+') as f:
@@ -192,5 +222,5 @@ class DeepSecretsCliTool:
 
         logger.info('Done')
 
-        if len(findings) > 0 and self.config.return_code_if_findings:
+        if len(findings) > 0 and config.return_code_if_findings:
             sys.exit(FINDINGS_DETECTED_RETURN_CODE)

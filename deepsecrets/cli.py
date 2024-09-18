@@ -11,9 +11,7 @@ from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding, FindingResponse
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
-from deepsecrets.core.rulesets.hashed_secrets import (
-    HashedSecretsRulesetBuilder
-)
+from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger, build_logger
@@ -123,7 +121,7 @@ class DeepSecretsCliTool:
             default=0,
             help='Number of processes in a pool for file analysis (one process per file)\n'
             'Default: number of processor cores of your machine or cpu limit of your container from cgroup.\n'
-            'If all checks are failed the fallback value is 4'
+            'If all checks are failed the fallback value is 4',
         )
 
         parser.add_argument(
@@ -133,7 +131,7 @@ class DeepSecretsCliTool:
             help='Maximum size of a file (in bytes) the tool should analyze,\n'
             'files with exceeding size will be ingored.\n'
             'Big files (more than 5M) may contain useless blobs and cause performance degradation\n'
-            'Default: 0, which means "no limit".\n'
+            'Default: 0, which means "no limit".\n',
         )
 
         parser.add_argument(
@@ -141,7 +139,7 @@ class DeepSecretsCliTool:
             type=str,
             default='spawn',
             choices=['fork', 'spawn', 'forkserver'],
-            help='Experimental: control the multiprocessing context\n'
+            help='Experimental: control the multiprocessing context\n',
         )
 
         parser.add_argument('--outfile', required=True, type=str)
@@ -205,7 +203,9 @@ class DeepSecretsCliTool:
 
         logger.info(f'Starting scan against {config.workdir_path} using {config.process_count} processes...')
         if config.return_code_if_findings is True:
-            logger.info(f'[!] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
+            logger.info(
+                f'[!] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n'
+            )
 
         logger.info(80 * '=')
         mode = CliScanMode(config=config)
@@ -217,8 +217,8 @@ class DeepSecretsCliTool:
         report_path = get_abspath(config.output.path)
 
         logger.info(f'Writing report to {report_path}')
-        with open(report_path, 'w+') as f:
-            json.dump(FindingResponse.from_list(findings), f)
+        with open(report_path, 'w+', encoding='utf-8') as f:
+            json.dump(FindingResponse.from_list(findings), f, ensure_ascii=False)
 
         logger.info('Done')
 

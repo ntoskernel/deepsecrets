@@ -126,5 +126,17 @@
     {
         "name": "Postman collection files",
         "pattern": ".*postman_collection\\.json$"
+    },
+    {
+        "name": "Path excluded",
+        "pattern": "\\.test"
+    },
+    {
+        "name": "Path excluded",
+        "pattern": ".vscode/"
+    },
+    {
+        "name": "Path excluded",
+        "pattern": ".idea/"
     }
 ]

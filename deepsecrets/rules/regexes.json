@@ -159,11 +159,2260 @@
         "confidence": 9,
         "pattern": "ghp_[0-9a-zA-Z]{36}"
     },
-
     {
         "id": "S34",
         "name": "Gitlab Personal Access Token",
         "confidence": 9,
         "pattern": "glpat-[0-9a-zA-Z\\-\\_]{20}"
+    },
+    {
+        "id": "C01",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b台独\\b"
+    },
+    {
+        "id": "C02",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b台湾\\b"
+    },
+    {
+        "id": "C03",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\btaiwan\\b"
+    },
+    {
+        "id": "C04",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\btaidu\\b"
+    },
+    {
+        "id": "C05",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b胡锦涛\\b"
+    },
+    {
+        "id": "C06",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b李鹏\\b"
+    },
+    {
+        "id": "C07",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罗干\\b"
+    },
+    {
+        "id": "C08",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b温家宝\\b"
+    },
+    {
+        "id": "C09",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b朱镕基\\b"
+    },
+    {
+        "id": "C10",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b共产党\\b"
+    },
+    {
+        "id": "C11",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b共产主义\\b"
+    },
+    {
+        "id": "C12",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b江泽民\\b"
+    },
+    {
+        "id": "C13",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b江主席\\b"
+    },
+    {
+        "id": "C14",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b温家宝\\b"
+    },
+    {
+        "id": "C15",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b中共\\b"
+    },
+    {
+        "id": "C16",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b朱镕基\\b"
+    },
+    {
+        "id": "C17",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b激流中国\\b"
+    },
+    {
+        "id": "C18",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b特供\\b"
+    },
+    {
+        "id": "C19",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b特贡\\b"
+    },
+    {
+        "id": "C20",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b特共\\b"
+    },
+    {
+        "id": "C21",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bzf大楼\\b"
+    },
+    {
+        "id": "C22",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b殃视\\b"
+    },
+    {
+        "id": "C23",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b贪污腐败\\b"
+    },
+    {
+        "id": "C24",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b强制拆除\\b"
+    },
+    {
+        "id": "C25",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b形式主义\\b"
+    },
+    {
+        "id": "C26",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b政治风波\\b"
+    },
+    {
+        "id": "C27",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b太子党\\b"
+    },
+    {
+        "id": "C28",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b上海帮\\b"
+    },
+    {
+        "id": "C29",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b北京帮\\b"
+    },
+    {
+        "id": "C30",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b清华帮\\b"
+    },
+    {
+        "id": "C31",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b红色贵族\\b"
+    },
+    {
+        "id": "C32",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b权贵集团\\b"
+    },
+    {
+        "id": "C33",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b河蟹社会\\b"
+    },
+    {
+        "id": "C34",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b喝血社会\\b"
+    },
+    {
+        "id": "C35",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b九风\\b"
+    },
+    {
+        "id": "C36",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b9风\\b"
+    },
+    {
+        "id": "C37",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b十七大\\b"
+    },
+    {
+        "id": "C38",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b十7大\\b"
+    },
+    {
+        "id": "C39",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b17da\\b"
+    },
+    {
+        "id": "C40",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b九学\\b"
+    },
+    {
+        "id": "C41",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b9学\\b"
+    },
+    {
+        "id": "C42",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b四风\\b"
+    },
+    {
+        "id": "C43",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b4风\\b"
+    },
+    {
+        "id": "C44",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b双规\\b"
+    },
+    {
+        "id": "C45",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b南街村\\b"
+    },
+    {
+        "id": "C46",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b最淫官员\\b"
+    },
+    {
+        "id": "C47",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b警匪\\b"
+    },
+    {
+        "id": "C48",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b官匪\\b"
+    },
+    {
+        "id": "C49",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b独夫民贼\\b"
+    },
+    {
+        "id": "C50",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b官商勾结\\b"
+    },
+    {
+        "id": "C51",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b城管暴力执法\\b"
+    },
+    {
+        "id": "C52",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b强制捐款\\b"
+    },
+    {
+        "id": "C53",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b毒豺\\b"
+    },
+    {
+        "id": "C54",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b一党执政\\b"
+    },
+    {
+        "id": "C55",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b一党专制\\b"
+    },
+    {
+        "id": "C56",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b一党专政\\b"
+    },
+    {
+        "id": "C57",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b专制政权\\b"
+    },
+    {
+        "id": "C58",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b宪法法院\\b"
+    },
+    {
+        "id": "C59",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b胡平\\b"
+    },
+    {
+        "id": "C60",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b苏晓康\\b"
+    },
+    {
+        "id": "C61",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b贺卫方\\b"
+    },
+    {
+        "id": "C62",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b谭作人\\b"
+    },
+    {
+        "id": "C63",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b焦国标\\b"
+    },
+    {
+        "id": "C64",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b万润南\\b"
+    },
+    {
+        "id": "C65",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b张志新\\b"
+    },
+    {
+        "id": "C66",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b辛灝年\\b"
+    },
+    {
+        "id": "C67",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b高勤荣\\b"
+    },
+    {
+        "id": "C68",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b王炳章\\b"
+    },
+    {
+        "id": "C69",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b高智晟\\b"
+    },
+    {
+        "id": "C70",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b司马璐\\b"
+    },
+    {
+        "id": "C71",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b刘晓竹\\b"
+    },
+    {
+        "id": "C72",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b刘宾雁\\b"
+    },
+    {
+        "id": "C73",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b魏京生\\b"
+    },
+    {
+        "id": "C74",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b寻找林昭的灵魂\\b"
+    },
+    {
+        "id": "C75",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b别梦成灰\\b"
+    },
+    {
+        "id": "C76",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b谁是新中国\\b"
+    },
+    {
+        "id": "C77",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b讨伐中宣部\\b"
+    },
+    {
+        "id": "C78",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b异议人士\\b"
+    },
+    {
+        "id": "C79",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b民运人士\\b"
+    },
+    {
+        "id": "C80",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b启蒙派\\b"
+    },
+    {
+        "id": "C81",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b选国家主席\\b"
+    },
+    {
+        "id": "C82",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b民一主\\b"
+    },
+    {
+        "id": "C83",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bmin主\\b"
+    },
+    {
+        "id": "C84",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b民竹\\b"
+    },
+    {
+        "id": "C85",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b民珠\\b"
+    },
+    {
+        "id": "C86",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b民猪\\b"
+    },
+    {
+        "id": "C87",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bchinesedemocracy\\b"
+    },
+    {
+        "id": "C88",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b大赦国际\\b"
+    },
+    {
+        "id": "C89",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b国际特赦\\b"
+    },
+    {
+        "id": "C90",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bda选\\b"
+    },
+    {
+        "id": "C91",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b投公\\b"
+    },
+    {
+        "id": "C92",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b公头\\b"
+    },
+    {
+        "id": "C93",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b宪政\\b"
+    },
+    {
+        "id": "C94",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b平反\\b"
+    },
+    {
+        "id": "C95",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b党章\\b"
+    },
+    {
+        "id": "C96",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b维权\\b"
+    },
+    {
+        "id": "C97",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b昝爱宗\\b"
+    },
+    {
+        "id": "C98",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b宪章\\b"
+    },
+    {
+        "id": "C99",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b08宪\\b"
+    },
+    {
+        "id": "C100",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b08xz\\b"
+    },
+    {
+        "id": "C101",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b抿主\\b"
+    },
+    {
+        "id": "C102",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b敏主\\b"
+    },
+    {
+        "id": "C103",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b人拳\\b"
+    },
+    {
+        "id": "C104",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b人木又\\b"
+    },
+    {
+        "id": "C105",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b人quan\\b"
+    },
+    {
+        "id": "C106",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\brenquan\\b"
+    },
+    {
+        "id": "C107",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b中国新民党\\b"
+    },
+    {
+        "id": "C108",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b群体事件\\b"
+    },
+    {
+        "id": "C109",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b群体性事件\\b"
+    },
+    {
+        "id": "C110",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b上中央\\b"
+    },
+    {
+        "id": "C111",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b去中央\\b"
+    },
+    {
+        "id": "C112",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b讨说法\\b"
+    },
+    {
+        "id": "C113",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b请愿\\b"
+    },
+    {
+        "id": "C114",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b请命\\b"
+    },
+    {
+        "id": "C115",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b公开信\\b"
+    },
+    {
+        "id": "C116",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b联名上书\\b"
+    },
+    {
+        "id": "C117",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b万人大签名\\b"
+    },
+    {
+        "id": "C118",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b万人骚动\\b"
+    },
+    {
+        "id": "C119",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b截访\\b"
+    },
+    {
+        "id": "C120",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b上访\\b"
+    },
+    {
+        "id": "C121",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bshangfang\\b"
+    },
+    {
+        "id": "C122",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b信访\\b"
+    },
+    {
+        "id": "C123",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b访民\\b"
+    },
+    {
+        "id": "C124",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b集合\\b"
+    },
+    {
+        "id": "C125",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b集会\\b"
+    },
+    {
+        "id": "C126",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b组织集体\\b"
+    },
+    {
+        "id": "C127",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b静坐\\b"
+    },
+    {
+        "id": "C128",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b静zuo\\b"
+    },
+    {
+        "id": "C129",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bjing坐\\b"
+    },
+    {
+        "id": "C130",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b示威\\b"
+    },
+    {
+        "id": "C131",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b示wei\\b"
+    },
+    {
+        "id": "C132",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b游行\\b"
+    },
+    {
+        "id": "C133",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\byou行\\b"
+    },
+    {
+        "id": "C134",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b油行\\b"
+    },
+    {
+        "id": "C135",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b游xing\\b"
+    },
+    {
+        "id": "C136",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\byouxing\\b"
+    },
+    {
+        "id": "C137",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b官逼民反\\b"
+    },
+    {
+        "id": "C138",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b反party\\b"
+    },
+    {
+        "id": "C139",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b反共\\b"
+    },
+    {
+        "id": "C140",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b抗议\\b"
+    },
+    {
+        "id": "C141",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b亢议\\b"
+    },
+    {
+        "id": "C142",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b抵制\\b"
+    },
+    {
+        "id": "C143",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b低制\\b"
+    },
+    {
+        "id": "C144",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b底制\\b"
+    },
+    {
+        "id": "C145",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bdi制\\b"
+    },
+    {
+        "id": "C146",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b抵zhi\\b"
+    },
+    {
+        "id": "C147",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bdizhi\\b"
+    },
+    {
+        "id": "C148",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bboycott\\b"
+    },
+    {
+        "id": "C149",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b血书\\b"
+    },
+    {
+        "id": "C150",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b焚烧中国国旗\\b"
+    },
+    {
+        "id": "C151",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bbaoluan\\b"
+    },
+    {
+        "id": "C152",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b流血冲突\\b"
+    },
+    {
+        "id": "C153",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b出现暴动\\b"
+    },
+    {
+        "id": "C154",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b发生暴动\\b"
+    },
+    {
+        "id": "C155",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b引起暴动\\b"
+    },
+    {
+        "id": "C156",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bbaodong\\b"
+    },
+    {
+        "id": "C157",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b灭共\\b"
+    },
+    {
+        "id": "C158",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b杀毙\\b"
+    },
+    {
+        "id": "C159",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢工\\b"
+    },
+    {
+        "id": "C160",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b霸工\\b"
+    },
+    {
+        "id": "C161",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢考\\b"
+    },
+    {
+        "id": "C162",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢餐\\b"
+    },
+    {
+        "id": "C163",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b霸餐\\b"
+    },
+    {
+        "id": "C164",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢参\\b"
+    },
+    {
+        "id": "C165",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢饭\\b"
+    },
+    {
+        "id": "C166",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢吃\\b"
+    },
+    {
+        "id": "C167",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢食\\b"
+    },
+    {
+        "id": "C168",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢课\\b"
+    },
+    {
+        "id": "C169",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢ke\\b"
+    },
+    {
+        "id": "C170",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b霸课\\b"
+    },
+    {
+        "id": "C171",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bba课\\b"
+    },
+    {
+        "id": "C172",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢教\\b"
+    },
+    {
+        "id": "C173",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢学\\b"
+    },
+    {
+        "id": "C174",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b罢运\\b"
+    },
+    {
+        "id": "C175",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b网特\\b"
+    },
+    {
+        "id": "C176",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b网评员\\b"
+    },
+    {
+        "id": "C177",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b网络评论员\\b"
+    },
+    {
+        "id": "C178",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b五毛党\\b"
+    },
+    {
+        "id": "C179",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b五毛们\\b"
+    },
+    {
+        "id": "C180",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b5毛党\\b"
+    },
+    {
+        "id": "C181",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b戒严\\b"
+    },
+    {
+        "id": "C182",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bjieyan\\b"
+    },
+    {
+        "id": "C183",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bjie严\\b"
+    },
+    {
+        "id": "C184",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b戒yan\\b"
+    },
+    {
+        "id": "C185",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b8的平方事件\\b"
+    },
+    {
+        "id": "C186",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b知道64\\b"
+    },
+    {
+        "id": "C187",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b八九年\\b"
+    },
+    {
+        "id": "C188",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b贰拾年\\b"
+    },
+    {
+        "id": "C189",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b2o年\\b"
+    },
+    {
+        "id": "C190",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b20和谐年\\b"
+    },
+    {
+        "id": "C191",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b贰拾周年\\b"
+    },
+    {
+        "id": "C192",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b六四\\b"
+    },
+    {
+        "id": "C193",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b六河蟹四\\b"
+    },
+    {
+        "id": "C194",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b六百度四\\b"
+    },
+    {
+        "id": "C195",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b六和谐四\\b"
+    },
+    {
+        "id": "C196",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b陆四\\b"
+    },
+    {
+        "id": "C197",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b陆肆\\b"
+    },
+    {
+        "id": "C198",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b198964.0\\b"
+    },
+    {
+        "id": "C199",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b5月35\\b"
+    },
+    {
+        "id": "C200",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b89年春夏之交\\b"
+    },
+    {
+        "id": "C201",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b64惨案\\b"
+    },
+    {
+        "id": "C202",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b64时期\\b"
+    },
+    {
+        "id": "C203",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b64运动\\b"
+    },
+    {
+        "id": "C204",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b4事件\\b"
+    },
+    {
+        "id": "C205",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b四事件\\b"
+    },
+    {
+        "id": "C206",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b北京风波\\b"
+    },
+    {
+        "id": "C207",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b学潮\\b"
+    },
+    {
+        "id": "C208",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b学chao\\b"
+    },
+    {
+        "id": "C209",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\bxuechao\\b"
+    },
+    {
+        "id": "C210",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b学百度潮\\b"
+    },
+    {
+        "id": "C211",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b门安天\\b"
+    },
+    {
+        "id": "C212",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b天按门\\b"
+    },
+    {
+        "id": "C213",
+        "name": "政治敏感词",
+        "confidence": "9",
+        "pattern": "\\b坦克压大学生\\b"
+    },
+    {
+        "id": "C214",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b神的教会\\b"
+    },
+    {
+        "id": "C215",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b神七假\\b"
+    },
+    {
+        "id": "C216",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b神韵艺术\\b"
+    },
+    {
+        "id": "C217",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b神州忏悔录\\b"
+    },
+    {
+        "id": "C218",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b沈昌功\\b"
+    },
+    {
+        "id": "C219",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b沈昌人体科技\\b"
+    },
+    {
+        "id": "C220",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b肾源\\b"
+    },
+    {
+        "id": "C221",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b升达毕业证\\b"
+    },
+    {
+        "id": "C222",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b生被砍\\b"
+    },
+    {
+        "id": "C223",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b生踩踏\\b"
+    },
+    {
+        "id": "C224",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b生孩子没屁眼\\b"
+    },
+    {
+        "id": "C225",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b生命树的分叉\\b"
+    },
+    {
+        "id": "C226",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b生肖中特\\b"
+    },
+    {
+        "id": "C227",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b生意宝\\b"
+    },
+    {
+        "id": "C228",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b圣殿教\\b"
+    },
+    {
+        "id": "C229",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b圣火护卫\\b"
+    },
+    {
+        "id": "C230",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b圣灵重建教会\\b"
+    },
+    {
+        "id": "C231",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b圣战不息\\b"
+    },
+    {
+        "id": "C232",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b盛行在舞\\b"
+    },
+    {
+        "id": "C233",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b剩火\\b"
+    },
+    {
+        "id": "C234",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b尸博\\b"
+    },
+    {
+        "id": "C235",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b失身水\\b"
+    },
+    {
+        "id": "C236",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b失意药\\b"
+    },
+    {
+        "id": "C237",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b师涛\\b"
+    },
+    {
+        "id": "C238",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b狮子旗\\b"
+    },
+    {
+        "id": "C239",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十八大接班人\\b"
+    },
+    {
+        "id": "C240",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十八等\\b"
+    },
+    {
+        "id": "C241",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十大独裁\\b"
+    },
+    {
+        "id": "C242",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十大谎\\b"
+    },
+    {
+        "id": "C243",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十大禁\\b"
+    },
+    {
+        "id": "C244",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十个预言\\b"
+    },
+    {
+        "id": "C245",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十类人不\\b"
+    },
+    {
+        "id": "C246",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十七大幕\\b"
+    },
+    {
+        "id": "C247",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十七大权力争霸战\\b"
+    },
+    {
+        "id": "C248",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十七大人事安排\\b"
+    },
+    {
+        "id": "C249",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b十七位老部长\\b"
+    },
+    {
+        "id": "C250",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b实毕业证\\b"
+    },
+    {
+        "id": "C251",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b实际神\\b"
+    },
+    {
+        "id": "C252",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b实体娃\\b"
+    },
+    {
+        "id": "C253",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b实学历文\\b"
+    },
+    {
+        "id": "C254",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b士的年\\b"
+    },
+    {
+        "id": "C255",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b士的宁\\b"
+    },
+    {
+        "id": "C256",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b士康事件\\b"
+    },
+    {
+        "id": "C257",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b独裁者\\b"
+    },
+    {
+        "id": "C258",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b世界之门\\b"
+    },
+    {
+        "id": "C259",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b式粉推\\b"
+    },
+    {
+        "id": "C260",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b视解密\\b"
+    },
+    {
+        "id": "C261",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b手变牌\\b"
+    },
+    {
+        "id": "C262",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b手狗\\b"
+    },
+    {
+        "id": "C263",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b手机,定位器\\b"
+    },
+    {
+        "id": "C264",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b手机,窃听\\b"
+    },
+    {
+        "id": "C265",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b手机复制\\b"
+    },
+    {
+        "id": "C266",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b手机跟\\b"
+    },
+    {
+        "id": "C267",
+        "name": "其他敏感词",
+        "confidence": "9",
+        "pattern": "\\b手机跟踪定位\\b"
+    },
+    {
+        "id": "C268",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b政zhi\\b"
+    },
+    {
+        "id": "C269",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b挡中央\\b"
+    },
+    {
+        "id": "C270",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b档中央\\b"
+    },
+    {
+        "id": "C271",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b中国zf\\b"
+    },
+    {
+        "id": "C272",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b中央zf\\b"
+    },
+    {
+        "id": "C273",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b国wu院\\b"
+    },
+    {
+        "id": "C274",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b中华帝国\\b"
+    },
+    {
+        "id": "C275",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\bgong和\\b"
+    },
+    {
+        "id": "C276",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b大陆官方\\b"
+    },
+    {
+        "id": "C277",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b北京政权\\b"
+    },
+    {
+        "id": "C278",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b刘志军\\b"
+    },
+    {
+        "id": "C279",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b张曙\\b"
+    },
+    {
+        "id": "C280",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b刘志军\\b"
+    },
+    {
+        "id": "C281",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b买别墅\\b"
+    },
+    {
+        "id": "C282",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b玩女人\\b"
+    },
+    {
+        "id": "C283",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b贪20亿\\b"
+    },
+    {
+        "id": "C284",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b许宗衡\\b"
+    },
+    {
+        "id": "C285",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b贪财物\\b"
+    },
+    {
+        "id": "C286",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b李启红\\b"
+    },
+    {
+        "id": "C287",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b贪腐财富\\b"
+    },
+    {
+        "id": "C288",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b落马\\b"
+    },
+    {
+        "id": "C289",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b高官名单\\b"
+    },
+    {
+        "id": "C290",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b陈希同\\b"
+    },
+    {
+        "id": "C291",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b贪污\\b"
+    },
+    {
+        "id": "C292",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b玩忽职守\\b"
+    },
+    {
+        "id": "C293",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b有期徒刑\\b"
+    },
+    {
+        "id": "C294",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b陈良宇\\b"
+    },
+    {
+        "id": "C295",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b受贿罪\\b"
+    },
+    {
+        "id": "C296",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b滥用职权\\b"
+    },
+    {
+        "id": "C297",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b有期徒刑\\b"
+    },
+    {
+        "id": "C298",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b没收个人财产\\b"
+    },
+    {
+        "id": "C299",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b成克杰\\b"
+    },
+    {
+        "id": "C300",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b死刑\\b"
+    },
+    {
+        "id": "C301",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b程维高\\b"
+    },
+    {
+        "id": "C302",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b严重违纪\\b"
+    },
+    {
+        "id": "C303",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b开除党籍\\b"
+    },
+    {
+        "id": "C304",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b撤销职务\\b"
+    },
+    {
+        "id": "C305",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b刘方仁\\b"
+    },
+    {
+        "id": "C306",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b无期徒刑\\b"
+    },
+    {
+        "id": "C307",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b倪献策\\b"
+    },
+    {
+        "id": "C308",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b徇私舞弊\\b"
+    },
+    {
+        "id": "C309",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b梁湘\\b"
+    },
+    {
+        "id": "C310",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b以权谋私\\b"
+    },
+    {
+        "id": "C311",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b撤职。\\b"
+    },
+    {
+        "id": "C312",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b李嘉廷\\b"
+    },
+    {
+        "id": "C313",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b死刑缓期\\b"
+    },
+    {
+        "id": "C314",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b张国光\\b"
+    },
+    {
+        "id": "C315",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b韩桂芝\\b"
+    },
+    {
+        "id": "C316",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b宋平顺\\b"
+    },
+    {
+        "id": "C317",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b自杀\\b"
+    },
+    {
+        "id": "C318",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b黄瑶\\b"
+    },
+    {
+        "id": "C319",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b双规\\b"
+    },
+    {
+        "id": "C320",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b陈绍基\\b"
+    },
+    {
+        "id": "C321",
+        "name": "贪腐敏感词",
+        "confidence": "9",
+        "pattern": "\\b判处死\\b"
+    },
+    {
+        "id": "C322",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b售五四\\b"
+    },
+    {
+        "id": "C323",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b售一元硬\\b"
+    },
+    {
+        "id": "C324",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b售子弹\\b"
+    },
+    {
+        "id": "C325",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b售左轮\\b"
+    },
+    {
+        "id": "C326",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚砷（酸）酐\\b"
+    },
+    {
+        "id": "C327",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚砷酸钾\\b"
+    },
+    {
+        "id": "C328",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚砷酸钠\\b"
+    },
+    {
+        "id": "C329",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚硒酸\\b"
+    },
+    {
+        "id": "C330",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚硒酸二钠\\b"
+    },
+    {
+        "id": "C331",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚硒酸镁\\b"
+    },
+    {
+        "id": "C332",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚硒酸钠\\b"
+    },
+    {
+        "id": "C333",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚硒酸氢钠\\b"
+    },
+    {
+        "id": "C334",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚硝酸乙酯\\b"
+    },
+    {
+        "id": "C335",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b亚硝酰乙氧\\b"
+    },
+    {
+        "id": "C336",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b氧化二丁基锡\\b"
+    },
+    {
+        "id": "C337",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b氧化汞\\b"
+    },
+    {
+        "id": "C338",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b氧化铊\\b"
+    },
+    {
+        "id": "C339",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b氧化亚铊\\b"
+    },
+    {
+        "id": "C340",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b氧氯化磷\\b"
+    },
+    {
+        "id": "C341",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b原装弹\\b"
+    },
+    {
+        "id": "C342",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b原子弹方法\\b"
+    },
+    {
+        "id": "C343",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b原子弹清单\\b"
+    },
+    {
+        "id": "C344",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b安眠酮\\b"
+    },
+    {
+        "id": "C345",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b代血浆\\b"
+    },
+    {
+        "id": "C346",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b普萘洛尔\\b"
+    },
+    {
+        "id": "C347",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b呋塞米\\b"
+    },
+    {
+        "id": "C348",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b西布曲明\\b"
+    },
+    {
+        "id": "C349",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\btestosterone\\b"
+    },
+    {
+        "id": "C350",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b胰岛素样生长因子\\b"
+    },
+    {
+        "id": "C351",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b促红细胞生成素\\b"
+    },
+    {
+        "id": "C352",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b地西泮\\b"
+    },
+    {
+        "id": "C353",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b尼可刹米\\b"
+    },
+    {
+        "id": "C354",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b甲睾酮\\b"
+    },
+    {
+        "id": "C355",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\badrenaline\\b"
+    },
+    {
+        "id": "C356",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\berythropoietin\\b"
+    },
+    {
+        "id": "C357",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b地奈德\\b"
+    },
+    {
+        "id": "C358",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b莫达非尼\\b"
+    },
+    {
+        "id": "C359",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b氯噻嗪\\b"
+    },
+    {
+        "id": "C360",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b苯巴比妥\\b"
+    },
+    {
+        "id": "C361",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b促性腺激素\\b"
+    },
+    {
+        "id": "C362",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b泼尼松\\b"
+    },
+    {
+        "id": "C363",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b麻黄草\\b"
+    },
+    {
+        "id": "C364",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b雄烯二醇\\b"
+    },
+    {
+        "id": "C365",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b地塞米松\\b"
+    },
+    {
+        "id": "C366",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\btamoxifen\\b"
+    },
+    {
+        "id": "C367",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\bstrychnine\\b"
+    },
+    {
+        "id": "C368",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\bandrost\\b"
+    },
+    {
+        "id": "C369",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b新型毒品\\b"
+    },
+    {
+        "id": "C370",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b杜冷丁\\b"
+    },
+    {
+        "id": "C371",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b兴奋剂\\b"
+    },
+    {
+        "id": "C372",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\bmdma\\b"
+    },
+    {
+        "id": "C373",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b海洛因\\b"
+    },
+    {
+        "id": "C374",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\b海luo因\\b"
+    },
+    {
+        "id": "C375",
+        "name": "暴恐敏感词",
+        "confidence": "9",
+        "pattern": "\\bheroi\\b"
     }
 ]

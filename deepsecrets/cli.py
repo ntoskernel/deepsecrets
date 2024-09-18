@@ -310,7 +310,7 @@ class DeepSecretsCliTool:
         table.add_row(Align('Report Location', vertical='middle'), report_path)
         console.print(Align(table, align='center'))
 
-        with open(report_path, 'w+') as f:
+        with open(report_path, 'w+', encoding='utf-8') as f:
 
             if config.output.type == 'json':
                 json.dump(FindingResponse.from_list(findings, config.disable_masking), f)

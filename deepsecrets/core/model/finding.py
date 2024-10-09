@@ -123,10 +123,11 @@ class FindingResponse:
             if finding.file is None:
                 continue
 
-            if finding.file.path not in resp:
-                resp[finding.file.path] = []
 
-            resp[finding.file.path].append(FindingApiModel.from_finding(finding).dict())
+            if finding.file.relative_path not in resp:
+                resp[finding.file.relative_path] = []
+
+            resp[finding.file.relative_path].append(FindingApiModel.from_finding(finding).dict())
         return resp
 
 

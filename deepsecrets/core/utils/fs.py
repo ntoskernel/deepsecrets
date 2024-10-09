@@ -7,9 +7,7 @@ from deepsecrets import BASE_DIR, MODULE_NAME
 def get_abspath(filepath: str) -> str:
     if filepath.startswith('/'):
         return filepath
-    
     else:
-    # filepath = filepath.replace('./', '')
         return os.path.normpath(os.path.join(BASE_DIR, filepath))
 
 

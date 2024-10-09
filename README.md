@@ -51,13 +51,13 @@ From PyPi
 ## Scanning
 The easiest way:
 
-`$ deepsecrets --target-dir /path/to/your/code --outfile report.json`
+`$ deepsecrets --target-dir /path/to/your/code --outformat sarif --outfile report.json`
 
 This will run a scan against `/path/to/your/code` using the default configuration:
 - Regex checks by a small built-in ruleset
 - Semantic checks (variable detection, entropy checks)
 
-Report will be saved to `report.json`
+Report in SARIF will be saved to `report.json`
 
 ### Fine-tuning
 Run `deepsecrets --help` for details.

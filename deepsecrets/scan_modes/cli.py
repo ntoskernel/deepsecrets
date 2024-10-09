@@ -57,7 +57,7 @@ class CliScanMode(ScanMode):
 
         if not isinstance(file, str):
             raise Exception('Filepath as str expected')
-
+        
         file = File(path=file, relative_path=file.replace(f'{bundle.workdir}/', ''))
         if file.length == 0:
             return results

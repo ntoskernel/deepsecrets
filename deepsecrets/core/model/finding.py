@@ -7,7 +7,27 @@ from pydantic import BaseModel, Field, PrivateAttr
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.rule import Rule
-
+from deepsecrets.core.model.sarif import (
+    Sarif,
+    Run,
+    Tool,
+    Rule as SarifRule,
+    RuleShortDescription,
+    RuleFullDescription,
+    RuleHelp,
+    RuleProperties,
+    RuleDefaultConfiguration,
+    Result,
+    LevelEnum,
+    PrecisionEnum,
+    SecuritySeverityEnum,
+    Message,
+    Location,
+    PhysicalLocation,
+    ArtifactLocation,
+    Region,
+    RegionSnippet
+)
 
 class Finding(BaseModel):
     file: Optional['File'] = Field(default=None)
@@ -129,6 +149,102 @@ class FindingResponse:
             resp[finding.file.path].append(FindingApiModel.from_finding(finding).dict())
         return resp
 
+    @classmethod
+    def sarif_from_list(cls, list: List[Finding]) -> Dict:
+        
+        resp: Dict = {}
+
+        report = Sarif(
+            runs=[
+                Run(
+                    tool=Tool(
+                        rules=[]
+                    ),
+                    results=[]
+                )
+            ]
+        )
+
+        rules: Dict[str, SarifRule] = {}
+        results: List[Result] = []
+
+        for finding in list:
+
+            finding.choose_final_rule()
+
+            rule = SarifRule(
+                id=finding.final_rule.id,
+                shortDescription=RuleShortDescription(
+                    text=finding.final_rule.name
+                ),
+                fullDescription=RuleFullDescription(
+                    text=finding.final_rule.name
+                ),
+                help=RuleHelp(
+                    text=finding.final_rule.name
+                )
+            )
+
+            if finding.final_rule.confidence > 5 :
+                rule.properties = RuleProperties(
+                    precision=PrecisionEnum.high,
+                    security_severity=SecuritySeverityEnum.high
+                )
+                rule.defaultConfiguration = RuleDefaultConfiguration(
+                    level=LevelEnum.error
+                )
+            elif finding.final_rule.confidence > 0:
+                rule.properties = RuleProperties(
+                    precision=PrecisionEnum.medium,
+                    security_severity=SecuritySeverityEnum.high
+                )
+                rule.defaultConfiguration = RuleDefaultConfiguration(
+                    level=LevelEnum.error
+                )
+            else:
+                rule.properties = RuleProperties(
+                    precision=PrecisionEnum.low,
+                    security_severity=SecuritySeverityEnum.medium
+                )
+                rule.defaultConfiguration = RuleDefaultConfiguration(
+                    level=LevelEnum.warning
+                )
+
+            rules[finding.final_rule.id] = rule
+
+        report.runs[0].tool.driver.rules = [rule for rule in rules.values()]
+
+        for finding in list:
+
+            finding.choose_final_rule()
+
+            result = Result(
+                ruleId=finding.final_rule.id,
+                message=Message(
+                    text=f"Secret in code ({finding.final_rule.name})"
+                ),
+                locations=[
+                    Location(
+                        physicalLocation=PhysicalLocation(
+                            artifactLocation=ArtifactLocation(
+                                uri=finding.file.relative_path
+                            ),
+                            region=Region(
+                                startLine=finding.linum,
+                                snippet=RegionSnippet(
+                                    text=finding.full_line.replace(finding.detection, len(finding.detection)*"*")
+                                )
+                            )
+                        )
+                    )
+                ]
+            )
+
+            results.append(result)
+        
+        report.runs[0].results = results
+
+        return report.dict()
 
 class FindingApiModel(BaseModel):
     line: str

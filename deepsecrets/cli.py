@@ -145,7 +145,7 @@ class DeepSecretsCliTool:
         )
 
         parser.add_argument('--outfile', required=True, type=str)
-        parser.add_argument('--outformat', default='json', type=str, choices=['json'])
+        parser.add_argument('--outformat', default='json', type=str, choices=['json','sarif'])
         self.argparser = parser
 
     def parse_arguments(self) -> None:
@@ -218,7 +218,12 @@ class DeepSecretsCliTool:
 
         logger.info(f'Writing report to {report_path}')
         with open(report_path, 'w+') as f:
-            json.dump(FindingResponse.from_list(findings), f)
+
+            if config.output.type == "json":
+                json.dump(FindingResponse.from_list(findings), f)
+            
+            if config.output.type == "sarif":
+                json.dump(FindingResponse.sarif_from_list(findings), f)
 
         logger.info('Done')
 

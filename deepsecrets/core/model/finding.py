@@ -130,7 +130,7 @@ class FindingResponse:
 
             if not disable_masking:
                 resp_finding = FindingApiModel.from_finding(finding)
-                resp_finding.full_line = resp_finding.full_line.replace(resp_finding.string, "*" * len(resp_finding.string))
+                resp_finding.line = resp_finding.line.replace(resp_finding.string, "*" * len(resp_finding.string))
                 resp_finding.string = "*" * len(resp_finding.string)
 
             resp[finding.file.path].append(resp_finding.dict())

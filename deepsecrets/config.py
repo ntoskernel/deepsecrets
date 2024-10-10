@@ -30,7 +30,7 @@ class Config:
     output: Output
     process_count: int
     return_code_if_findings: bool
-    disable_masking: bool = False
+    disable_masking: bool
 
     def __init__(self) -> None:
         self.engines = []
@@ -40,9 +40,13 @@ class Config:
         # equals to CPU count
         self.process_count = FALLBACK_PROCESS_COUNT
         self.logging_level = logging.INFO
+        self.disable_masking = False
 
     def set_logging_level(self, level: int):
         self.logging_level = level
+
+    def set_disable_masking(self, state: bool):
+        self.disable_masking = state
 
     def _set_path(self, path: str, field: str) -> None:
         if not path_exists(path):

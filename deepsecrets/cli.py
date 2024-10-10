@@ -4,6 +4,7 @@ import logging
 import sys
 from argparse import RawTextHelpFormatter
 from typing import List
+from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME
 from deepsecrets.config import Config, config, Output, SCANNER_VERSION, SCANNER_NAME
@@ -146,6 +147,13 @@ class DeepSecretsCliTool:
 
         parser.add_argument('--outfile', required=True, type=str)
         parser.add_argument('--outformat', default='json', type=str, choices=['json','sarif'])
+
+        parser.add_argument(
+            '--disable-masking',
+            action='store_true',
+            help='Disable masking secrets value in reports',
+        )
+
         self.argparser = parser
 
     def parse_arguments(self) -> None:
@@ -155,6 +163,9 @@ class DeepSecretsCliTool:
         if user_args.verbose:
             config.set_logging_level(logging.DEBUG)
             logger = build_logger(config.logging_level)  # flake8: noqa
+
+        if user_args.disable_masking:
+            config.set_disable_masking(True)
 
         self.say_hello()
 
@@ -220,10 +231,10 @@ class DeepSecretsCliTool:
         with open(report_path, 'w+') as f:
 
             if config.output.type == "json":
-                json.dump(FindingResponse.from_list(findings), f)
+                json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
             
             if config.output.type == "sarif":
-                json.dump(FindingResponse.sarif_from_list(findings), f)
+                f.write(to_json(FindingResponse.sarif_from_list(findings, config.disable_masking)))
 
         logger.info('Done')
 

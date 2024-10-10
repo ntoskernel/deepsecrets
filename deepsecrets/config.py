@@ -30,6 +30,7 @@ class Config:
     output: Output
     process_count: int
     return_code_if_findings: bool
+    disable_masking: bool = False
 
     def __init__(self) -> None:
         self.engines = []

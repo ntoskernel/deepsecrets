@@ -7,27 +7,9 @@ from pydantic import BaseModel, Field, PrivateAttr
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.rule import Rule
-from deepsecrets.core.model.sarif import (
-    Sarif,
-    Run,
-    Tool,
-    Rule as SarifRule,
-    RuleShortDescription,
-    RuleFullDescription,
-    RuleHelp,
-    RuleProperties,
-    RuleDefaultConfiguration,
-    Result,
-    LevelEnum,
-    PrecisionEnum,
-    SecuritySeverityEnum,
-    Message,
-    Location,
-    PhysicalLocation,
-    ArtifactLocation,
-    Region,
-    RegionSnippet
-)
+
+import sarif_om as om
+from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
 
 class Finding(BaseModel):
     file: Optional['File'] = Field(default=None)
@@ -137,7 +119,7 @@ class FindingMerger:
 
 class FindingResponse:
     @classmethod
-    def from_list(cls, list: List[Finding]) -> Dict[str, List[Dict]]:
+    def from_list(cls, list: List[Finding], disable_masking: bool = False) -> Dict[str, List[Dict]]:
         resp: Dict[str, List[Dict]] = {}
         for finding in list:
             if finding.file is None:
@@ -146,69 +128,72 @@ class FindingResponse:
             if finding.file.path not in resp:
                 resp[finding.file.path] = []
 
-            resp[finding.file.path].append(FindingApiModel.from_finding(finding).dict())
+            if not disable_masking:
+                resp_finding = FindingApiModel.from_finding(finding)
+                resp_finding.full_line = resp_finding.full_line.replace(resp_finding.string, "*" * len(resp_finding.string))
+                resp_finding.string = "*" * len(resp_finding.string)
+
+            resp[finding.file.path].append(resp_finding.dict())
+
         return resp
 
     @classmethod
-    def sarif_from_list(cls, list: List[Finding]) -> Dict:
+    def sarif_from_list(cls, list: List[Finding], disable_masking: bool = False) -> Dict:
         
-        resp: Dict = {}
-
-        report = Sarif(
+        report = om.SarifLog(
+            schema_uri="https://json.schemastore.org/sarif-2.1.0.json",
+            version="2.1.0",
             runs=[
-                Run(
-                    tool=Tool(
-                        rules=[]
+                om.Run(
+                    tool=om.Tool(
+                        driver=om.ToolComponent(
+                            name=SCANNER_NAME,
+                            semanticVersion=SCANNER_VERSION,
+                            informationUri=SCANNER_URL,
+                            rules=[]
+                        )
                     ),
                     results=[]
                 )
             ]
         )
 
-        rules: Dict[str, SarifRule] = {}
-        results: List[Result] = []
+        rules: Dict[str, om.ReportingDescriptor] = {}
 
         for finding in list:
 
             finding.choose_final_rule()
 
-            rule = SarifRule(
-                id=finding.final_rule.id,
-                shortDescription=RuleShortDescription(
-                    text=finding.final_rule.name
-                ),
-                fullDescription=RuleFullDescription(
-                    text=finding.final_rule.name
-                ),
-                help=RuleHelp(
-                    text=finding.final_rule.name
-                )
-            )
-
             if finding.final_rule.confidence > 5 :
-                rule.properties = RuleProperties(
-                    precision=PrecisionEnum.high,
-                    security_severity=SecuritySeverityEnum.high
-                )
-                rule.defaultConfiguration = RuleDefaultConfiguration(
-                    level=LevelEnum.error
-                )
+                precision = "high"
+                security_severity = "High"
+                level = "error"
             elif finding.final_rule.confidence > 0:
-                rule.properties = RuleProperties(
-                    precision=PrecisionEnum.medium,
-                    security_severity=SecuritySeverityEnum.high
-                )
-                rule.defaultConfiguration = RuleDefaultConfiguration(
-                    level=LevelEnum.error
-                )
+                precision = "medium"
+                security_severity = "High"
+                level = "error"
             else:
-                rule.properties = RuleProperties(
-                    precision=PrecisionEnum.low,
-                    security_severity=SecuritySeverityEnum.medium
-                )
-                rule.defaultConfiguration = RuleDefaultConfiguration(
-                    level=LevelEnum.warning
-                )
+                precision = "low"
+                security_severity = "Medium"
+                level = "warning"
+
+            rule = om.ReportingDescriptor(
+                id=finding.final_rule.id,
+                short_description={
+                    "text": finding.final_rule.name
+                },
+                full_description={
+                    "text": finding.final_rule.name
+                },
+                help={
+                    "text": finding.final_rule.name
+                },
+                properties={
+                    "security_severity": security_severity,
+                    "precision": precision
+                },
+                default_configuration={"level": level},
+            )
 
             rules[finding.final_rule.id] = rule
 
@@ -218,33 +203,70 @@ class FindingResponse:
 
             finding.choose_final_rule()
 
-            result = Result(
-                ruleId=finding.final_rule.id,
-                message=Message(
+            if finding.start_pos > 50 :
+                context_start_pos = finding.start_pos - 50
+            else:
+                context_start_pos = 0
+
+            if finding.end_pos < len(finding.full_line) - 50 :
+                context_end_pos = finding.end_pos + 50
+            else:
+                context_end_pos = len(finding.full_line)
+
+            context_start_pos
+
+            if len(finding.detection) > 50:
+                detection_masked = "*" * 50
+            else:
+                detection_masked = "*" * len(finding.detection)
+
+            context_text = finding.full_line[context_start_pos:context_end_pos] 
+            context_text_masked = context_text.replace(finding.detection, detection_masked)
+
+            if disable_masking :
+                region = om.Region(
+                    start_line=finding.linum,
+                    start_column=finding.start_pos,
+                    end_column=finding.end_pos,
+                    snippet=om.ArtifactContent(text=finding.detection)
+                )
+                context_region=om.Region(
+                    start_line=finding.linum,
+                    snippet=om.ArtifactContent(text=context_text)
+                )
+            else:
+                region = om.Region(
+                    start_line=finding.linum,
+                    start_column=finding.start_pos,
+                    end_column=finding.end_pos
+                )
+                context_region=om.Region(
+                    start_line=finding.linum,
+                    snippet=om.ArtifactContent(text=context_text_masked)
+                )
+
+            result = om.Result(
+                rule_id=finding.final_rule.id,
+                message=om.Message(
                     text=f"Secret in code ({finding.final_rule.name})"
                 ),
                 locations=[
-                    Location(
-                        physicalLocation=PhysicalLocation(
-                            artifactLocation=ArtifactLocation(
-                                uri=finding.file.relative_path
+                    om.Location(
+                        physical_location=om.PhysicalLocation(
+                            artifact_location=om.ArtifactLocation(
+                                uri=finding.file.relative_path,
+                                uri_base_id="%SRCROOT%"
                             ),
-                            region=Region(
-                                startLine=finding.linum,
-                                snippet=RegionSnippet(
-                                    text=finding.full_line.replace(finding.detection, len(finding.detection)*"*")
-                                )
-                            )
+                            region=region,
+                            context_region=context_region
                         )
                     )
                 ]
             )
 
-            results.append(result)
-        
-        report.runs[0].results = results
+            report.runs[0].results.append(result)
 
-        return report.dict()
+        return report
 
 class FindingApiModel(BaseModel):
     line: str

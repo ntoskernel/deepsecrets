@@ -58,6 +58,7 @@ This will run a scan against `/path/to/your/code` using the default configuratio
 - Semantic checks (variable detection, entropy checks)
 
 Report in SARIF will be saved to `report.json`
+Now masking secrets in reports is default, but you can turn on masking with flag `--disable-masking`, but be attentive, reports can be stored as artefacts in ci for long time.
 
 ### Fine-tuning
 Run `deepsecrets --help` for details.

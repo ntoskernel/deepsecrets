@@ -148,8 +148,8 @@ class FindingResponse:
                     tool=om.Tool(
                         driver=om.ToolComponent(
                             name=SCANNER_NAME,
-                            semanticVersion=SCANNER_VERSION,
-                            informationUri=SCANNER_URL,
+                            semantic_version=SCANNER_VERSION,
+                            information_uri=SCANNER_URL,
                             rules=[]
                         )
                     ),

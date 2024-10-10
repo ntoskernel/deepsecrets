@@ -1,7 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from enum import Enum
-from config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
+from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
 
 '''
 {

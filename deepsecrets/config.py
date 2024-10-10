@@ -9,8 +9,8 @@ from deepsecrets.core.utils.fs import get_abspath, path_exists
 
 FALLBACK_PROCESS_COUNT = 4
 
-SCANNER_NAME = "OWASP DeepSecrets"
-SCANNER_VERSION = "v1.2.1"
+SCANNER_NAME = "DeepSecrets"
+SCANNER_VERSION = "1.2.1"
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
 
 

@@ -205,17 +205,18 @@ class FindingResponse:
 
             finding.choose_final_rule()
 
-            if finding.start_pos > 50 :
-                context_start_pos = finding.start_pos - 50
+            start_pos = finding.full_line.find(finding.detection)
+            end_pos = start_pos + len(finding.detection)
+
+            if start_pos > 50 :
+                context_start_pos = start_pos - 50
             else:
                 context_start_pos = 0
 
-            if finding.end_pos < len(finding.full_line) - 50 :
-                context_end_pos = finding.end_pos + 50
+            if end_pos < len(finding.full_line) - 50 :
+                context_end_pos = end_pos + 50
             else:
                 context_end_pos = len(finding.full_line)
-
-            context_start_pos
 
             if len(finding.detection) > 50:
                 detection_masked = "*" * 50
@@ -228,8 +229,8 @@ class FindingResponse:
             if disable_masking :
                 region = om.Region(
                     start_line=finding.linum,
-                    start_column=finding.start_pos,
-                    end_column=finding.end_pos,
+                    start_column=start_pos,
+                    end_column=end_pos,
                     snippet=om.ArtifactContent(text=finding.detection)
                 )
                 context_region=om.Region(
@@ -239,8 +240,8 @@ class FindingResponse:
             else:
                 region = om.Region(
                     start_line=finding.linum,
-                    start_column=finding.start_pos,
-                    end_column=finding.end_pos
+                    start_column=start_pos,
+                    end_column=end_pos
                 )
                 context_region=om.Region(
                     start_line=finding.linum,

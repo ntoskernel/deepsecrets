@@ -140,7 +140,7 @@ class FindingResponse:
         return resp
 
     @classmethod
-    def sarif_from_list(cls, list: List[Finding], disable_masking: bool = False) -> Dict:
+    def sarif_from_list(cls, list: List[Finding], disable_masking: bool = False) -> om.SarifLog:
         
         report = om.SarifLog(
             schema_uri="https://json.schemastore.org/sarif-2.1.0.json",

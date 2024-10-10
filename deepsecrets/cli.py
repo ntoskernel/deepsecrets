@@ -6,7 +6,7 @@ from argparse import RawTextHelpFormatter
 from typing import List
 
 from deepsecrets import MODULE_NAME
-from deepsecrets.config import Config, config, Output
+from deepsecrets.config import Config, config, Output, SCANNER_VERSION, SCANNER_NAME
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding, FindingResponse
@@ -33,9 +33,9 @@ class DeepSecretsCliTool:
     def say_hello(self) -> None:
         bar = '-'
         logger.info('')
-        logger.info(f'{" "*8}{bar*25} DeepSecrets {bar*25}')
+        logger.info(f'{" "*8}{bar*25} {SCANNER_NAME} {bar*25}')
         logger.info(f'{" "*10}A better tool for secret scanning')
-        logger.info(f'{" "*10}version 1.2.0')
+        logger.info(f'{" "*10}version {SCANNER_VERSION}')
         logger.info('')
         logger.info(f'{" "*8}{bar*63}')
 

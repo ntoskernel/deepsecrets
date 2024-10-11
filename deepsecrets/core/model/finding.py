@@ -19,8 +19,8 @@ class Finding(BaseModel):
     linum: Optional[int] = Field(default=None)
     start_pos: int
     end_pos: int
-    start_column: int
-    end_column: int
+    start_column: Optional[int]
+    end_column: Optional[int]
     reason: str = Field(default='')
     final_rule: Optional[Rule] = Field(default=None)
     _mapped_on_file: bool = PrivateAttr(default=False)

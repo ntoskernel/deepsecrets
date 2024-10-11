@@ -244,8 +244,8 @@ class FindingResponse:
             else:
                 region = om.Region(
                     start_line=finding.linum,
-                    start_column=start_pos,
-                    end_column=end_pos
+                    start_column=finding.start_column,
+                    end_column=finding.end_column
                 )
                 context_region=om.Region(
                     start_line=finding.linum,

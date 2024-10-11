@@ -211,16 +211,13 @@ class FindingResponse:
 
             finding.choose_final_rule()
 
-            start_pos = finding.start_column
-            end_pos = finding.end_column
-
-            if start_pos > 50 :
-                context_start_pos = start_pos - 50
+            if finding.start_column > 50 :
+                context_start_pos = finding.start_column - 50
             else:
                 context_start_pos = 0
 
-            if end_pos < len(finding.full_line) - 50 :
-                context_end_pos = end_pos + 50
+            if finding.end_column < len(finding.full_line) - 50 :
+                context_end_pos = finding.end_column + 50
             else:
                 context_end_pos = len(finding.full_line)
 
@@ -231,13 +228,13 @@ class FindingResponse:
 
 
             context_text = finding.full_line[context_start_pos:context_end_pos]
-            context_text_masked = finding.full_line[context_start_pos:start_pos] + detection_masked + finding.full_line[end_pos:context_end_pos]
+            context_text_masked = finding.full_line[context_start_pos:finding.start_column] + detection_masked + finding.full_line[finding.end_column:context_end_pos]
 
             if disable_masking :
                 region = om.Region(
                     start_line=finding.linum,
-                    start_column=start_pos,
-                    end_column=end_pos,
+                    start_column=finding.start_column,
+                    end_column=finding.end_column,
                     snippet=om.ArtifactContent(text=finding.detection)
                 )
                 context_region=om.Region(

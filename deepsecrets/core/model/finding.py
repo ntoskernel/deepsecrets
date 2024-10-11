@@ -19,6 +19,8 @@ class Finding(BaseModel):
     linum: Optional[int] = Field(default=None)
     start_pos: int
     end_pos: int
+    start_column: int
+    end_column: int
     reason: str = Field(default='')
     final_rule: Optional[Rule] = Field(default=None)
     _mapped_on_file: bool = PrivateAttr(default=False)
@@ -32,9 +34,13 @@ class Finding(BaseModel):
         if self.file is None:
             self.file = file
 
+        self.start_column = self.start_pos
+        self.end_column = self.end_pos
+
         self.start_pos += relative_start
         self.end_pos += relative_start
         self.linum = self.file.get_line_number(self.end_pos)
+
         if not self.full_line:
             self.full_line = self.file.get_line_contents(self.linum)
         self._mapped_on_file = True
@@ -205,8 +211,8 @@ class FindingResponse:
 
             finding.choose_final_rule()
 
-            start_pos = finding.full_line.find(finding.detection)
-            end_pos = start_pos + len(finding.detection)
+            start_pos = finding.start_column
+            end_pos = finding.end_column
 
             if start_pos > 50 :
                 context_start_pos = start_pos - 50

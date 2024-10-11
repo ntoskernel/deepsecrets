@@ -19,8 +19,6 @@ class Finding(BaseModel):
     linum: Optional[int] = Field(default=None)
     start_pos: int
     end_pos: int
-    start_column: Optional[int]
-    end_column: Optional[int]
     reason: str = Field(default='')
     final_rule: Optional[Rule] = Field(default=None)
     _mapped_on_file: bool = PrivateAttr(default=False)
@@ -33,9 +31,6 @@ class Finding(BaseModel):
             raise Exception('No file to match on')
         if self.file is None:
             self.file = file
-
-        self.start_column = self.start_pos
-        self.end_column = self.end_pos
 
         self.start_pos += relative_start
         self.end_pos += relative_start
@@ -211,13 +206,16 @@ class FindingResponse:
 
             finding.choose_final_rule()
 
-            if finding.start_column > 50 :
-                context_start_pos = finding.start_column - 50
+            start_column = finding.start_pos - finding.file.line_offsets[finding.linum][0]
+            end_column = finding.end_pos - finding.file.line_offsets[finding.linum][0]
+
+            if start_column > 50 :
+                context_start_pos = start_column - 50
             else:
                 context_start_pos = 0
 
-            if finding.end_column < len(finding.full_line) - 50 :
-                context_end_pos = finding.end_column + 50
+            if end_column < len(finding.full_line) - 50 :
+                context_end_pos = end_column + 50
             else:
                 context_end_pos = len(finding.full_line)
 
@@ -228,13 +226,13 @@ class FindingResponse:
 
 
             context_text = finding.full_line[context_start_pos:context_end_pos]
-            context_text_masked = finding.full_line[context_start_pos:finding.start_column] + detection_masked + finding.full_line[finding.end_column:context_end_pos]
+            context_text_masked = finding.full_line[context_start_pos:start_column] + detection_masked + finding.full_line[end_column:context_end_pos]
 
             if disable_masking :
                 region = om.Region(
                     start_line=finding.linum,
-                    start_column=finding.start_column,
-                    end_column=finding.end_column,
+                    start_column=start_column,
+                    end_column=end_column,
                     snippet=om.ArtifactContent(text=finding.detection)
                 )
                 context_region=om.Region(
@@ -244,8 +242,8 @@ class FindingResponse:
             else:
                 region = om.Region(
                     start_line=finding.linum,
-                    start_column=finding.start_column,
-                    end_column=finding.end_column
+                    start_column=start_column,
+                    end_column=end_column
                 )
                 context_region=om.Region(
                     start_line=finding.linum,

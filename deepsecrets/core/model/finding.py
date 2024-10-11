@@ -223,8 +223,9 @@ class FindingResponse:
             else:
                 detection_masked = "*" * len(finding.detection)
 
-            context_text = finding.full_line[context_start_pos:context_end_pos] 
-            context_text_masked = context_text.replace(finding.detection, detection_masked)
+
+            context_text = finding.full_line[context_start_pos:context_end_pos]
+            context_text_masked = finding.full_line[context_start_pos:start_pos] + detection_masked + finding.full_line[end_pos:context_end_pos]
 
             if disable_masking :
                 region = om.Region(

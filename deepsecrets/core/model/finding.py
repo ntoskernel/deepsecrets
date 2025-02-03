@@ -3,7 +3,7 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.rule import Rule
@@ -22,6 +22,8 @@ class Finding(BaseModel):
     reason: str = Field(default='')
     final_rule: Optional[Rule] = Field(default=None)
     _mapped_on_file: bool = PrivateAttr(default=False)
+
+    model_config = ConfigDict(arbitrary_types_allowed = True)
 
     def map_on_file(self, relative_start: int, file: Optional['File'] = None) -> None:
         if self._mapped_on_file:
@@ -48,9 +50,6 @@ class Finding(BaseModel):
 
     def get_fingerprint(self) -> str:
         return sha256(self.detection.encode('utf-8')).hexdigest()[23:33]
-
-    class Config:
-        arbitrary_types_allowed = True
 
     def choose_final_rule(self) -> None:
         self.final_rule = sorted(
@@ -136,7 +135,7 @@ class FindingResponse:
                 resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
                 resp_finding.string = '*' * len(resp_finding.string)
 
-            resp[finding.file.path].append(resp_finding.dict())
+            resp[finding.file.path].append(resp_finding.model_dump())
 
         return resp
 

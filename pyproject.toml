@@ -1,16 +1,22 @@
-[tool.poetry]
+[project]
 name = "deepsecrets"
-version = "1.2.1"
+version = "1.3.0"
 description = "A better tool for secrets search"
-license = "MIT"
-authors = [
-  "Nikolai Khechumov <khechumov@gmail.com>",
-]
-keywords = ["security", "secrets", "credentials", "scanning", "appsec"]
-packages = [{include = "deepsecrets"}]
-
-
+license = { text = "MIT" }
 readme = "README.md"
+authors = [
+    { name = "Nikolai Khechumov", email = "khechumov@gmail.com" },
+    { name = "Nikolai Khechumov", email = "nikolai.khechumov@owasp.com" },
+]
+maintainers = [
+    { name = "Nikolai Khechumov", email = "khechumov@gmail.com" },
+    { name = "Nikolai Khechumov", email = "nikolai.khechumov@owasp.com" },
+]
+
+keywords = ["security", "secrets", "credentials", "scanning", "appsec", "code", "search"]
+packages = [{include = "deepsecrets"}]
+requires-python = ">=3.9,<4.0.0"
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -20,38 +26,38 @@ classifiers = [
     
 ]
 
-[tool.poetry.urls]
-"Homepage" = "https://github.com/ntoskernel/deepsecrets"
+dependencies = [
+  "pydantic == 2.10.6",
+  "pyyaml == 6.0.2",
+  "pygments == 2.19.1",
+  "ordered-set == 4.1.0",
+  "dotwiz == 0.4.0",
+  "mmh3 == 5.1.0",
+  "regex == 2024.11.6",
+  "jsx-lexer == 2.0.1",
+  "aenum == 3.1.15",
+  "puppetparser == 0.2.14",
+  "textual == 1.0.0",
+  "sarif-om == 1.0.4",
+  "jschema-to-python == 1.2.3",
+]
+
+[project.urls]
+homepage = "https://owasp.org/www-project-deepsecrets/"
+repository = "https://github.com/ntoskernel/deepsecrets"
 "Bug Tracker" = "https://github.com/ntoskernel/deepsecrets/issues"
 
-[tool.poetry.scripts]
+[project.scripts]
 deepsecrets = "deepsecrets:__main__.runnable_entrypoint"
 
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-pydantic = "^1.10.14"
-pyyaml = "^6.0.1"
-pygments = "^2.17.2"
-ordered-set = "^4.1.0"
-dotwiz = "^0.4.0"
-mmh3 = "^4.1.0"
-regex = "^2023.12.25"
-jsx-lexer = "^2.0.1"
-aenum = "^3.1.15"
-puppetparser = "^0.2.1"
-textual = "^0.54.0"
-sarif-om = "^1.0.4"
-jschema-to-python = "^1.2.3"
-
-
 [tool.poetry.group.test.dependencies]
-pytest = "^8.1.1"
-coverage = "^7.4.4"
-pytest-cov = "^4.1.0"
+pytest = "^8.3.4"
+coverage = "^7.6.10"
+pytest-cov = "^6.0.0"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.2.0"
+black = "^25.1.0"
 
 
 [build-system]
@@ -60,8 +66,9 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 packages=["deepsecrets"]
-disallow_untyped_defs = true
+disallow_untyped_defs = false
 disallow_any_unimported = true
+disallow-any-unimported = false
 no_implicit_optional = true
 check_untyped_defs = true
 warn_return_any = true

@@ -1,4 +1,4 @@
-FROM python:3.12.2-slim-bookworm
+FROM python:3.13.1-slim-bookworm
 
 ENV PROJECT_ROOT /app
 WORKDIR $PROJECT_ROOT

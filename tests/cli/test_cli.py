@@ -29,6 +29,7 @@ def args_2():
         '/app/tests/fixtures/false_findings.json',
         '--outfile',
         './fdsafad.json',
+        '--outformat', 'dojo-sarif'
     ]
 
 
@@ -45,6 +46,7 @@ def test_1_cli(args_1):
 
     assert config.output.path == './fdsafad.json'
     assert config.workdir_path == '/app/tests/fixtures/'
+    assert config.output.type == 'json'
 
 
 def test_2_cli(args_2):
@@ -55,3 +57,4 @@ def test_2_cli(args_2):
 
     assert config is not None
     assert len(config.global_exclusion_paths) == 2
+    assert config.output.type == 'dojo-sarif'

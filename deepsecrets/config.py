@@ -10,7 +10,7 @@ from deepsecrets.core.utils.fs import get_abspath, path_exists
 FALLBACK_PROCESS_COUNT = 4
 
 SCANNER_NAME = "DeepSecrets"
-SCANNER_VERSION = "1.2.1"
+SCANNER_VERSION = "1.3.0"
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
 
 
@@ -37,10 +37,11 @@ class Config:
         self.rulesets = {}
         self.global_exclusion_paths = []
         self.return_code_if_findings = False
+        self.disable_masking = False
+
         # equals to CPU count
         self.process_count = FALLBACK_PROCESS_COUNT
         self.logging_level = logging.INFO
-        self.disable_masking = False
 
     def set_logging_level(self, level: int):
         self.logging_level = level

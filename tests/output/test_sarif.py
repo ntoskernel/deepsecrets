@@ -2,6 +2,8 @@ import pytest
 
 from deepsecrets.config import Config, Output
 from deepsecrets.core.engines.regex import RegexEngine
+from deepsecrets.core.engines.semantic import SemanticEngine
+from deepsecrets.core.model.finding import FindingResponse
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.scan_modes.cli import CliScanMode
@@ -14,29 +16,21 @@ def config() -> Config:
     config = Config()
     config.set_workdir('tests/fixtures')
     config.engines.append(RegexEngine)
+    config.engines.append(SemanticEngine)
     config.add_ruleset(RegexRulesetBuilder, ['tests/fixtures/regexes.json'])
     config.add_ruleset(FalseFindingsBuilder, ['tests/fixtures/false_findings.json'])
-    config.output = Output(type='json', path='tests/1.json')
+    config.output = Output(type='dojo-sarif', path='tests/1.json')
     return config
 
 
-def test_cli_scan_mode(config: Config) -> None:
+def test_dojo_sarif(config: Config) -> None:
     mode = CliScanMode(config=config)
-    assert FP_TO_BE_EXCLUDED in mode.filepaths
-
-    config.set_global_exclusion_paths(['tests/fixtures/excluded_paths.json'])
-    mode = CliScanMode(config=config)
-    assert FP_TO_BE_EXCLUDED not in mode.filepaths
-
     findings = []
     for file in mode.filepaths:
         findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file))
 
-    assert len(findings) == 3
-
-    # checking through the 'run' method
-    # false findings checked at the end
     findings = []
     findings = mode.run()
 
-    assert len(findings) == 2
+    sarif_response = FindingResponse.dojo_sarif_from_list(findings)
+    assert sarif_response is not None

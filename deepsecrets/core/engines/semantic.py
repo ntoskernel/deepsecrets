@@ -31,7 +31,14 @@ var_name_showstoppers = [
     'path',
     'location',
     'field',
-    'data'
+    'data',
+    'cache',
+    'prefix',
+    'threshold',
+    'name',
+    'algo',
+    'algorithm',
+    
 ]
 
 

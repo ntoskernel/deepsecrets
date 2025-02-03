@@ -146,12 +146,20 @@ class DeepSecretsCliTool:
         )
 
         parser.add_argument('--outfile', required=True, type=str)
-        parser.add_argument('--outformat', default='json', type=str, choices=['json','sarif'])
+        parser.add_argument(
+            '--outformat',
+            default='json',
+            type=str,
+            choices=['json', 'dojo-sarif'],
+            help='"json": internal format (default)\n'
+                '"dojo-sarif": SARIF format compatible with DefectDojo\n'
+            )
 
         parser.add_argument(
             '--disable-masking',
             action='store_true',
-            help='Disable masking secrets value in reports',
+            help='Secrets are rendered masked inside reports by default.\n'
+            'Use this flag if you want to render found secrets in plaintext.',
         )
 
         self.argparser = parser
@@ -206,6 +214,7 @@ class DeepSecretsCliTool:
 
     def get_current_config(self) -> Config:
         return config
+    
 
     def start(self) -> None:  # pragma: nocover
         try:
@@ -228,13 +237,14 @@ class DeepSecretsCliTool:
         report_path = get_abspath(config.output.path)
 
         logger.info(f'Writing report to {report_path}')
+
         with open(report_path, 'w+') as f:
 
-            if config.output.type == "json":
+            if config.output.type == 'json':
                 json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
             
-            if config.output.type == "sarif":
-                f.write(to_json(FindingResponse.sarif_from_list(findings, config.disable_masking)))
+            if config.output.type == 'dojo-sarif':
+                f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
 
         logger.info('Done')
 

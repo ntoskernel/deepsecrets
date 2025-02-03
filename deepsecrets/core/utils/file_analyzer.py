@@ -2,7 +2,7 @@ from multiprocessing import RLock
 from multiprocessing.pool import Pool
 from typing import Any, Dict, List, Optional, Type
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from deepsecrets.core.utils.log import logger
 from deepsecrets.core.engines.iengine import IEngine
@@ -16,8 +16,7 @@ class EngineWithTokenizer(BaseModel):
     engine: IEngine
     tokenizer: Tokenizer
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed = True)
 
 
 class FileAnalyzer:

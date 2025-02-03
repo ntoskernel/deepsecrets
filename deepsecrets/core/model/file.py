@@ -118,6 +118,10 @@ class File:
             span = detect.span()
             return (between[0] + span[0], between[0] + span[1])
         return None
+    
+    def get_column_number(self, position: int) -> int:
+        line_number = self.get_line_number(position=position)
+        return position - self.line_offsets[line_number][0]
 
     def __repr__(self) -> str:  # pragma: no cover
         return self.path

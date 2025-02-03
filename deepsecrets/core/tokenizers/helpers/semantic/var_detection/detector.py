@@ -1,7 +1,7 @@
 import regex as re
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
@@ -11,6 +11,9 @@ class Match(BaseModel):
     types: List[Any] = Field(default_factory=list)
     values: List[re.Pattern] = Field(default_factory=list)
     not_values: List[re.Pattern] = Field(default_factory=list)
+
+    model_config = ConfigDict(arbitrary_types_allowed = True)
+
 
     def check(self, tokens: List[Token]) -> bool:
         
@@ -67,7 +70,7 @@ class Match(BaseModel):
 
 
 
-    @validator('values', 'not_values', pre=True)
+    @field_validator('values', 'not_values', mode='before')
     def regexify_values(cls, values: Dict) -> List[re.Pattern]:
         if values is None:
             return values
@@ -85,8 +88,6 @@ class Match(BaseModel):
 
         return patterns
 
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class VaribleDetector(BaseModel):
@@ -96,8 +97,7 @@ class VaribleDetector(BaseModel):
     match_semantics: Dict[int, str]
     creds_probability: int = 0
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed = True)
 
     def match(self, tokens: List[Token], token_stream: str) -> List['Variable']:
         true_detections = []

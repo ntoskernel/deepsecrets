@@ -51,13 +51,20 @@ From PyPi
 ## Scanning
 The easiest way:
 
-`$ deepsecrets --target-dir /path/to/your/code --outfile report.json`
+`$ deepsecrets --target-dir /path/to/your/code --outformat dojo-sarif --outfile report.json`
 
 This will run a scan against `/path/to/your/code` using the default configuration:
 - Regex checks by a small built-in ruleset
 - Semantic checks (variable detection, entropy checks)
 
-Report will be saved to `report.json`
+Report in SARIF format (DefectDojo-compatible) will be saved to `report.json`. If you face any problem with SARIF format, you can fall back to internal format via `--outfile json`
+
+#### Masking secrets inside a report
+
+As of version 1.3.0 all potential secrets inside reports are masked by default, but you can turn this feature off via the `--disable-masking` flag.
+
+> [!Caution]  
+> If you decide to integreate DeepSecrets to your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI artefacts.
 
 ### Fine-tuning
 Run `deepsecrets --help` for details.

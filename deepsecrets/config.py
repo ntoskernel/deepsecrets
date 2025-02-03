@@ -9,6 +9,10 @@ from deepsecrets.core.utils.fs import get_abspath, path_exists
 
 FALLBACK_PROCESS_COUNT = 4
 
+SCANNER_NAME = "DeepSecrets"
+SCANNER_VERSION = "1.3.0"
+SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
+
 
 class Output(BaseModel):
     type: str
@@ -26,18 +30,24 @@ class Config:
     output: Output
     process_count: int
     return_code_if_findings: bool
+    disable_masking: bool
 
     def __init__(self) -> None:
         self.engines = []
         self.rulesets = {}
         self.global_exclusion_paths = []
         self.return_code_if_findings = False
+        self.disable_masking = False
+
         # equals to CPU count
         self.process_count = FALLBACK_PROCESS_COUNT
         self.logging_level = logging.INFO
 
     def set_logging_level(self, level: int):
         self.logging_level = level
+
+    def set_disable_masking(self, state: bool):
+        self.disable_masking = state
 
     def _set_path(self, path: str, field: str) -> None:
         if not path_exists(path):

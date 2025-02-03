@@ -20,10 +20,13 @@ from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 
 
 class CliScanMode(ScanMode):
-    engines_enabled: Dict[Type, bool] = {}
-    rulesets: Dict[str, List] = {}
+    engines_enabled: Dict[Type, bool]
+    rulesets: Dict[str, List]
 
     def prepare_for_scan(self) -> None:
+        self.engines_enabled: Dict[Type, bool] = {}
+        self.rulesets = {}
+
         logger.info(f'Found {len(self.filepaths)} applicable files for the scan')
         if len(self.filepaths) == 0:
             return

@@ -3,11 +3,13 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.rule import Rule
 
+import sarif_om as om
+from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
 
 class Finding(BaseModel):
     file: Optional['File'] = Field(default=None)
@@ -21,6 +23,8 @@ class Finding(BaseModel):
     final_rule: Optional[Rule] = Field(default=None)
     _mapped_on_file: bool = PrivateAttr(default=False)
 
+    model_config = ConfigDict(arbitrary_types_allowed = True)
+
     def map_on_file(self, relative_start: int, file: Optional['File'] = None) -> None:
         if self._mapped_on_file:
             return
@@ -33,6 +37,7 @@ class Finding(BaseModel):
         self.start_pos += relative_start
         self.end_pos += relative_start
         self.linum = self.file.get_line_number(self.end_pos)
+
         if not self.full_line:
             self.full_line = self.file.get_line_contents(self.linum)
         self._mapped_on_file = True
@@ -45,9 +50,6 @@ class Finding(BaseModel):
 
     def get_fingerprint(self) -> str:
         return sha256(self.detection.encode('utf-8')).hexdigest()[23:33]
-
-    class Config:
-        arbitrary_types_allowed = True
 
     def choose_final_rule(self) -> None:
         self.final_rule = sorted(
@@ -117,7 +119,7 @@ class FindingMerger:
 
 class FindingResponse:
     @classmethod
-    def from_list(cls, list: List[Finding]) -> Dict[str, List[Dict]]:
+    def from_list(cls, list: List[Finding], disable_masking: bool = False) -> Dict[str, List[Dict]]:
         resp: Dict[str, List[Dict]] = {}
         for finding in list:
             if finding.file is None:
@@ -125,10 +127,104 @@ class FindingResponse:
 
             if finding.file.path not in resp:
                 resp[finding.file.path] = []
+            
+            resp_finding = FindingApiModel.from_finding(finding)
+            
+            if not disable_masking:
 
-            resp[finding.file.path].append(FindingApiModel.from_finding(finding).dict())
+                resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
+                resp_finding.string = '*' * len(resp_finding.string)
+
+            resp[finding.file.path].append(resp_finding.model_dump())
+
         return resp
 
+    @classmethod
+    def dojo_sarif_from_list(cls, list: List[Finding], disable_masking: bool = False) -> om.SarifLog:
+        
+        report = om.SarifLog(
+            schema_uri='https://json.schemastore.org/sarif-2.1.0.json',
+            version='2.1.0',
+            runs=[
+                om.Run(
+                    tool=om.Tool(
+                        driver=om.ToolComponent(
+                            name=SCANNER_NAME,
+                            semantic_version=SCANNER_VERSION,
+                            information_uri=SCANNER_URL,
+                            rules=[]
+                        )
+                    ),
+                    results=[]
+                )
+            ]
+        )
+
+        sarif_rules: Dict[str, om.ReportingDescriptor] = {}
+
+        for finding in list:
+
+            finding.choose_final_rule()
+
+            if finding.final_rule.confidence > 5 :
+                precision = 'high'
+                security_severity = 'High'
+                level = 'error'
+            elif finding.final_rule.confidence > 0:
+                precision = 'medium'
+                security_severity = 'High'
+                level = 'error'
+            else:
+                precision = 'low'
+                security_severity = 'Medium'
+                level = 'warning'
+
+            rule = om.ReportingDescriptor(
+                id=finding.final_rule.id,
+                short_description={
+                    'text': finding.final_rule.name
+                },
+                full_description={
+                    'text': finding.final_rule.name
+                },
+                help={
+                    'text': finding.final_rule.name
+                },
+                properties={
+                    'security_severity': security_severity,
+                    'precision': precision
+                },
+                default_configuration={'level': level},
+            )
+
+            sarif_rules[finding.final_rule.id] = rule
+
+            region = SarifHelper.get_region_for_finding(finding=finding, masking=disable_masking is False)
+            context_region=SarifHelper.get_context_region_for_finding(finding=finding, masking=disable_masking is False)
+
+            result = om.Result(
+                rule_id=finding.final_rule.id,
+                message=om.Message(
+                    text=f'Secret in code ({finding.final_rule.name})'
+                ),
+                locations=[
+                    om.Location(
+                        physical_location=om.PhysicalLocation(
+                            artifact_location=om.ArtifactLocation(
+                                uri=finding.file.relative_path,
+                                uri_base_id='%SRCROOT%'
+                            ),
+                            region=region,
+                            context_region=context_region
+                        )
+                    )
+                ]
+            )
+
+            report.runs[0].results.append(result)
+
+        report.runs[0].tool.driver.rules = [rule for rule in sarif_rules.values()]
+        return report
 
 class FindingApiModel(BaseModel):
     line: str
@@ -151,3 +247,6 @@ class FindingApiModel(BaseModel):
             confidence=finding.final_rule.confidence,
             fingerprint=finding.get_fingerprint(),
         )
+
+
+from deepsecrets.core.utils.sarif_helper import SarifHelper

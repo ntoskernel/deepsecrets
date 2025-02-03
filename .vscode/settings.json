@@ -8,4 +8,7 @@
         "source.organizeImports": "explicit",
         "source.unusedImports": "explicit"
     },
+    "mypy-type-checker.args": [
+        "--config-file=${workspaceFolder}/pyproject.toml"
+    ]
 }

@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 import mmh3
-from pydantic import root_validator
+from pydantic import model_validator
 from deepsecrets.core.model.rules.hashing import HashingAlgorithm
 
 from deepsecrets.core.model.rules.rule import Rule
@@ -27,7 +27,8 @@ class HashedSecretRule(Rule):
     def __hash__(self) -> int:  # pragma: nocover
         return hash(self.hashed_val)
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    @classmethod
     def fill_id(cls, values: Dict) -> Dict:
         hashed_val = values.get('hashed_val', None)
         if hashed_val is None:

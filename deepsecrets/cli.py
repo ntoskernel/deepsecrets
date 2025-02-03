@@ -4,9 +4,10 @@ import logging
 import sys
 from argparse import RawTextHelpFormatter
 from typing import List
+from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME
-from deepsecrets.config import Config, config, Output
+from deepsecrets.config import Config, config, Output, SCANNER_VERSION, SCANNER_NAME
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding, FindingResponse
@@ -33,9 +34,9 @@ class DeepSecretsCliTool:
     def say_hello(self) -> None:
         bar = '-'
         logger.info('')
-        logger.info(f'{" "*8}{bar*25} DeepSecrets {bar*25}')
+        logger.info(f'{" "*8}{bar*25} {SCANNER_NAME} {bar*25}')
         logger.info(f'{" "*10}A better tool for secret scanning')
-        logger.info(f'{" "*10}version 1.2.0')
+        logger.info(f'{" "*10}version {SCANNER_VERSION}')
         logger.info('')
         logger.info(f'{" "*8}{bar*63}')
 
@@ -145,7 +146,22 @@ class DeepSecretsCliTool:
         )
 
         parser.add_argument('--outfile', required=True, type=str)
-        parser.add_argument('--outformat', default='json', type=str, choices=['json'])
+        parser.add_argument(
+            '--outformat',
+            default='json',
+            type=str,
+            choices=['json', 'dojo-sarif'],
+            help='"json": internal format (default)\n'
+                '"dojo-sarif": SARIF format compatible with DefectDojo\n'
+            )
+
+        parser.add_argument(
+            '--disable-masking',
+            action='store_true',
+            help='Secrets are rendered masked inside reports by default.\n'
+            'Use this flag if you want to render found secrets in plaintext.',
+        )
+
         self.argparser = parser
 
     def parse_arguments(self) -> None:
@@ -155,6 +171,9 @@ class DeepSecretsCliTool:
         if user_args.verbose:
             config.set_logging_level(logging.DEBUG)
             logger = build_logger(config.logging_level)  # flake8: noqa
+
+        if user_args.disable_masking:
+            config.set_disable_masking(True)
 
         self.say_hello()
 
@@ -195,6 +214,7 @@ class DeepSecretsCliTool:
 
     def get_current_config(self) -> Config:
         return config
+    
 
     def start(self) -> None:  # pragma: nocover
         try:
@@ -217,8 +237,14 @@ class DeepSecretsCliTool:
         report_path = get_abspath(config.output.path)
 
         logger.info(f'Writing report to {report_path}')
+
         with open(report_path, 'w+') as f:
-            json.dump(FindingResponse.from_list(findings), f)
+
+            if config.output.type == 'json':
+                json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
+            
+            if config.output.type == 'dojo-sarif':
+                f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
 
         logger.info('Done')
 

@@ -1,5 +1,5 @@
 from typing import List
-from pydantic import BaseModel
+from pydantic import RootModel
 from deepsecrets.core.model.rules.regex import RegexRuleWithoutId
 
 
@@ -7,5 +7,6 @@ class ExcludePathRule(RegexRuleWithoutId):
     disabled: bool = False
 
 
-class ExcludePatternsList(BaseModel):
-    __root__: List[ExcludePathRule]
+
+class ExcludePatternsList(RootModel[List[ExcludePathRule]]):
+    pass

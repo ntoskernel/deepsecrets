@@ -1,7 +1,7 @@
 import regex as re
 from typing import Dict, ForwardRef, List, Optional, Union
 
-from pydantic import Field, root_validator
+from pydantic import ConfigDict, Field, field_serializer, model_validator
 
 from deepsecrets.core.helpers.entropy import EntropyHelper
 from deepsecrets.core.model.rules.rule import Rule
@@ -17,13 +17,14 @@ class RegexRule(Rule):  # type: ignore
     entropy_settings: Optional[float] = Field(default=None)
     escaping_needed: bool = False
 
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {
-            re.Pattern: lambda v: v.pattern,
-        }
+    model_config = ConfigDict(arbitrary_types_allowed = True)
 
-    @root_validator(pre=True)
+    @field_serializer('pattern')
+    def serialize_dt(self, pattern: re.Pattern, _info):
+        return pattern.pattern
+
+    @model_validator(mode='before')
+    @classmethod
     def build_pattern(cls, values: Dict) -> Dict:
         pattern_str = values.get('pattern', None)
         if pattern_str is not None and isinstance(pattern_str, str):
@@ -82,7 +83,7 @@ class RegexRule(Rule):  # type: ignore
         return match_ok and entropy_ok
 
 
-RegexRule.update_forward_refs()  # type: ignore
+RegexRule.model_rebuild()  # type: ignore
 
 
 class RegexRuleWithoutId(RegexRule):

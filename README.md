@@ -63,8 +63,8 @@ Report in SARIF format (DefectDojo-compatible) will be saved to `report.json`. I
 
 As of version 1.3.0 all potential secrets inside reports are masked by default, but you can turn this feature off via the `--disable-masking` flag.
 
-> [!WARNING]  
-> !!! BE CAREFUL!!! If you decide to integreate DeepSecrets to your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI artefacts.
+> [!BE CAREFUL]  
+> If you decide to integreate DeepSecrets to your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI artefacts.
 
 ### Fine-tuning
 Run `deepsecrets --help` for details.

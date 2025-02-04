@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Type, Optional
 
 from dotwiz import DotWiz
 
-from deepsecrets import PROFILER_ON
+from deepsecrets import PROFILER_ON, console
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
@@ -20,14 +20,12 @@ from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 
 
 class CliScanMode(ScanMode):
-    engines_enabled: Dict[Type, bool]
-    rulesets: Dict[str, List]
 
     def prepare_for_scan(self) -> None:
         self.engines_enabled: Dict[Type, bool] = {}
         self.rulesets = {}
 
-        logger.info(f'Found {len(self.filepaths)} applicable files for the scan')
+        console.print(f'Found [bold green]{len(self.filepaths)} applicable files[/bold green] for the scan')
         if len(self.filepaths) == 0:
             return
 
@@ -52,9 +50,10 @@ class CliScanMode(ScanMode):
 
 
     @staticmethod
-    def _per_file_analyzer(bundle: Any, file: Any, progress: Optional[Any] = None) -> List[Finding]:  # type: ignore
+    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> List[Finding]:  # type: ignore
         if logger.level == logging.DEBUG:
-            logger.debug(f'Starting analysis for {file}')
+            #logger.debug(f'Starting analysis for {file}')
+            pass
 
         results: List[Finding] = []
 
@@ -66,7 +65,7 @@ class CliScanMode(ScanMode):
             return results
 
         file_analyzer = FileAnalyzer(file)
-        file_analyzer.progress = progress
+        file_analyzer.attach_global_task_reporter(task_reporter=task_reporter, task_id=task_id)
 
         fct = FullContentTokenizer()
         lex = LexerTokenizer(deep_token_inspection=True)

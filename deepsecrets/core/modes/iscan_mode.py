@@ -1,19 +1,18 @@
 import logging
+from multiprocessing.pool import AsyncResult
 import regex as re
 
-from multiprocessing import Event, Manager, get_context
-import multiprocessing
-from multiprocessing.managers import ListProxy
+from multiprocessing import Manager, get_context
+from multiprocessing.managers import DictProxy
 import os
 from abc import abstractmethod
 from datetime import datetime
-from functools import partial
 from time import sleep
-from typing import Any, Callable, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from dotwiz import DotWiz
 
-from deepsecrets import PROFILER_ON
+from deepsecrets import PROFILER_ON, console
 from deepsecrets.config import Config
 from deepsecrets.core.model.finding import Finding, FindingMerger
 from deepsecrets.core.model.rules.exlcuded_path import ExcludePathRule
@@ -21,18 +20,20 @@ from deepsecrets.core.rulesets.excluded_paths import ExcludedPathsBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.fs import get_abspath
-from deepsecrets.core.utils.log import logger, build_logger
+from deepsecrets.core.utils.log import build_logger
 
+from rich.progress import Progress as ProgressBar
 
 # Experimental approach                        
-def watchdog_and_logger(progress: Any, event: Any) -> None:
+def watchdog_and_logger(task_reporter: Any, event: Any) -> None:
     logger = build_logger(level=logging.DEBUG)
     while True:
         if event.is_set():
             return
         
-        logger.debug(f'\n ===== LIVENESS: {progress[0]} tokens processed =====\n')
-        sleep(0.4)
+        logger.debug(f'\n ===== LIVENESS: {task_reporter} tokens processed =====\n')
+        sleep(0.1)
+
 
 
 class ScanMode:
@@ -41,7 +42,13 @@ class ScanMode:
     path_exclusion_rules: List[ExcludePathRule] = []
     file_analyzer: FileAnalyzer
     pool_engine: Type
-    progress: ListProxy
+    rulesets: Dict[str, List]
+    engines_enabled: Dict[Type, bool]
+
+    task_reporter: DictProxy
+    progress_bar: ProgressBar
+    jobs: List[AsyncResult]
+
 
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
         if pool_engine is None:
@@ -50,12 +57,17 @@ class ScanMode:
             self.pool_engine = pool_engine
 
         m = Manager()
-        self.progress = m.list([0])
+        self.task_reporter = m.dict({})
+        self.progress_bar = None
 
         self.config = config
+        self.jobs = []
 
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
+
+    def set_progress_bar(self, progress_bar: ProgressBar):
+        self.progress_bar = progress_bar
 
     def _get_process_count_for_runner(self) -> int:
         limit = self.config.process_count
@@ -64,36 +76,73 @@ class ScanMode:
         if file_count == 0:
             return 0
         return limit if file_count >= limit else file_count
+    
+
+    def refresh_progress_bar(self, overall_progress_task, n_finished, final=False):
+        if self.task_reporter is None:
+            return
+        
+        total_findings = 0
+        for task_id, current_state in self.task_reporter.items():
+            total = current_state.get('total_tokens')
+            processed = current_state.get('processed')
+            visible = current_state.get('finished')
+            findings = current_state.get('findings')
+            total_findings += findings
+            # update the progress bar for this task:
+            self.progress_bar.update(
+                task_id,
+                completed=processed,
+                total=total,
+                visible=visible if not final else False,
+                findings=f'FINDINGS: {findings}'
+            )
+        self.progress_bar.update(
+            overall_progress_task,
+            completed=n_finished,
+            total=len(self.jobs),
+            findings=f'FINDINGS: {total_findings}'
+        )
 
     def run(self) -> List[Finding]:
         final: List[Finding] = []
-
         bundle = self.analyzer_bundle()
         proc_count = self._get_process_count_for_runner()
         if proc_count == 0:
             return final
         
-        if self.config.logging_level == logging.DEBUG:
-            event = Event()
-            watchdog = multiprocessing.Process(target=watchdog_and_logger, args=(self.progress, event))
-            watchdog.start()
+        if self.progress_bar is not None:
+            overall_progress_task = self.progress_bar.add_task("[green bold]Scan Progress:", visible=True, findings='FINDINGS: 0')
 
         if PROFILER_ON:
             for file in self.filepaths:
-                final.extend(self._per_file_analyzer(file=file, bundle=bundle, progress=self.progress))
+                task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0')
+                final.extend(self._per_file_analyzer(file=file, bundle=bundle, task_id=task_id, task_reporter=self.task_reporter))
         else:
             with self.pool_engine(processes=proc_count) as pool:
-                runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.progress)
-                per_file_findings: List[List[Finding]] = pool.map(
-                    runnable,
-                    self.filepaths,
-                )  # type: ignore
+                for file in self.filepaths:
+                    task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0')
+                    # runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.task_reporter)
+                    self.jobs.append(
+                        pool.apply_async(
+                            pool_wrapper,
+                            (bundle,
+                            self._per_file_analyzer,
+                            task_id,
+                            self.task_reporter,
+                            file),
+                        )
+                    )
+                
+                self.progress_bar.start()
+                while (n_finished := sum([job.ready() for job in self.jobs])) < len(self.jobs):
+                    self.refresh_progress_bar(overall_progress_task, n_finished)
 
-        if self.config.logging_level == logging.DEBUG:
-            event.set()
-            watchdog.join()
+        # final refresh
+        self.refresh_progress_bar(overall_progress_task, 100, final=True)
 
-        for file_findings in list(per_file_findings):
+        for job_result in self.jobs:
+            file_findings = job_result.get()
             if file_findings is None or len(file_findings) == 0:
                 continue
             final.extend(file_findings)
@@ -119,7 +168,7 @@ class ScanMode:
                     continue
         
                 if not self._size_check(full_path):
-                    logger.info(f'File size exceeds --max-file-path and will be skipped: {rel_path}')
+                    console.print(f'[bold yellow][!][/bold yellow] File size exceeds --max-file-path and will be skipped: {rel_path}')
                     continue
 
                 flist.append(full_path)
@@ -158,7 +207,7 @@ class ScanMode:
 
     @staticmethod
     @abstractmethod
-    def _per_file_analyzer(bundle: Any, file: Any, progress: Optional[Any] = None) -> List[Finding]:  # type: ignore
+    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> List[Finding]:  # type: ignore
         pass
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
@@ -181,16 +230,18 @@ class ScanMode:
         return final
 
 
-def pool_wrapper(bundle: DotWiz, runner: Callable, progress: ListProxy, file: str) -> List[Finding]:  # pragma: nocover
+def pool_wrapper(bundle: DotWiz, runner: Callable, task_id: Optional[int], task_reporter: DictProxy, file: str) -> List[Finding]:  # pragma: nocover
     logger = build_logger(bundle.logging_level)
 
     start_ts = datetime.now()
-    result = runner(bundle, file, progress)
+    result = runner(bundle, file, task_id, task_reporter)
 
     if logger.level == logging.DEBUG:
-        logger.debug(
-            f' ✓ [{file}] {(datetime.now() - start_ts).total_seconds()}s elapsed \t {len(result)} potential findings'
-        )
+        pass
+        #logger.debug(
+        #    f' ✓ [{file}] {(datetime.now() - start_ts).total_seconds()}s elapsed \t {len(result)} potential findings'
+        #)
     else:
-        logger.info(f' ✓ [{file}] \t {len(result)} potential findings')
+        pass
+        #logger.info(f' ✓ [{file}] \t {len(result)} potential findings')
     return result

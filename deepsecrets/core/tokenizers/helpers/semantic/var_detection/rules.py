@@ -29,6 +29,16 @@ class VariableDetectionRules:
             match_rules={2: Match(values=[']']), 3: Match(values=['='])},
             match_semantics={1: 'name', 4: 'value'},
         ),
+        VaribleDetector(
+            language=Language.PYTHON,
+            stream_pattern=re.compile('(n)(o)(p).*(L)+.*(p)', flags=re.MULTILINE | re.S),
+            match_rules={
+                2: Match(values=['=']),
+                3: Match(values=['(']),
+                5: Match(values=[')']),
+            },
+            match_semantics={1: 'name', 4: 'value'},
+        ),
         # GOLANG
         VaribleDetector(
             language=Language.GOLANG,

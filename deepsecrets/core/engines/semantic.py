@@ -38,7 +38,7 @@ var_name_showstoppers = [
     'name',
     'algo',
     'algorithm',
-    
+    'change'
 ]
 
 

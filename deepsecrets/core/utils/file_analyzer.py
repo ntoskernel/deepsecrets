@@ -19,13 +19,53 @@ class EngineWithTokenizer(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed = True)
 
 
+class Progress:
+    started: bool
+    finished: bool
+    total_tokens: int
+    processed_count: int
+
+    findings: int
+
+    def __init__(self):
+        self.started = False
+        self.finished = False
+        self.total_tokens = 0
+        self.processed_count = 0
+        self.findings = 0
+
+    def on_tokenization_finished(self, token_count: int):
+        self.total_tokens += token_count
+
+    def on_token_processing_start(self):
+        self.started = True
+        self.processed_count += 1
+            
+    def on_finish(self):
+        self.started = False
+        self.finished = True
+    
+    def add_findings_count(self, count: int):
+        self.findings += count
+
+    def report(self):
+        return {
+            'started': self.started,
+            'finished': self.finished,
+            'total_tokens': self.total_tokens,
+            'processed': self.processed_count,
+            'findings': self.findings,
+        }
+
+
 class FileAnalyzer:
     file: File
     engine_tokenizers: List[EngineWithTokenizer]
     tokens: Dict[Type, List[Token]]
     pool_class: Type
-    progress: Any
-
+    progress: Progress
+    task_reporter: Any
+    task_id: str
 
     def __init__(self, file: File, pool_class: Optional[Type] = None):
         if pool_class is not None:
@@ -37,7 +77,20 @@ class FileAnalyzer:
         self.file = file
         self.tokens = {}
         self.tokenizers_lock = RLock()
-        self.progress=None
+        self.progress = Progress()
+        self.task_reporter = None
+        self.task_id = None
+
+    def attach_global_task_reporter(self, task_reporter, task_id):
+        self.task_reporter = task_reporter
+        self.task_id = task_id
+        self.global_report()
+    
+    def global_report(self):
+        if self.task_reporter is None:
+            return
+        
+        self.task_reporter[self.task_id] = self.progress.report()
 
     def add_engine(self, engine: IEngine, tokenizers: List[Tokenizer]) -> None:
         for tokenizer in tokenizers:
@@ -73,11 +126,13 @@ class FileAnalyzer:
         with self.tokenizers_lock:
             if et.tokenizer not in self.tokens:
                 self.tokens[et.tokenizer] = et.tokenizer.tokenize(self.file)
+                self.progress.on_tokenization_finished(len(self.tokens[et.tokenizer]))
 
         tokens: List[Token] = self.tokens[et.tokenizer]
 
         for token in tokens:
-            self._on_token_processing_start(token=token)
+            self.on_token_processing_start(token)
+
             is_known_content = processed_values.get(token.val_hash())
             if is_known_content is not None and is_known_content is False:
                 continue
@@ -90,15 +145,20 @@ class FileAnalyzer:
                     finding.map_on_file(file=self.file, relative_start=token.span[0])
                     results.append(finding)
                     processed_values[token.val_hash()] = True
+                
+                self.on_token_processing_end(len(findings))
 
             except Exception as e:
                 logger.exception('Unable to process token')
                 continue
-
+        
+        self.progress.on_finish()
         return results
     
-    def _on_token_processing_start(self, token: Token) -> None:
-        if self.progress is None:
-            return
-        
-        self.progress[0] += 1
+    def on_token_processing_start(self, token: Token):
+        self.progress.on_token_processing_start()
+        self.global_report()
+
+    def on_token_processing_end(self, findings_count: int):
+        self.progress.add_findings_count(findings_count)
+        self.global_report()

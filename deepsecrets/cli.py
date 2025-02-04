@@ -6,8 +6,8 @@ from argparse import RawTextHelpFormatter
 from typing import List
 from jschema_to_python.to_json import to_json
 
-from deepsecrets import MODULE_NAME
-from deepsecrets.config import Config, config, Output, SCANNER_VERSION, SCANNER_NAME
+from deepsecrets import MODULE_NAME, console
+from deepsecrets.config import Config, config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding, FindingResponse
@@ -20,9 +20,33 @@ from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger, build_logger
 from deepsecrets.scan_modes.cli import CliScanMode
 
+from rich.progress import (
+    SpinnerColumn,
+    Progress,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+)
+
+from rich.text import Text
+
+from rich.align import Align
+
+
 DISABLED = 'disabled'
 FINDINGS_DETECTED_RETURN_CODE = 66
 
+progress_bar = Progress(
+    SpinnerColumn(),
+    TextColumn("[progress.description]{task.description}"),
+    TextColumn("[bold red]{task.fields[findings]}", justify="left"),
+    BarColumn(),
+    TaskProgressColumn(),
+    TimeRemainingColumn(),
+    console=console,
+    refresh_per_second=10
+)
 
 class DeepSecretsCliTool:
     argparser: argparse.ArgumentParser
@@ -32,13 +56,19 @@ class DeepSecretsCliTool:
         self._build_argparser()
 
     def say_hello(self) -> None:
-        bar = '-'
-        logger.info('')
-        logger.info(f'{" "*8}{bar*25} {SCANNER_NAME} {bar*25}')
-        logger.info(f'{" "*10}A better tool for secret scanning')
-        logger.info(f'{" "*10}version {SCANNER_VERSION}')
-        logger.info('')
-        logger.info(f'{" "*8}{bar*63}')
+        from rich.panel import Panel
+        console.print(
+            Align(
+                Panel.fit(
+                    Align(Text('DeepSecrets'), 'center'),
+                    padding=(1,1),
+                    title=f'A better tool for Secret Scanning',
+                    subtitle='version 1.4.0',
+                ),
+                align='center'
+            )
+        )
+
 
     def _build_argparser(self) -> None:
         parser = argparse.ArgumentParser(
@@ -222,17 +252,21 @@ class DeepSecretsCliTool:
         except Exception as e:
             logger.exception(e)
             sys.exit(1)
-
-        logger.info(f'Starting scan against {config.workdir_path} using {config.process_count} processes...')
+        
+        console.rule(f'Starting a scan against {config.workdir_path} using {config.process_count} processes', characters='=')
+        console.line()
         if config.return_code_if_findings is True:
-            logger.info(f'[!] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
-
-        logger.info(80 * '=')
+            console.print(f'[bold red][!][/bold red] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
+        
+        planning = console.status('[bold green]Planning...', )
+        planning.start()
         mode = CliScanMode(config=config)
+        
+        mode.set_progress_bar(progress_bar)
         findings: List[Finding] = mode.run()
         logger.info(80 * '=')
         logger.info('Scanning finished')
-        logger.info(f'{mode.progress[0]} tokens processed')
+        # logger.info(f'{mode.progress[0]} tokens processed')
         logger.info(f'{len(findings)} potential secrets found')
         report_path = get_abspath(config.output.path)
 

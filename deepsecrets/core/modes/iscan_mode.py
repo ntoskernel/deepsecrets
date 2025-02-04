@@ -7,7 +7,6 @@ from multiprocessing.managers import DictProxy
 import os
 from abc import abstractmethod
 from datetime import datetime
-from time import sleep
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from dotwiz import DotWiz
@@ -23,17 +22,6 @@ from deepsecrets.core.utils.fs import get_abspath
 from deepsecrets.core.utils.log import build_logger
 
 from rich.progress import Progress as ProgressBar
-
-# Experimental approach                        
-def watchdog_and_logger(task_reporter: Any, event: Any) -> None:
-    logger = build_logger(level=logging.DEBUG)
-    while True:
-        if event.is_set():
-            return
-        
-        logger.debug(f'\n ===== LIVENESS: {task_reporter} tokens processed =====\n')
-        sleep(0.1)
-
 
 
 class ScanMode:
@@ -134,7 +122,6 @@ class ScanMode:
                         )
                     )
                 
-                self.progress_bar.start()
                 while (n_finished := sum([job.ready() for job in self.jobs])) < len(self.jobs):
                     self.refresh_progress_bar(overall_progress_task, n_finished)
 
@@ -168,7 +155,7 @@ class ScanMode:
                     continue
         
                 if not self._size_check(full_path):
-                    console.print(f'[bold yellow][!][/bold yellow] File size exceeds --max-file-path and will be skipped: {rel_path}')
+                    console.print(f'[bold yellow]:warning:[/bold yellow] File size exceeds --max-file-path and will be skipped: {rel_path}')
                     continue
 
                 flist.append(full_path)

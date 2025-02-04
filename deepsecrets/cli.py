@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 import json
 import logging
 import sys
@@ -28,9 +29,9 @@ from rich.progress import (
     TaskProgressColumn,
     TimeRemainingColumn,
 )
-
+from rich.table import Table
+from rich import box
 from rich.text import Text
-
 from rich.align import Align
 
 
@@ -56,18 +57,23 @@ class DeepSecretsCliTool:
         self._build_argparser()
 
     def say_hello(self) -> None:
+        console.line(2)
+        console.rule('DeepSecrets', characters='=')
+
         from rich.panel import Panel
         console.print(
             Align(
                 Panel.fit(
-                    Align(Text('DeepSecrets'), 'center'),
-                    padding=(1,1),
-                    title=f'A better tool for Secret Scanning',
+                    Text('____________________________________', style='reverse'),
+                    padding=(0,0),
+                    title=f'A better tool for Secret Scanning ',
                     subtitle='version 1.4.0',
                 ),
                 align='center'
             )
         )
+        console.line(2)
+
 
 
     def _build_argparser(self) -> None:
@@ -247,30 +253,48 @@ class DeepSecretsCliTool:
     
 
     def start(self) -> None:  # pragma: nocover
+        startup_time = datetime.now()
         try:
             self.parse_arguments()
         except Exception as e:
             logger.exception(e)
             sys.exit(1)
         
-        console.rule(f'Starting a scan against {config.workdir_path} using {config.process_count} processes', characters='=')
+        console.rule(f'Planning a scan against {config.workdir_path} using {config.process_count} processes', characters='=')
         console.line()
+        if config.disable_masking is True:
+            console.print(f'[bold red]:warning: SECRETS MASKING IS DISABLED. REPORT WILL CONTAIN SECRETS IN PLAINTEXT. BE CAREFUL!\n', justify='center')
+
         if config.return_code_if_findings is True:
-            console.print(f'[bold red][!][/bold red] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
+            console.print(f'[bold yellow]:warning:[/bold yellow] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
         
-        planning = console.status('[bold green]Planning...', )
-        planning.start()
         mode = CliScanMode(config=config)
-        
+
+        console.line()
+        console.rule(f'Starting analysis', characters='—')
+        console.line()
         mode.set_progress_bar(progress_bar)
+
+        progress_bar.start()
         findings: List[Finding] = mode.run()
-        logger.info(80 * '=')
-        logger.info('Scanning finished')
-        # logger.info(f'{mode.progress[0]} tokens processed')
-        logger.info(f'{len(findings)} potential secrets found')
+        progress_bar.stop()
+        finish_time = datetime.now()
+
         report_path = get_abspath(config.output.path)
 
-        logger.info(f'Writing report to {report_path}')
+        console.line()
+        console.print('[bold green]Scanning finished successfully')
+        console.rule(f'REPORT', characters='=')
+        console.line()
+        table = Table(box=box.HORIZONTALS, show_header=False, row_styles=['blink'], style='dim', width=80)
+        table.add_column()
+        table.add_column(justify='right')
+        table.add_row(Align('Files Processed', vertical='middle'), str(len(mode.filepaths)))
+        table.add_row(Align('Elapsed', vertical='middle'), f'{(finish_time-startup_time).total_seconds():.1f}s')
+        findings_line_color = '[bold red]' if len(findings) > 0 else '[bold green]'
+        table.add_row(Align(f'{findings_line_color}Potential Findings', vertical='middle'), f'{findings_line_color}{str(len(findings))}')
+        table.add_row(Align('Report Location', vertical='middle'), report_path)
+        console.print(Align(table, align='center'))
 
         with open(report_path, 'w+') as f:
 
@@ -280,7 +304,12 @@ class DeepSecretsCliTool:
             if config.output.type == 'dojo-sarif':
                 f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
 
-        logger.info('Done')
+        if len(findings) > 0 and config.disable_masking:
+            console.print(f'[bold red]:warning: SECRETS MASKING WAS DISABLED, THE REPORT CONTAINS POTENTIAL SECRETS IN PLAINTEXT.\nBE CAREFUL!', justify='center')
+        
+        console.line()
+        console.print(Align('[bold green]FINISHED', align='center'))
+        console.line(2)
 
         if len(findings) > 0 and config.return_code_if_findings:
             sys.exit(FINDINGS_DETECTED_RETURN_CODE)

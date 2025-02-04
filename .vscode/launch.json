@@ -25,12 +25,11 @@
                 "./tests/fixtures",
                 "--outfile",
                 "./fdsafad.json",
-                "--reflect-findings-in-return-code",
-                "--verbose",
                 "--process-count", "1",
-                "--max-file-size", "5000"
+                "--max-file-size", "5000",
+                "--disable-masking"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Python: File",

@@ -39,6 +39,8 @@ class ScanMode:
 
 
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
+        console.print(f'[*] Looking for applicable files...')
+        console.line()
         if pool_engine is None:
             self.pool_engine = get_context(config.mp_context).Pool
         else:
@@ -91,7 +93,7 @@ class ScanMode:
             overall_progress_task,
             completed=n_finished,
             total=len(self.jobs),
-            findings=f'FINDINGS: {total_findings}'
+            findings=f'RAW FINDINGS: {total_findings}'
         )
 
     def run(self) -> List[Finding]:
@@ -102,7 +104,7 @@ class ScanMode:
             return final
         
         if self.progress_bar is not None:
-            overall_progress_task = self.progress_bar.add_task("[green bold]OVERALL PROGRESS", visible=True, findings='FINDINGS: 0')
+            overall_progress_task = self.progress_bar.add_task("[green bold]OVERALL PROGRESS", visible=True, findings='RAW FINDINGS: 0')
 
         if PROFILER_ON:
             for file in self.filepaths:
@@ -162,7 +164,7 @@ class ScanMode:
                     continue
         
                 if not self._size_check(full_path):
-                    console.print(f'[bold yellow]:warning:[/bold yellow] File size exceeds --max-file-path and will be skipped: {rel_path}')
+                    console.print(f'[bold yellow]:warning: {rel_path}[/bold yellow]: File size exceeds [magenta]--max-file-path[/magenta] of {self.config.max_file_size} bytes and will be [bold]skipped[/bold]')
                     continue
 
                 flist.append(full_path)

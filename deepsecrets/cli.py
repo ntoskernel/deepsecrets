@@ -46,7 +46,8 @@ progress_bar = Progress(
     TaskProgressColumn(),
     TimeRemainingColumn(),
     console=console,
-    refresh_per_second=10
+    refresh_per_second=10,
+    expand=True
 )
 
 class DeepSecretsCliTool:
@@ -260,7 +261,7 @@ class DeepSecretsCliTool:
             logger.exception(e)
             sys.exit(1)
         
-        console.rule(f'Planning a scan against {config.workdir_path} using {config.process_count} processes', characters='=')
+        console.rule(f'Planning a scan against {config.workdir_path} using {config.process_count} process(es)', characters='=')
         console.line()
         if config.disable_masking is True:
             console.print(f'[bold red]:warning: SECRETS MASKING IS DISABLED. REPORT WILL CONTAIN SECRETS IN PLAINTEXT. BE CAREFUL!\n', justify='center')

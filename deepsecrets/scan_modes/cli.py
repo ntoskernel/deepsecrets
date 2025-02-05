@@ -25,6 +25,7 @@ class CliScanMode(ScanMode):
         self.engines_enabled: Dict[Type, bool] = {}
         self.rulesets = {}
 
+        console.line()
         console.print(f'[*] Found [bold green]{len(self.filepaths)} applicable files[/bold green] for the scan')
         if len(self.filepaths) == 0:
             return

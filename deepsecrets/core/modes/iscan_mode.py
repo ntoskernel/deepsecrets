@@ -74,7 +74,9 @@ class ScanMode:
         for task_id, current_state in self.task_reporter.items():
             total = current_state.get('total_tokens')
             processed = current_state.get('processed')
-            visible = current_state.get('finished')
+            started = current_state.get('started')
+            finished = current_state.get('finished')
+            visible = started is True and finished is False
             findings = current_state.get('findings')
             total_findings += findings
             # update the progress bar for this task:
@@ -100,7 +102,7 @@ class ScanMode:
             return final
         
         if self.progress_bar is not None:
-            overall_progress_task = self.progress_bar.add_task("[green bold]Scan Progress:", visible=True, findings='FINDINGS: 0')
+            overall_progress_task = self.progress_bar.add_task("[green bold]OVERALL PROGRESS", visible=True, findings='FINDINGS: 0')
 
         if PROFILER_ON:
             for file in self.filepaths:
@@ -109,7 +111,7 @@ class ScanMode:
         else:
             with self.pool_engine(processes=proc_count) as pool:
                 for file in self.filepaths:
-                    task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0')
+                    task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0', visible=False)
                     # runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.task_reporter)
                     self.jobs.append(
                         pool.apply_async(
@@ -127,14 +129,19 @@ class ScanMode:
 
         # final refresh
         self.refresh_progress_bar(overall_progress_task, 100, final=True)
+        self.progress_bar.stop()
 
         for job_result in self.jobs:
             file_findings = job_result.get()
             if file_findings is None or len(file_findings) == 0:
                 continue
             final.extend(file_findings)
-
+        
+        console.line()
+        console.print(f'[*] Merging similar findings..')
         fin = FindingMerger(final).merge()
+
+        console.print(f'[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
         return fin
 

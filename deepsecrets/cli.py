@@ -283,7 +283,9 @@ class DeepSecretsCliTool:
         report_path = get_abspath(config.output.path)
 
         console.line()
-        console.print('[bold green]Scanning finished successfully')
+        console.print('[bold green]Scanning finished successfully', justify='center')
+        console.line()
+
         console.rule(f'REPORT', characters='=')
         console.line()
         table = Table(box=box.HORIZONTALS, show_header=False, row_styles=['blink'], style='dim', width=80)

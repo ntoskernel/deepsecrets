@@ -60,7 +60,8 @@ class LexerFinder:
         return lexer
     
     def _determine_extension(self):
-        if self.file.extension is None:
+        meta_extensions = ['txt', 'conf']
+        if self.file.extension is None or self.file.extension in meta_extensions:
             return self._try_guess_extension()
         
         return self.file.extension

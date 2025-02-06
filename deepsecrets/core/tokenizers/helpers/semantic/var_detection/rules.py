@@ -2,13 +2,13 @@ import regex as re
 from typing import List
 
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
-from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, VaribleDetector, VaribleSuppressor
+from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, VariableDetector, VariableSuppressor
 from pygments.token import Token as PygmentsToken
 
 
 class VariableDetectionRules:
     rules = [
-        VaribleDetector(
+        VariableDetector(
             language=Language.PYTHON,
             stream_pattern=re.compile('(n)(o|p)(?:\n?)(L)(?:\n|p|\?)'),  # noqa
             match_rules={2: Match(values=[
@@ -17,19 +17,19 @@ class VariableDetectionRules:
             ])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.PYTHON,
             stream_pattern=re.compile('(L)(p)(L)(?:p|\n)'),
             match_rules={2: Match(values=[':'])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.PYTHON,
             stream_pattern=re.compile('(L)(p)(o)(L)'),
             match_rules={2: Match(values=[']']), 3: Match(values=['='])},
             match_semantics={1: 'name', 4: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.PYTHON,
             stream_pattern=re.compile('(n)(o)(p).*(L)+.*(p)', flags=re.MULTILINE | re.S),
             match_rules={
@@ -40,13 +40,13 @@ class VariableDetectionRules:
             match_semantics={1: 'name', 4: 'value'},
         ),
         # GOLANG
-        VaribleDetector(
+        VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(p)(L)(?:p|\n)?'),
             match_rules={2: Match(values=[':', '='])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(p)(L)(?:p|\n)?(L)(p)'),
             match_rules={
@@ -57,7 +57,7 @@ class VariableDetectionRules:
             match_semantics={3: 'name', 4: 'value'},
         ),
         
-       VaribleDetector(
+       VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(?:p|n|u){0,3}?(o).*(n)(p)(L)'),
             match_rules={
@@ -67,20 +67,20 @@ class VariableDetectionRules:
             match_semantics={1: 'name', 5: 'value'},
         ),
 
-        VaribleDetector(
+        VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(?:o|p){1,3}(\?|u)p(L)p'),  # noqa
             match_rules={2: Match(values=['byte', 'string'])},
             match_semantics={1: 'name', 3: 'value'},
         ),
         # PHP
-        VaribleDetector(
+        VariableDetector(
             language=Language.PHP,
             stream_pattern=re.compile('(n|v|L)(o)(L)'),
             match_rules={2: Match(values=['=', '=>'])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.PHP,
             stream_pattern=re.compile('(L)(o)(n)(p)Lp(L)p'),
             match_rules={
@@ -91,31 +91,31 @@ class VariableDetectionRules:
             match_semantics={1: 'name', 5: 'value'},
         ),
         # CONFIGS AND FORMATS
-        VaribleDetector(
+        VariableDetector(
             language=Language.TOML,
             stream_pattern=re.compile('(n)(o)(L)\n'),
             match_rules={2: Match(values=['='])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.YAML,
             stream_pattern=re.compile('(L)(p)(L)'),
             match_rules={2: Match(values=[':'])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.INI,
             stream_pattern=re.compile('(n)(o)(L)'),
             match_rules={2: Match(values=['='])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.PUPPET,
             stream_pattern=re.compile('(v|n)(o)(L)'),
             match_rules={2: Match(values=['=>', '='])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.ANY,
             stream_pattern=re.compile('(v|n)(p|o)(L)'),
             match_rules={
@@ -125,7 +125,7 @@ class VariableDetectionRules:
                 ])},
             match_semantics={1: 'name', 3: 'value'},
         ),
-        VaribleDetector(
+        VariableDetector(
             language=Language.SHELL,
             stream_pattern=re.compile('(L)(L)(L)(L)'),
             match_rules={
@@ -137,7 +137,7 @@ class VariableDetectionRules:
             creds_probability=9,
         ),
 
-        VaribleDetector(
+        VariableDetector(
             language=Language.CSHARP,
             stream_pattern=re.compile('(n).{0,6}(u|L)p(L)(p)'),
             match_rules={
@@ -147,7 +147,7 @@ class VariableDetectionRules:
             match_semantics={2: 'name', 3: 'value'},
         ),
 
-        VaribleDetector(
+        VariableDetector(
             language=Language.CSHARP,
             stream_pattern=re.compile('(p)(.)(p)(L)(p)'),
             match_rules={
@@ -158,7 +158,7 @@ class VariableDetectionRules:
             match_semantics={2: 'name', 4: 'value'},
         ),
 
-        VaribleDetector(
+        VariableDetector(
             language=Language.JAVA,
             stream_pattern=re.compile('(n)(p)(.)(p)(L)'),
             match_rules={
@@ -172,13 +172,13 @@ class VariableDetectionRules:
     ]
 
     @classmethod
-    def for_language(cls, language: Language) -> List[VaribleDetector]:
+    def for_language(cls, language: Language) -> List[VariableDetector]:
         return list(filter(lambda x: x.language in [language, Language.ANY], cls.rules))
 
 
 class VariableSuppressionRules(VariableDetectionRules):
     rules=[
-        VaribleSuppressor(
+        VariableSuppressor(
             language=Language.JS,
             stream_pattern=re.compile('(p)(n).+?(p)(u|L|\n)'),
             match_rules={
@@ -201,7 +201,7 @@ class VariableSuppressionRules(VariableDetectionRules):
         ),
 
         
-        VaribleSuppressor(
+        VariableSuppressor(
             language=Language.JS,
             stream_pattern=re.compile('(n)(o)L.{0,4}(?:u|\n)(n)(o)(?:L|u)'),
             match_rules={
@@ -224,7 +224,7 @@ class VariableSuppressionRules(VariableDetectionRules):
 
         
 
-        VaribleSuppressor(
+        VariableSuppressor(
             language=Language.SWIFT,
             stream_pattern=re.compile('(n)(p)(n)(p)L'),
             match_rules={
@@ -241,7 +241,7 @@ class VariableSuppressionRules(VariableDetectionRules):
         ),
 
 
-        VaribleSuppressor(
+        VariableSuppressor(
             language=Language.GOLANG,
             stream_pattern=re.compile('(p)(n)(p)L(p)(n)(p).'),
             match_rules={

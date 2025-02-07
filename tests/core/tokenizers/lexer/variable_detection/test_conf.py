@@ -43,6 +43,11 @@ def file_pp_1():
     path = 'tests/fixtures/1.pp'
     return File(path=path, relative_path=path)
 
+@pytest.fixture(scope='module')
+def file_conf_2():
+    path = 'tests/fixtures/2.conf'
+    return File(path=path, relative_path=path)
+
 
 def test_1(file_toml_1):
     lex = LexerTokenizer(deep_token_inspection=True)
@@ -98,3 +103,11 @@ def test_7(file_yml_1):
 
     variables = lex.get_variables()
     assert len(variables) == 1
+
+
+def test_8(file_conf_2):
+    lex = LexerTokenizer(deep_token_inspection=True)
+    lex.tokenize(file_conf_2, post_filter=False)
+
+    variables = lex.get_variables()
+    assert len(variables) == 6

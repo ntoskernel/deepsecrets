@@ -14,6 +14,7 @@ def file_toml_1():
 
 def test_file_analyzer(file_toml_1):
     file_analyzer = FileAnalyzer(file_toml_1)
+    
     lex = LexerTokenizer(deep_token_inspection=True)
     semantic_engine = SemanticEngine(subengine=None)
     file_analyzer.add_engine(engine=semantic_engine, tokenizers=[lex])

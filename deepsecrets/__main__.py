@@ -1,7 +1,6 @@
 import sys
 from deepsecrets.cli import DeepSecretsCliTool
 
-
 def runnable_entrypoint():
     sys.exit(DeepSecretsCliTool(sys.argv).start())
 

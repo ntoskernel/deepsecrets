@@ -90,9 +90,10 @@ class Match(BaseModel):
 
 
 
-class VaribleDetector(BaseModel):
+class VariableDetector(BaseModel):
     language: Optional[Language] = None
     stream_pattern: re.Pattern
+    #re_flags: Optional[re.RegexFlag] = None
     match_rules: Dict[int, Match]
     match_semantics: Dict[int, str]
     creds_probability: int = 0
@@ -127,7 +128,7 @@ class VaribleDetector(BaseModel):
         return True
 
 
-class VaribleSuppressor(VaribleDetector):
+class VariableSuppressor(VariableDetector):
 
     def match(self, tokens: List[Token], token_stream: str) -> List['Variable']:
         detections = super().match(tokens, token_stream)

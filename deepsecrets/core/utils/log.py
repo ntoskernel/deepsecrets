@@ -11,7 +11,8 @@ def set_logging_level(logger: logging.Logger, level: int) -> None:
             handler.setFormatter(logging.Formatter('DS-%(levelname)s: %(message)s'))
 
     if level == logging.DEBUG and multiprocessing.current_process().name == 'MainProcess':
-        logger.debug('Debug logging enabled')
+        #logger.debug('Debug logging enabled')
+        pass
 
     
 

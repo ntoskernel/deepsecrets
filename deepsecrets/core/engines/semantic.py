@@ -8,6 +8,7 @@ from deepsecrets.core.helpers.entropy import EntropyHelper
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.rules.rule import Rule
 from deepsecrets.core.model.token import Token
+from deepsecrets.core.utils.string import StringUtils
 
 filenames_ignorelist = [
     'package-lock.json',
@@ -38,7 +39,10 @@ var_name_showstoppers = [
     'name',
     'algo',
     'algorithm',
-    'change'
+    'change',
+    'mock',
+    'fake',
+    'dummy'
 ]
 
 
@@ -46,7 +50,7 @@ class SemanticEngine(IEngine):
     name = 'semantic'
     entropy_threshold = 4.15
     dangerous_variable_regex = re.compile(
-        r'(secret|passw|\bpass\b|\btoken\b|\baccess\b|\bpwd\b|rivateke|cesstoke|authkey|\bsecret\b|\bkey\b).{0,15}',
+        r'(secret|passw|\bpass\b|\btoken\b|\baccess\b|\bpwd\b|rivateke|cesstoke|authkey|cred|\bsecret\b|\bkey\b).{0,15}',
         re.IGNORECASE,
     )
     useless_value_regex = re.compile(r'^[^A-Za-z0-9]*$|^%.*%$|^\[.*\]$|^{.*}$', re.IGNORECASE)
@@ -151,16 +155,5 @@ class SemanticEngine(IEngine):
 
     def normalize_punctuation(self, string: str):
         normalized = string.replace(' ', '_').replace('-', ' ').replace('_', ' ')
-        parts = self.__camel_case_divide(normalized).split(' ')
+        parts = StringUtils.camel_case_divide(normalized).split(' ')
         return normalized.lower(), parts
-
-    def __camel_case_divide(self, string: str):
-        final = ''
-        for i, _ in enumerate(string):
-            final += string[i].lower()
-            if i == len(string) - 1:
-                continue
-
-            if string[i].islower() and string[i+1].isupper():
-                final += ' '
-        return final

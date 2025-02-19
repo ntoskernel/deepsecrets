@@ -280,7 +280,6 @@ class DeepSecretsCliTool:
         findings: List[Finding] = mode.run()
         progress_bar.stop()
         finish_time = datetime.now()
-
         report_path = get_abspath(config.output.path)
 
         console.line()
@@ -303,13 +302,13 @@ class DeepSecretsCliTool:
 
             if config.output.type == 'json':
                 json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
-            
+
             if config.output.type == 'dojo-sarif':
                 f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
 
         if len(findings) > 0 and config.disable_masking:
             console.print('[bold red]:warning: SECRETS MASKING WAS DISABLED, THE REPORT CONTAINS POTENTIAL SECRETS IN PLAINTEXT.\nBE CAREFUL!', justify='center')
-        
+
         console.line()
         console.print(Align('[italic]Any missed secret or massive false positive rate is potentially a bug', align='center'))
         console.print(Align('[italic]So feel free to report bugs and difficulties here', align='center'))
@@ -317,6 +316,7 @@ class DeepSecretsCliTool:
         console.line()
         console.print(Align('[bold green]FINISHED', align='center'))
         console.line(2)
+        mode.dispose()
 
         if len(findings) > 0 and config.return_code_if_findings:
             sys.exit(FINDINGS_DETECTED_RETURN_CODE)

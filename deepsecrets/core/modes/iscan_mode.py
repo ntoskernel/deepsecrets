@@ -37,12 +37,13 @@ class ScanMode:
     progress_bar: ProgressBar
     file_jobs: List[AsyncResult]
 
+    _mp_manager = None
+
     def get_total_tokens_processed(self):
         result = 0
         for _, tr in self.task_reporter.items():
             result += int(tr.get('total_tokens'))
         return result
-
 
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
         console.print(f'[*] Looking for applicable files...')
@@ -52,8 +53,8 @@ class ScanMode:
         else:
             self.pool_engine = pool_engine
 
-        m = Manager()
-        self.task_reporter = m.dict({})
+        self._mp_manager = Manager()
+        self.task_reporter = self._mp_manager.dict({})
         self.progress_bar = None
 
         self.config = config
@@ -72,7 +73,6 @@ class ScanMode:
         if file_count == 0:
             return 0
         return limit if file_count >= limit else file_count
-    
 
     def refresh_progress_bar(self, overall_progress_task, n_finished, final=False):
         if self.task_reporter is None:
@@ -131,9 +131,10 @@ class ScanMode:
                             file),
                         )
                     )
-                
+ 
                 while (n_finished := sum([job.ready() for job in self.file_jobs])) < len(self.file_jobs):
                     self.refresh_progress_bar(overall_progress_task, n_finished)
+                pool.close()
 
         # final refresh
         self.refresh_progress_bar(overall_progress_task, 100, final=True)
@@ -152,6 +153,12 @@ class ScanMode:
         console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
         return fin
+
+    def dispose(self):
+        self.task_reporter = None
+        self._mp_manager.shutdown()
+        print()
+
 
     def _get_files_list(self) -> List[str]:
         flist = []

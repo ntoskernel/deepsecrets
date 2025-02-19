@@ -35,7 +35,13 @@ class ScanMode:
 
     task_reporter: DictProxy
     progress_bar: ProgressBar
-    jobs: List[AsyncResult]
+    file_jobs: List[AsyncResult]
+
+    def get_total_tokens_processed(self):
+        result = 0
+        for _, tr in self.task_reporter.items():
+            result += int(tr.get('total_tokens'))
+        return result
 
 
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
@@ -51,7 +57,7 @@ class ScanMode:
         self.progress_bar = None
 
         self.config = config
-        self.jobs = []
+        self.file_jobs = []
 
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
@@ -92,8 +98,8 @@ class ScanMode:
         self.progress_bar.update(
             overall_progress_task,
             completed=n_finished,
-            total=len(self.jobs),
-            findings=f'RAW FINDINGS: {total_findings}'
+            total=len(self.file_jobs),
+            findings=f'RAW FINDINGS (BEFORE FILTERING): {total_findings}'
         )
 
     def run(self) -> List[Finding]:
@@ -104,7 +110,7 @@ class ScanMode:
             return final
         
         if self.progress_bar is not None:
-            overall_progress_task = self.progress_bar.add_task("[green bold]OVERALL PROGRESS", visible=True, findings='RAW FINDINGS: 0')
+            overall_progress_task = self.progress_bar.add_task("[green bold]OVERALL PROGRESS", visible=True, findings='RAW FINDINGS (BEFORE FILTERING): 0')
 
         if PROFILER_ON:
             for file in self.filepaths:
@@ -115,7 +121,7 @@ class ScanMode:
                 for file in self.filepaths:
                     task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0', visible=False)
                     # runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.task_reporter)
-                    self.jobs.append(
+                    self.file_jobs.append(
                         pool.apply_async(
                             pool_wrapper,
                             (bundle,
@@ -126,24 +132,24 @@ class ScanMode:
                         )
                     )
                 
-                while (n_finished := sum([job.ready() for job in self.jobs])) < len(self.jobs):
+                while (n_finished := sum([job.ready() for job in self.file_jobs])) < len(self.file_jobs):
                     self.refresh_progress_bar(overall_progress_task, n_finished)
 
         # final refresh
         self.refresh_progress_bar(overall_progress_task, 100, final=True)
         self.progress_bar.stop()
 
-        for job_result in self.jobs:
+        for job_result in self.file_jobs:
             file_findings = job_result.get()
             if file_findings is None or len(file_findings) == 0:
                 continue
             final.extend(file_findings)
-        
+
         console.line()
-        console.print(f'[*] Merging similar findings..')
+        console.print('[*] Merging similar findings..')
         fin = FindingMerger(final).merge()
 
-        console.print(f'[*] Filtering predefined false Findings..')
+        console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
         return fin
 
@@ -162,7 +168,7 @@ class ScanMode:
                 rel_path = full_path.replace(f'{self.config.workdir_path}/', '')
                 if not self._path_included(rel_path):
                     continue
-        
+
                 if not self._size_check(full_path):
                     console.print(f'[bold yellow]:warning: {rel_path}[/bold yellow]: File size exceeds [magenta]--max-file-path[/magenta] of {self.config.max_file_size} bytes and will be [bold]skipped[/bold]')
                     continue

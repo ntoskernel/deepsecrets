@@ -2,7 +2,7 @@
 	"name": "DeepSecrets Devcontainer",
 	"build": {
 		"context": "..",
-		"dockerfile": "../Dockerfile"
+		"dockerfile": "Dockerfile"
 	},
 
 	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=delegated",
@@ -12,7 +12,9 @@
 			"extensions": [
 				"ms-python.python",
 				"ms-python.vscode-pylance",
-				"ms-python.mypy-type-checker"
+				"ms-python.mypy-type-checker",
+				"ms-python.black-formatter",
+				"ms-python.flake8"
 			]
 		}
 	},

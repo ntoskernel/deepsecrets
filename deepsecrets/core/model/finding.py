@@ -11,6 +11,7 @@ from deepsecrets.core.model.rules.rule import Rule
 import sarif_om as om
 from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
 
+
 class Finding(BaseModel):
     file: Optional['File'] = Field(default=None)
     rules: List[Rule] = Field(default=[])

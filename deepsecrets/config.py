@@ -62,17 +62,17 @@ class Config:
 
     def set_mp_context(self, context: str) -> None:
         self.mp_context = context
-    
+
     def set_process_count(self, count: int) -> None:
         if count > 0:
             self.process_count = count
             return
-        
+
         count = CpuHelper().get_limit()
         if count > 0:
             self.process_count = count
             return
-        
+
         self.process_count = FALLBACK_PROCESS_COUNT
 
     def set_global_exclusion_paths(self, paths: List[str]) -> None:

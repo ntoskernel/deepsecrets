@@ -42,12 +42,12 @@ progress_bar = Progress(
     SpinnerColumn(),
     TextColumn("[progress.description]{task.description}"),
     TextColumn("[bold red]{task.fields[findings]}", justify="left"),
-    BarColumn(),
+    BarColumn(bar_width=None),
     TaskProgressColumn(),
     TimeRemainingColumn(),
     console=console,
     refresh_per_second=10,
-    expand=True
+    expand=True,
 )
 
 class DeepSecretsCliTool:
@@ -287,12 +287,12 @@ class DeepSecretsCliTool:
         console.print('[bold green]Scanning finished successfully', justify='center')
         console.line()
 
-        console.rule(f'REPORT', characters='=')
+        console.rule('REPORT', characters='=')
         console.line()
         table = Table(box=box.HORIZONTALS, show_header=False, row_styles=['blink'], style='dim', width=80)
         table.add_column()
         table.add_column(justify='right')
-        table.add_row(Align('Files Processed', vertical='middle'), str(len(mode.filepaths)))
+        table.add_row(Align('Files (Tokens) Processed', vertical='middle'), f'{str(len(mode.filepaths))} ({mode.get_total_tokens_processed()})')
         table.add_row(Align('Elapsed', vertical='middle'), f'{(finish_time-startup_time).total_seconds():.1f}s')
         findings_line_color = '[bold red]' if len(findings) > 0 else '[bold green]'
         table.add_row(Align(f'{findings_line_color}Potential Findings', vertical='middle'), f'{findings_line_color}{str(len(findings))}')
@@ -308,8 +308,12 @@ class DeepSecretsCliTool:
                 f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
 
         if len(findings) > 0 and config.disable_masking:
-            console.print(f'[bold red]:warning: SECRETS MASKING WAS DISABLED, THE REPORT CONTAINS POTENTIAL SECRETS IN PLAINTEXT.\nBE CAREFUL!', justify='center')
+            console.print('[bold red]:warning: SECRETS MASKING WAS DISABLED, THE REPORT CONTAINS POTENTIAL SECRETS IN PLAINTEXT.\nBE CAREFUL!', justify='center')
         
+        console.line()
+        console.print(Align('[italic]Any missed secret or massive false positive rate is potentially a bug', align='center'))
+        console.print(Align('[italic]So feel free to report bugs and difficulties here', align='center'))
+        console.print(Align('[italic]https://github.com/ntoskernel/deepsecrets/issues', align='center'))
         console.line()
         console.print(Align('[bold green]FINISHED', align='center'))
         console.line(2)

@@ -39,7 +39,6 @@ class CliScanMode(ScanMode):
                 builder.with_rules_from_file(os.path.abspath(path))
             self.rulesets[builder.ruleset_name] = builder.rules
 
-
     def analyzer_bundle(self) -> DotWiz:
         bundle = super().analyzer_bundle()
         bundle.update(
@@ -49,11 +48,9 @@ class CliScanMode(ScanMode):
         )
         return bundle
 
-
     @staticmethod
     def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> List[Finding]:  # type: ignore
         if logger.level == logging.DEBUG:
-            #logger.debug(f'Starting analysis for {file}')
             pass
 
         results: List[Finding] = []

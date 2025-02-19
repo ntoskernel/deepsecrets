@@ -16,7 +16,7 @@ class EngineWithTokenizer(BaseModel):
     engine: IEngine
     tokenizer: Tokenizer
 
-    model_config = ConfigDict(arbitrary_types_allowed = True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class Progress:

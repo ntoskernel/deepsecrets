@@ -53,12 +53,11 @@ deepsecrets = "deepsecrets:__main__.runnable_entrypoint"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.4"
-coverage = "^7.6.10"
+coverage = "^7.6.12"
 pytest-cov = "^6.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
-
 
 [build-system]
 requires = ["poetry-core"]

@@ -12,63 +12,53 @@ class Match(BaseModel):
     values: List[re.Pattern] = Field(default_factory=list)
     not_values: List[re.Pattern] = Field(default_factory=list)
 
-    model_config = ConfigDict(arbitrary_types_allowed = True)
-
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def check(self, tokens: List[Token]) -> bool:
-        
+
         types_match = self._check_types(tokens)
         values_match = self._check_values(tokens)
         not_values_match = self._check_not_values(tokens)
 
         if not types_match:
             return False
-        
+
         if not values_match:
-            return False 
-        
+            return False
+
         if not_values_match:
             return False
 
         return True
 
-    
-
     def _check_types(self, tokens):
         if len(self.types) == 0:
-            return True # should match any type
-        
+            return True  # should match any type
+
         for token in tokens:
             if token.type[0] in self.types:
                 return True
         return False
 
-
     def _check_values(self, tokens):
         if len(self.values) == 0:
-            return True # should match any value
-        
+            return True  # should match any value
+
         for token in tokens:
             for pattern in self.values:
                 if re.match(pattern, token.content) is not None:
                     return True
         return False
-    
 
     def _check_not_values(self, tokens):
         if len(self.not_values) == 0:
             return False
-        
+
         for token in tokens:
             for pattern in self.not_values:
                 if re.match(pattern, token.content) is not None:
                     return True
-        return False     
-            
-
-
-
-
+        return False
 
     @field_validator('values', 'not_values', mode='before')
     def regexify_values(cls, values: Dict) -> List[re.Pattern]:
@@ -89,16 +79,15 @@ class Match(BaseModel):
         return patterns
 
 
-
 class VariableDetector(BaseModel):
     language: Optional[Language] = None
     stream_pattern: re.Pattern
-    #re_flags: Optional[re.RegexFlag] = None
+    # re_flags: Optional[re.RegexFlag] = None
     match_rules: Dict[int, Match]
     match_semantics: Dict[int, str]
     creds_probability: int = 0
 
-    model_config = ConfigDict(arbitrary_types_allowed = True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def match(self, tokens: List[Token], token_stream: str) -> List['Variable']:
         true_detections = []
@@ -135,9 +124,8 @@ class VariableSuppressor(VariableDetector):
         spans = []
         for detection in detections:
             spans.append(detection.span)
-        
+
         return spans
-    
 
 
 from deepsecrets.core.model.semantic import Variable

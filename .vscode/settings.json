@@ -6,10 +6,18 @@
     ],
     "editor.codeActionsOnSave": {
         "source.organizeImports": "explicit",
-        "source.unusedImports": "explicit"
+        "source.unusedImports": "explicit",
     },
+    
     "mypy-type-checker.args": [
         "--config-file=${workspaceFolder}/pyproject.toml"
     ],
-    "python.experiments.optInto": ["pythonTestAdapter"]
+    "python.experiments.optInto": ["pythonTestAdapter"],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    },
+    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.indexing": true,
+    "python.analysis.diagnosticMode": "workspace"
 }

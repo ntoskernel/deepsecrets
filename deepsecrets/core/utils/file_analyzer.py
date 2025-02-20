@@ -40,11 +40,11 @@ class Progress:
     def on_token_processing_start(self):
         self.started = True
         self.processed_count += 1
-            
+
     def on_finish(self):
         self.started = False
         self.finished = True
-    
+
     def add_findings_count(self, count: int):
         self.findings += count
 
@@ -85,11 +85,11 @@ class FileAnalyzer:
         self.task_reporter = task_reporter
         self.task_id = task_id
         self.global_report()
-    
+
     def global_report(self):
         if self.task_reporter is None:
             return
-        
+
         self.task_reporter[self.task_id] = self.progress.report()
 
     def add_engine(self, engine: IEngine, tokenizers: List[Tokenizer]) -> None:
@@ -145,16 +145,16 @@ class FileAnalyzer:
                     finding.map_on_file(file=self.file, relative_start=token.span[0])
                     results.append(finding)
                     processed_values[token.val_hash()] = True
-                
+
                 self.on_token_processing_end(len(findings))
 
             except Exception as e:
                 logger.exception('Unable to process token')
                 continue
-        
+
         self.progress.on_finish()
         return results
-    
+
     def on_token_processing_start(self, token: Token):
         self.progress.on_token_processing_start()
         self.global_report()

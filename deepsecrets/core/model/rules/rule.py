@@ -9,8 +9,8 @@ class Rule(BaseModel):
     name: Optional[str] = None
     confidence: int = Field(default=9)
     applicable_file_patterns: List[re.Pattern] = Field(default=[])
-    
-    model_config = ConfigDict(arbitrary_types_allowed = True)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='before')
     @classmethod

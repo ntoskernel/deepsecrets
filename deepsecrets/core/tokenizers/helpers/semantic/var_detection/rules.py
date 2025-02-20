@@ -2,7 +2,11 @@ import regex as re
 from typing import List
 
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
-from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, VariableDetector, VariableSuppressor
+from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import (
+    Match,
+    VariableDetector,
+    VariableSuppressor,
+)
 from pygments.token import Token as PygmentsToken
 
 
@@ -11,10 +15,7 @@ class VariableDetectionRules:
         VariableDetector(
             language=Language.PYTHON,
             stream_pattern=re.compile('(n)(o|p)(?:\n?)(L)(?:\n|p|\?)'),  # noqa
-            match_rules={2: Match(values=[
-                re.compile('^=$'),
-                re.compile('^:$')
-            ])},
+            match_rules={2: Match(values=[re.compile('^=$'), re.compile('^:$')])},
             match_semantics={1: 'name', 3: 'value'},
         ),
         VariableDetector(
@@ -56,17 +57,15 @@ class VariableDetectionRules:
             },
             match_semantics={3: 'name', 4: 'value'},
         ),
-        
-       VariableDetector(
+        VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(?:p|n|u){0,3}?(o).*(n)(p)(L)'),
             match_rules={
-               2: Match(values=[':=']),
-               3: Match(not_values=['Getenv', 'Setenv', 'Format']),
-           },
+                2: Match(values=[':=']),
+                3: Match(not_values=['Getenv', 'Setenv', 'Format']),
+            },
             match_semantics={1: 'name', 5: 'value'},
         ),
-
         VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(?:o|p){1,3}(\?|u)p(L)p'),  # noqa
@@ -119,10 +118,13 @@ class VariableDetectionRules:
             language=Language.ANY,
             stream_pattern=re.compile('(v|n)(p|o)(L)'),
             match_rules={
-                2: Match(values=[
-                    re.compile('^:$'),
-                    re.compile('^=$'),
-                ])},
+                2: Match(
+                    values=[
+                        re.compile('^:$'),
+                        re.compile('^=$'),
+                    ]
+                )
+            },
             match_semantics={1: 'name', 3: 'value'},
         ),
         VariableDetector(
@@ -136,7 +138,6 @@ class VariableDetectionRules:
             match_semantics={3: 'name', 4: 'value'},
             creds_probability=9,
         ),
-
         VariableDetector(
             language=Language.CSHARP,
             stream_pattern=re.compile('(n).{0,6}(u|L)p(L)(p)'),
@@ -146,7 +147,6 @@ class VariableDetectionRules:
             },
             match_semantics={2: 'name', 3: 'value'},
         ),
-
         VariableDetector(
             language=Language.CSHARP,
             stream_pattern=re.compile('(p)(.)(p)(L)(p)'),
@@ -157,7 +157,6 @@ class VariableDetectionRules:
             },
             match_semantics={2: 'name', 4: 'value'},
         ),
-
         VariableDetector(
             language=Language.JAVA,
             stream_pattern=re.compile('(n)(p)(.)(p)(L)'),
@@ -168,7 +167,6 @@ class VariableDetectionRules:
             },
             match_semantics={3: 'name', 5: 'value'},
         ),
-
     ]
 
     @classmethod
@@ -177,95 +175,100 @@ class VariableDetectionRules:
 
 
 class VariableSuppressionRules(VariableDetectionRules):
-    rules=[
+    rules = [
         VariableSuppressor(
             language=Language.JS,
             stream_pattern=re.compile('(p)(n).+?(p)(u|L|\n)'),
             match_rules={
-                1: Match(values=[
-                    re.compile('^<$'),
-                    re.compile('^(}|{)$'),
-                ]),
-                2: Match(
-                    types=[
-                        PygmentsToken.Name.Tag,
-                        PygmentsToken.Name.Attribute
+                1: Match(
+                    values=[
+                        re.compile('^<$'),
+                        re.compile('^(}|{)$'),
                     ]
                 ),
-                3: Match(values=[
-                    re.compile('^>$'),
-                    re.compile('^(}|{)$'),
-                ]),
+                2: Match(types=[PygmentsToken.Name.Tag, PygmentsToken.Name.Attribute]),
+                3: Match(
+                    values=[
+                        re.compile('^>$'),
+                        re.compile('^(}|{)$'),
+                    ]
+                ),
             },
-            match_semantics={}
+            match_semantics={},
         ),
-
-        
         VariableSuppressor(
             language=Language.JS,
             stream_pattern=re.compile('(n)(o)L.{0,4}(?:u|\n)(n)(o)(?:L|u)'),
             match_rules={
-                1: Match(values=[
-                    re.compile('^key$'),
-                ]),
-                2: Match(values=[
-                    re.compile('^:$'),
-                ]),
-                3: Match(values=[
-                    re.compile('^value$'),
-                ]),
-                4: Match(values=[
-                    re.compile('^:$'),
-                ]),
+                1: Match(
+                    values=[
+                        re.compile('^key$'),
+                    ]
+                ),
+                2: Match(
+                    values=[
+                        re.compile('^:$'),
+                    ]
+                ),
+                3: Match(
+                    values=[
+                        re.compile('^value$'),
+                    ]
+                ),
+                4: Match(
+                    values=[
+                        re.compile('^:$'),
+                    ]
+                ),
             },
-            match_semantics={}
+            match_semantics={},
         ),
-
-
-        
-
         VariableSuppressor(
             language=Language.SWIFT,
             stream_pattern=re.compile('(n)(p)(n)(p)L'),
             match_rules={
-                1: Match(values=[
-                    re.compile('^decode$'),
-                    re.compile('^decodeIfPresent$'),
-                    re.compile('^unbox$')
-                ]),
+                1: Match(values=[re.compile('^decode$'), re.compile('^decodeIfPresent$'), re.compile('^unbox$')]),
                 2: Match(values=[re.compile('^\($')]),
                 3: Match(values=[re.compile('^(key|keyPath)$')]),
                 4: Match(values=[re.compile('^:$')]),
             },
-            match_semantics={}
+            match_semantics={},
         ),
-
-
         VariableSuppressor(
             language=Language.GOLANG,
             stream_pattern=re.compile('(p)(n)(p)L(p)(n)(p).'),
             match_rules={
-                1: Match(values=[
-                    re.compile('^{$'),
-                ]),
-                2: Match(values=[
-                    re.compile('^key$', re.IGNORECASE),
-                ]),
-                3: Match(values=[
-                    re.compile('^:$'),
-                ]),
-                4: Match(values=[
-                    re.compile('^,$'),
-                ]),
-                5: Match(values=[
-                    re.compile('^value$', re.IGNORECASE),
-                ]),
-                6: Match(values=[
-                    re.compile('^:$'),
-                ]),
+                1: Match(
+                    values=[
+                        re.compile('^{$'),
+                    ]
+                ),
+                2: Match(
+                    values=[
+                        re.compile('^key$', re.IGNORECASE),
+                    ]
+                ),
+                3: Match(
+                    values=[
+                        re.compile('^:$'),
+                    ]
+                ),
+                4: Match(
+                    values=[
+                        re.compile('^,$'),
+                    ]
+                ),
+                5: Match(
+                    values=[
+                        re.compile('^value$', re.IGNORECASE),
+                    ]
+                ),
+                6: Match(
+                    values=[
+                        re.compile('^:$'),
+                    ]
+                ),
             },
-            match_semantics={}
-        )
-
-        
+            match_semantics={},
+        ),
     ]

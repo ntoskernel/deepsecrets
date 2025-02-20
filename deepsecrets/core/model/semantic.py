@@ -9,6 +9,6 @@ class Variable:
     found_by: 'VariableDetector'
 
 
-from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import (
+from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import (  # noqa: E402
     VariableDetector,
 )

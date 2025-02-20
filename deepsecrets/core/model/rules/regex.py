@@ -17,7 +17,7 @@ class RegexRule(Rule):  # type: ignore
     entropy_settings: Optional[float] = Field(default=None)
     escaping_needed: bool = False
 
-    model_config = ConfigDict(arbitrary_types_allowed = True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_serializer('pattern')
     def serialize_dt(self, pattern: re.Pattern, _info):

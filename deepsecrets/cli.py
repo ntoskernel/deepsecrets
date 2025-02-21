@@ -272,7 +272,7 @@ class DeepSecretsCliTool:
 
         if config.return_code_if_findings is True:
             console.print(
-                f'[bold yellow]:warning:[/bold yellow] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n'
+                f'[bold yellow]:warning:[/bold yellow] The tool will return code of {ReturnCodes.FINDINGS_DETECTED} if any findings are detected\n'
             )
 
         mode = CliScanMode(config=config)

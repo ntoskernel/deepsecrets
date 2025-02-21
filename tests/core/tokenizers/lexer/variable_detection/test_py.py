@@ -27,6 +27,11 @@ def file_py_4():
     path = 'tests/fixtures/4.py'
     return File(path=path, relative_path=path)
 
+@pytest.fixture(scope='module')
+def file_py_6():
+    path = 'tests/fixtures/6.py'
+    return File(path=path, relative_path=path)
+
 
 def test_1(file_py_1):
     lex = LexerTokenizer(deep_token_inspection=True)
@@ -39,7 +44,7 @@ def test_2(file_py_2):
     lex = LexerTokenizer(deep_token_inspection=True)
     lex.tokenize(file_py_2, post_filter=False)
     variables = lex.get_variables()
-    assert len(variables) == 92
+    assert len(variables) == 93
 
 
 def test_3(file_py_3):
@@ -61,3 +66,11 @@ def test_4(file_py_4):
 
     variables = lex.get_variables()
     assert len(variables) == 11
+
+
+def test_5(file_py_6):
+    lex = LexerTokenizer(deep_token_inspection=True)
+    lex.tokenize(file_py_6, post_filter=False)
+
+    variables = lex.get_variables()
+    assert len(variables) == 1

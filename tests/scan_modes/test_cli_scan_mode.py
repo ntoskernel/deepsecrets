@@ -1,3 +1,4 @@
+from unittest.mock import Mock
 import pytest
 
 from deepsecrets.config import Config, Output
@@ -27,6 +28,9 @@ def test_cli_scan_mode(config: Config) -> None:
     config.set_global_exclusion_paths(['tests/fixtures/excluded_paths.json'])
     mode = CliScanMode(config=config)
     assert FP_TO_BE_EXCLUDED not in mode.filepaths
+
+    mode.progress_bar = Mock()
+    mode.progress_bar.add_task.return_value = 0
 
     findings = []
     for file in mode.filepaths:

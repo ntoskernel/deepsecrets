@@ -1,0 +1,1 @@
+kubernetes::proxy_kubeconfig_token: extlessyamlsecret

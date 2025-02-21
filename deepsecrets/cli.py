@@ -1,27 +1,57 @@
 import argparse
+from datetime import datetime
 import json
 import logging
-import sys
 from argparse import RawTextHelpFormatter
 from typing import List
 from jschema_to_python.to_json import to_json
 
-from deepsecrets import MODULE_NAME
-from deepsecrets.config import Config, config, Output, SCANNER_VERSION, SCANNER_NAME
+from deepsecrets import MODULE_NAME, console
+from deepsecrets.config import Config, config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding, FindingResponse
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
-from deepsecrets.core.rulesets.hashed_secrets import (
-    HashedSecretsRulesetBuilder
-)
+from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
-from deepsecrets.core.utils.log import logger, build_logger
+from deepsecrets.core.utils.log import logger
 from deepsecrets.scan_modes.cli import CliScanMode
 
+from rich.progress import (
+    SpinnerColumn,
+    Progress,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
+from rich import box
+from rich.text import Text
+from rich.align import Align
+
+
 DISABLED = 'disabled'
-FINDINGS_DETECTED_RETURN_CODE = 66
+
+
+class ReturnCodes:
+    OK = 0
+    ERROR = 1
+    FINDINGS_DETECTED = 66
+
+
+progress_bar = Progress(
+    SpinnerColumn(),
+    TextColumn("[progress.description]{task.description}"),
+    TextColumn("[bold red]{task.fields[findings]}", justify="left"),
+    BarColumn(bar_width=None),
+    TaskProgressColumn(),
+    TimeRemainingColumn(),
+    console=console,
+    refresh_per_second=10,
+    expand=True,
+)
 
 
 class DeepSecretsCliTool:
@@ -32,13 +62,23 @@ class DeepSecretsCliTool:
         self._build_argparser()
 
     def say_hello(self) -> None:
-        bar = '-'
-        logger.info('')
-        logger.info(f'{" "*8}{bar*25} {SCANNER_NAME} {bar*25}')
-        logger.info(f'{" "*10}A better tool for secret scanning')
-        logger.info(f'{" "*10}version {SCANNER_VERSION}')
-        logger.info('')
-        logger.info(f'{" "*8}{bar*63}')
+        console.line(2)
+        console.rule('DeepSecrets', characters='=')
+
+        from rich.panel import Panel
+
+        console.print(
+            Align(
+                Panel.fit(
+                    Text('____________________________________', style='reverse'),
+                    padding=(0, 0),
+                    title='A better tool for Secret Scanning ',
+                    subtitle='version 1.4.0',
+                ),
+                align='center',
+            )
+        )
+        console.line(2)
 
     def _build_argparser(self) -> None:
         parser = argparse.ArgumentParser(
@@ -124,7 +164,7 @@ class DeepSecretsCliTool:
             default=0,
             help='Number of processes in a pool for file analysis (one process per file)\n'
             'Default: number of processor cores of your machine or cpu limit of your container from cgroup.\n'
-            'If all checks are failed the fallback value is 4'
+            'If all checks are failed the fallback value is 4',
         )
 
         parser.add_argument(
@@ -134,7 +174,7 @@ class DeepSecretsCliTool:
             help='Maximum size of a file (in bytes) the tool should analyze,\n'
             'files with exceeding size will be ingored.\n'
             'Big files (more than 5M) may contain useless blobs and cause performance degradation\n'
-            'Default: 0, which means "no limit".\n'
+            'Default: 0, which means "no limit".\n',
         )
 
         parser.add_argument(
@@ -142,7 +182,7 @@ class DeepSecretsCliTool:
             type=str,
             default='spawn',
             choices=['fork', 'spawn', 'forkserver'],
-            help='Experimental: control the multiprocessing context\n'
+            help='Experimental: control the multiprocessing context\n',
         )
 
         parser.add_argument('--outfile', required=True, type=str)
@@ -151,9 +191,8 @@ class DeepSecretsCliTool:
             default='json',
             type=str,
             choices=['json', 'dojo-sarif'],
-            help='"json": internal format (default)\n'
-                '"dojo-sarif": SARIF format compatible with DefectDojo\n'
-            )
+            help='"json": internal format (default)\n' '"dojo-sarif": SARIF format compatible with DefectDojo\n',
+        )
 
         parser.add_argument(
             '--disable-masking',
@@ -165,12 +204,10 @@ class DeepSecretsCliTool:
         self.argparser = parser
 
     def parse_arguments(self) -> None:
-        logger = build_logger()
 
         user_args = self.argparser.parse_args(args=self.args[1:])
         if user_args.verbose:
             config.set_logging_level(logging.DEBUG)
-            logger = build_logger(config.logging_level)  # flake8: noqa
 
         if user_args.disable_masking:
             config.set_disable_masking(True)
@@ -214,39 +251,91 @@ class DeepSecretsCliTool:
 
     def get_current_config(self) -> Config:
         return config
-    
 
-    def start(self) -> None:  # pragma: nocover
+    def start(self) -> int:  # pragma: nocover
+        startup_time = datetime.now()
         try:
             self.parse_arguments()
         except Exception as e:
             logger.exception(e)
-            sys.exit(1)
+            return ReturnCodes.ERROR
 
-        logger.info(f'Starting scan against {config.workdir_path} using {config.process_count} processes...')
+        console.rule(
+            f'Planning a scan against {config.workdir_path} using {config.process_count} process(es)', characters='='
+        )
+        console.line()
+        if config.disable_masking is True:
+            console.print(
+                '[bold red]:warning: SECRETS MASKING IS DISABLED. REPORT WILL CONTAIN SECRETS IN PLAINTEXT. BE CAREFUL!\n',
+                justify='center',
+            )
+
         if config.return_code_if_findings is True:
-            logger.info(f'[!] The tool will return code of {FINDINGS_DETECTED_RETURN_CODE} if any findings are detected\n')
+            console.print(
+                f'[bold yellow]:warning:[/bold yellow] The tool will return code of {ReturnCodes.FINDINGS_DETECTED} if any findings are detected\n'
+            )
 
-        logger.info(80 * '=')
         mode = CliScanMode(config=config)
+
+        console.line()
+        console.rule('Starting analysis', characters='—')
+        console.line()
+        mode.set_progress_bar(progress_bar)
+
+        progress_bar.start()
         findings: List[Finding] = mode.run()
-        logger.info(80 * '=')
-        logger.info('Scanning finished')
-        logger.info(f'{mode.progress[0]} tokens processed')
-        logger.info(f'{len(findings)} potential secrets found')
+        progress_bar.stop()
+        finish_time = datetime.now()
         report_path = get_abspath(config.output.path)
 
-        logger.info(f'Writing report to {report_path}')
+        console.line()
+        console.print('[bold green]Scanning finished successfully', justify='center')
+        console.line()
+
+        console.rule('REPORT', characters='=')
+        console.line()
+        table = Table(box=box.HORIZONTALS, show_header=False, row_styles=['blink'], style='dim', width=80)
+        table.add_column()
+        table.add_column(justify='right')
+        table.add_row(
+            Align('Files (Tokens) Processed', vertical='middle'),
+            f'{str(len(mode.filepaths))} ({mode.get_total_tokens_processed()})',
+        )
+        table.add_row(Align('Elapsed', vertical='middle'), f'{(finish_time-startup_time).total_seconds():.1f}s')
+        findings_line_color = '[bold red]' if len(findings) > 0 else '[bold green]'
+        table.add_row(
+            Align(f'{findings_line_color}Potential Findings', vertical='middle'),
+            f'{findings_line_color}{str(len(findings))}',
+        )
+        table.add_row(Align('Report Location', vertical='middle'), report_path)
+        console.print(Align(table, align='center'))
 
         with open(report_path, 'w+') as f:
 
             if config.output.type == 'json':
                 json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
-            
+
             if config.output.type == 'dojo-sarif':
                 f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
 
-        logger.info('Done')
+        if len(findings) > 0 and config.disable_masking:
+            console.print(
+                '[bold red]:warning: SECRETS MASKING WAS DISABLED, THE REPORT CONTAINS POTENTIAL SECRETS IN PLAINTEXT.\nBE CAREFUL!',
+                justify='center',
+            )
+
+        console.line()
+        console.print(
+            Align('[italic]Any missed secret or massive false positive rate is potentially a bug', align='center')
+        )
+        console.print(Align('[italic]So feel free to report bugs and difficulties here', align='center'))
+        console.print(Align('[italic]https://github.com/ntoskernel/deepsecrets/issues', align='center'))
+        console.line()
+        console.print(Align('[bold green]FINISHED', align='center'))
+        console.line(2)
+        mode.dispose()
 
         if len(findings) > 0 and config.return_code_if_findings:
-            sys.exit(FINDINGS_DETECTED_RETURN_CODE)
+            return ReturnCodes.FINDINGS_DETECTED
+
+        return ReturnCodes.OK

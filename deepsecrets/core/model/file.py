@@ -94,7 +94,7 @@ class File:
 
         if line_number not in self.line_contents_cache:
             self.line_contents_cache[line_number] = self.content[
-                self.line_offsets[line_number][0]:self.line_offsets[line_number][1]
+                self.line_offsets[line_number][0] : self.line_offsets[line_number][1]
             ]
         return self.line_contents_cache[line_number]
 
@@ -118,7 +118,7 @@ class File:
             span = detect.span()
             return (between[0] + span[0], between[0] + span[1])
         return None
-    
+
     def get_column_number(self, position: int) -> int:
         line_number = self.get_line_number(position=position)
         return position - self.line_offsets[line_number][0]

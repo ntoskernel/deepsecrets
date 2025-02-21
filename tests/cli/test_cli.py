@@ -14,7 +14,9 @@ def args_1():
         '--outfile',
         './fdsafad.json',
         '--verbose',
+        '--reflect-findings-in-return-code',
     ]
+
 
 @pytest.fixture(scope='module')
 def args_2():
@@ -29,7 +31,8 @@ def args_2():
         '/app/tests/fixtures/false_findings.json',
         '--outfile',
         './fdsafad.json',
-        '--outformat', 'dojo-sarif'
+        '--outformat',
+        'dojo-sarif',
     ]
 
 
@@ -47,6 +50,9 @@ def test_1_cli(args_1):
     assert config.output.path == './fdsafad.json'
     assert config.workdir_path == '/app/tests/fixtures/'
     assert config.output.type == 'json'
+
+    return_code = tool.start()
+    assert return_code != 0
 
 
 def test_2_cli(args_2):

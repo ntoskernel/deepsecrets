@@ -12,7 +12,10 @@ from deepsecrets.core.model.file import File
 from deepsecrets.core.model.semantic import Variable
 from deepsecrets.core.model.token import Semantic, SemanticType, Token
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
-from deepsecrets.core.tokenizers.helpers.semantic.var_detection.rules import VariableDetectionRules, VariableSuppressionRules
+from deepsecrets.core.tokenizers.helpers.semantic.var_detection.rules import (
+    VariableDetectionRules,
+    VariableSuppressionRules,
+)
 from deepsecrets.core.tokenizers.helpers.spot_improvements import SpotImprovements
 from deepsecrets.core.tokenizers.helpers.type_stream import (
     token_to_typestream_item,
@@ -66,7 +69,6 @@ class LexerTokenizer(Tokenizer):
         if lexer is not None and lexer.name == 'Text only':
             return None
         return lexer
-
 
     def tokenize(self, file: File, post_filter=True) -> List[Token]:
         self.token_stream = ''
@@ -151,13 +153,13 @@ class LexerTokenizer(Tokenizer):
 
         true_detections: List[Variable] = []
         suppression_regions: List[List[int]] = []
-        
+
         detection_rules = VariableDetectionRules.for_language(self.language)
         suppression_rules = VariableSuppressionRules.for_language(self.language)
-    
+
         for rule in detection_rules:
             true_detections.extend(rule.match(self.tokens, self.token_stream))
-        
+
         for rule in suppression_rules:
             suppression_regions.extend(rule.match(self.tokens, self.token_stream))
 
@@ -177,13 +179,12 @@ class LexerTokenizer(Tokenizer):
             exclude_after.add(var.name)
 
         return exclude_after
-    
+
     def _if_suppressed(self, var: Variable, regions):
         for reg in regions:
             if var.span[0] >= reg[0] and var.span[1] <= reg[1]:
                 return True
         return False
-
 
     def get_variables(self, tokens: Optional[List[Token]] = None) -> List[Token]:
         tokens = tokens if tokens is not None else self.tokens
@@ -209,17 +210,15 @@ class LexerTokenizer(Tokenizer):
         regions = []
         if len(suppression_regions) == 0:
             return regions
-        
+
         for i, reg in enumerate(suppression_regions):
             if i == 0:
                 regions.append(suppression_regions[0])
                 continue
-            
+
             if reg[0] == regions[-1][1]:
                 regions[-1][1] = reg[1]
             else:
                 regions.append(reg)
-            
-        return regions
-            
 
+        return regions

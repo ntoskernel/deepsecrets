@@ -11,6 +11,7 @@ from deepsecrets.core.model.rules.rule import Rule
 import sarif_om as om
 from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
 
+
 class Finding(BaseModel):
     file: Optional['File'] = Field(default=None)
     rules: List[Rule] = Field(default=[])
@@ -23,7 +24,7 @@ class Finding(BaseModel):
     final_rule: Optional[Rule] = Field(default=None)
     _mapped_on_file: bool = PrivateAttr(default=False)
 
-    model_config = ConfigDict(arbitrary_types_allowed = True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def map_on_file(self, relative_start: int, file: Optional['File'] = None) -> None:
         if self._mapped_on_file:
@@ -52,10 +53,7 @@ class Finding(BaseModel):
         return sha256(self.detection.encode('utf-8')).hexdigest()[23:33]
 
     def choose_final_rule(self) -> None:
-        self.final_rule = sorted(
-            self.rules, key=lambda r: r.confidence,
-            reverse=True
-        )[0]
+        self.final_rule = sorted(self.rules, key=lambda r: r.confidence, reverse=True)[0]
 
     def __hash__(self) -> int:  # pragma: nocover
         if not self.file:
@@ -127,9 +125,9 @@ class FindingResponse:
 
             if finding.file.path not in resp:
                 resp[finding.file.path] = []
-            
+
             resp_finding = FindingApiModel.from_finding(finding)
-            
+
             if not disable_masking:
 
                 resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
@@ -141,7 +139,7 @@ class FindingResponse:
 
     @classmethod
     def dojo_sarif_from_list(cls, list: List[Finding], disable_masking: bool = False) -> om.SarifLog:
-        
+
         report = om.SarifLog(
             schema_uri='https://json.schemastore.org/sarif-2.1.0.json',
             version='2.1.0',
@@ -149,15 +147,12 @@ class FindingResponse:
                 om.Run(
                     tool=om.Tool(
                         driver=om.ToolComponent(
-                            name=SCANNER_NAME,
-                            semantic_version=SCANNER_VERSION,
-                            information_uri=SCANNER_URL,
-                            rules=[]
+                            name=SCANNER_NAME, semantic_version=SCANNER_VERSION, information_uri=SCANNER_URL, rules=[]
                         )
                     ),
-                    results=[]
+                    results=[],
                 )
-            ]
+            ],
         )
 
         sarif_rules: Dict[str, om.ReportingDescriptor] = {}
@@ -166,7 +161,7 @@ class FindingResponse:
 
             finding.choose_final_rule()
 
-            if finding.final_rule.confidence > 5 :
+            if finding.final_rule.confidence > 5:
                 precision = 'high'
                 security_severity = 'High'
                 level = 'error'
@@ -181,50 +176,41 @@ class FindingResponse:
 
             rule = om.ReportingDescriptor(
                 id=finding.final_rule.id,
-                short_description={
-                    'text': finding.final_rule.name
-                },
-                full_description={
-                    'text': finding.final_rule.name
-                },
-                help={
-                    'text': finding.final_rule.name
-                },
-                properties={
-                    'security_severity': security_severity,
-                    'precision': precision
-                },
+                short_description={'text': finding.final_rule.name},
+                full_description={'text': finding.final_rule.name},
+                help={'text': finding.final_rule.name},
+                properties={'security_severity': security_severity, 'precision': precision},
                 default_configuration={'level': level},
             )
 
             sarif_rules[finding.final_rule.id] = rule
 
             region = SarifHelper.get_region_for_finding(finding=finding, masking=disable_masking is False)
-            context_region=SarifHelper.get_context_region_for_finding(finding=finding, masking=disable_masking is False)
+            context_region = SarifHelper.get_context_region_for_finding(
+                finding=finding, masking=disable_masking is False
+            )
 
             result = om.Result(
                 rule_id=finding.final_rule.id,
-                message=om.Message(
-                    text=f'Secret in code ({finding.final_rule.name})'
-                ),
+                message=om.Message(text=f'Secret in code ({finding.final_rule.name})'),
                 locations=[
                     om.Location(
                         physical_location=om.PhysicalLocation(
                             artifact_location=om.ArtifactLocation(
-                                uri=finding.file.relative_path,
-                                uri_base_id='%SRCROOT%'
+                                uri=finding.file.relative_path, uri_base_id='%SRCROOT%'
                             ),
                             region=region,
-                            context_region=context_region
+                            context_region=context_region,
                         )
                     )
-                ]
+                ],
             )
 
             report.runs[0].results.append(result)
 
         report.runs[0].tool.driver.rules = [rule for rule in sarif_rules.values()]
         return report
+
 
 class FindingApiModel(BaseModel):
     line: str

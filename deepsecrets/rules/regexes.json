@@ -145,7 +145,7 @@
         "id": "S31",
         "name": "Github App Token",
         "confidence": 9,
-        "pattern": "(ghu|ghs)_[0-9a-zA-Z]{36}"
+        "pattern": "\b((?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,255})\b"
     },
     {
         "id": "S32",

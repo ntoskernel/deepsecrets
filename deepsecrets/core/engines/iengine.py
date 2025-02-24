@@ -29,12 +29,6 @@ class IEngine:
 
         return False
 
-    def is_token_false_positive(self, token: Token) -> bool:
-        for false_token in self.false_tokens:
-            if len(false_token.match(token.content)) > 0:
-                return True
-        return False
-
     def __hash__(self) -> int:  # pragma: nocover
         return hash(type(self))
 

@@ -6,9 +6,9 @@ class Variable:
     name: Token
     value: Token
     span: List[int]
-    found_by: 'VaribleDetector'
+    found_by: 'VariableDetector'
 
 
-from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import (
-    VaribleDetector,
+from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import (  # noqa: E402
+    VariableDetector,
 )

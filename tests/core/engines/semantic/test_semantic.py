@@ -13,25 +13,30 @@ def file() -> File:
     path = 'tests/fixtures/4.py'
     return File(path=path, relative_path=path)
 
+
 @pytest.fixture(scope='module')
 def file_json_2() -> File:
     path = 'tests/fixtures/2.json'
     return File(path=path, relative_path=path)
+
 
 @pytest.fixture(scope='module')
 def file_toml_1() -> File:
     path = 'tests/fixtures/1.toml'
     return File(path=path, relative_path=path)
 
+
 @pytest.fixture(scope='module')
 def file_toml_2() -> File:
     path = 'tests/fixtures/2.toml'
     return File(path=path, relative_path=path)
 
+
 @pytest.fixture(scope='module')
 def file_sh_2() -> File:
     path = 'tests/fixtures/2.sh'
     return File(path=path, relative_path=path)
+
 
 @pytest.fixture(scope='module')
 def file_html_1() -> File:
@@ -67,12 +72,11 @@ def test_2_semantic_engine(file_json_2: File):
     findings = []
     for token in tokens:
         findings.extend(engine.search(token))
-    
+
     assert len(findings) == 3
     assert findings[0].rules[0].name == 'Entropy+Var naming'
     assert findings[1].rules[0].name == 'Entropy+Var naming'
     assert findings[2].rules[0].name == 'Var naming'
-
 
 
 def test_3_semantic_engine(file_toml_1: File):
@@ -87,11 +91,10 @@ def test_3_semantic_engine(file_toml_1: File):
     findings = []
     for token in tokens:
         findings.extend(engine.search(token))
-    
+
     assert len(findings) == 2
     assert findings[0].rules[0].name == 'Var naming'
     assert findings[1].rules[0].name == 'Var naming'
-
 
 
 def test_4_semantic_engine(file_toml_2: File):
@@ -123,7 +126,6 @@ def test_5_semantic_engine(file_sh_2: File):
         finding.map_on_file(file=file_sh_2, relative_start=finding.start_pos)
         finding.choose_final_rule()
 
-
     findings = FindingMerger(findings).merge()
     assert len(findings) == 1
     assert findings[0].final_rule.name == 'Dangerous condition'
@@ -131,7 +133,7 @@ def test_5_semantic_engine(file_sh_2: File):
 
 def test_6_semantic_engine(file_html_1: File):
     tokens = LexerTokenizer(deep_token_inspection=True).tokenize(file_html_1)
-    #assert len(tokens) == 16
+    # assert len(tokens) == 16
 
     engine = SemanticEngine(subengine=None)
 
@@ -142,7 +144,6 @@ def test_6_semantic_engine(file_html_1: File):
     for finding in findings:
         finding.map_on_file(file=file_html_1, relative_start=finding.start_pos)
         finding.choose_final_rule()
-
 
     findings = FindingMerger(findings).merge()
     assert len(findings) == 0

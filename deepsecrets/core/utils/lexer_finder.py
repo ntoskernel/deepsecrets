@@ -23,24 +23,18 @@ class LexerFinder:
 
     def _init_custom_lexers(self):
         load_lexer_from_file(lexer_mod.__file__, "JsxLexer")
-    
+
     def _init_alias_exceptions(self):
-        self.alias_exceptions = {
-            'js+react': 'react'
-        }
-    
+        self.alias_exceptions = {'js+react': 'react'}
+
     def _init_probes(self):
-        self.probes = {
-            'js': [
-                _probe_react
-            ]
-        }
+        self.probes = {'js': [_probe_react]}
 
     def find(self, file: File):
         self.file = file
         self.extension = self._determine_extension()
         self.distinguishing_feature = self._determine_distinguishing_feature()
-        
+
         filename = self._projected_filename()
         alias = self._projected_alias()
         lexer = None
@@ -58,16 +52,17 @@ class LexerFinder:
             pass
 
         return lexer
-    
+
     def _determine_extension(self):
-        if self.file.extension is None:
+        meta_extensions = ['txt', 'conf']
+        if self.file.extension is None or self.file.extension in meta_extensions:
             return self._try_guess_extension()
-        
+
         return self.file.extension
-    
+
     def _try_guess_extension(self) -> Optional[str]:
         return FileTypeGuesser().guess(self.file.content)
-    
+
     def _determine_distinguishing_feature(self):
         applicable_strategies = self.probes.get(self.extension, [])
         for strategy in applicable_strategies:
@@ -75,21 +70,21 @@ class LexerFinder:
             if f is None:
                 continue
             return f
-        
+
     def _projected_alias(self):
         alias = self.extension
         if self.distinguishing_feature is not None:
             alias += f'+{self.distinguishing_feature}'
-        
+
         return self.alias_exceptions.get(alias, alias)
-    
+
     def _projected_filename(self):
         filename = self.file.name
         if self.extension is not None:
             filename += f'.{self.extension}'
-        
+
         return filename
-        
+
 
 def _probe_react(file: File):
     # very simple approach at the moment

@@ -2,6 +2,7 @@ import logging
 from typing import Dict, List, Type
 
 from pydantic import BaseModel
+from deepsecrets import console
 from deepsecrets.core.utils.cpu import CpuHelper
 
 from deepsecrets.core.utils.exceptions import FileNotFoundException
@@ -10,7 +11,7 @@ from deepsecrets.core.utils.fs import get_abspath, path_exists
 FALLBACK_PROCESS_COUNT = 4
 
 SCANNER_NAME = "DeepSecrets"
-SCANNER_VERSION = "1.3.0"
+SCANNER_VERSION = "1.4.0"
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
 
 
@@ -62,18 +63,20 @@ class Config:
 
     def set_mp_context(self, context: str) -> None:
         self.mp_context = context
-    
+
     def set_process_count(self, count: int) -> None:
         if count > 0:
             self.process_count = count
             return
-        
+
         count = CpuHelper().get_limit()
         if count > 0:
             self.process_count = count
+            console.print(f'[bold yellow]:warning: Process count[/bold yellow] was not specified. Setting it to [bold magenta]{self.process_count}[/bold magenta] based on the [cyan]machine\'s CPU config[/cyan]')
             return
-        
+
         self.process_count = FALLBACK_PROCESS_COUNT
+        console.print(f'[bold yellow]:warning:[/bold yellow]: Process count was not specified. Setting it to [bold magenta]{self.process_count}[/bold magenta] as a [yellow]fallback[/yellow]')
 
     def set_global_exclusion_paths(self, paths: List[str]) -> None:
         for path in paths:

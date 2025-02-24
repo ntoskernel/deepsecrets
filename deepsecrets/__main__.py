@@ -3,7 +3,8 @@ from deepsecrets.cli import DeepSecretsCliTool
 
 
 def runnable_entrypoint():
-    sys.exit(DeepSecretsCliTool(sys.argv).start())
+    return_code = DeepSecretsCliTool(sys.argv).start()
+    sys.exit(return_code)
 
 
 if __name__ == '__main__':

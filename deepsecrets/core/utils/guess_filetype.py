@@ -1,6 +1,7 @@
 from configparser import ConfigParser
 import json
 import tomllib
+import yaml
 from typing import Optional
 from puppetparser.parser import parse
 
@@ -12,7 +13,9 @@ class FileTypeGuesser:
             'json': self._is_json,
             'toml': self._is_toml,
             'pp': self._is_puppet,
-            'conf': self._is_conf,
+            'ini': self._is_ini,
+            'yaml': self._is_yaml,
+            # 'properties': self._dot_properties,
         }
 
     def guess(self, content: str) -> Optional[str]:
@@ -32,8 +35,6 @@ class FileTypeGuesser:
                 return ext
         '''
         return None
-        
-
     
     def _is_json(self, content: str):
         try:
@@ -50,6 +51,14 @@ class FileTypeGuesser:
             return False
         
         return True
+
+    def _is_yaml(self, content: str):
+        try:
+            _ = yaml.safe_load(content)
+        except yaml.YAMLError:
+            return False
+        
+        return True
     
     def _is_puppet(self, content: str):
         try:
@@ -59,9 +68,9 @@ class FileTypeGuesser:
         
         return True
 
-    def _is_conf(self, content):
+    def _is_ini(self, content):
         try:
-            conf = ConfigParser().read_string(content)
+            _ = ConfigParser().read_string(content)
         except Exception as e:
             return False
         return True

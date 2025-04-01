@@ -123,8 +123,6 @@ class FindingResponse:
             if finding.file is None:
                 continue
 
-            if finding.file.path not in resp:
-                resp[finding.file.path] = []
 
             resp_finding = FindingApiModel.from_finding(finding)
 
@@ -133,7 +131,7 @@ class FindingResponse:
                 resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
                 resp_finding.string = '*' * len(resp_finding.string)
 
-            resp[finding.file.path].append(resp_finding.model_dump())
+            resp[finding.file.relative_path].append(resp_finding.model_dump())
 
         return resp
 

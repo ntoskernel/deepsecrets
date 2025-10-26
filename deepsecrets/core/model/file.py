@@ -123,5 +123,15 @@ class File:
         line_number = self.get_line_number(position=position)
         return position - self.line_offsets[line_number][0]
 
+    def is_one_liner(self) -> bool:
+        return len(self.line_offsets) == 1
+
+    def get_line_length(self, line_number: int) -> int:
+        offsets = self.line_offsets.get(line_number)
+        return offsets[1] - offsets[0]
+
+    def get_line_offset(self, line_number: int) -> int:
+        return self.line_offsets.get(line_number)[0]
+
     def __repr__(self) -> str:  # pragma: no cover
         return self.path

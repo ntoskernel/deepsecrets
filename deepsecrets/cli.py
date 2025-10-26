@@ -26,7 +26,7 @@ from rich.progress import (
     TaskProgressColumn,
     TimeRemainingColumn,
 )
-from rich.table import Table
+from rich.table import Table, Column
 from rich import box
 from rich.text import Text
 from rich.align import Align
@@ -43,13 +43,14 @@ class ReturnCodes:
 
 progress_bar = Progress(
     SpinnerColumn(),
-    TextColumn("[progress.description]{task.description}"),
-    TextColumn("[bold red]{task.fields[findings]}", justify="left"),
+    TextColumn("[progress.description]{task.description}", table_column=Column(max_width=60, no_wrap=True)),
+    TextColumn("[bold blue]{task.fields[size]}"),
     BarColumn(bar_width=None),
     TaskProgressColumn(),
     TimeRemainingColumn(),
+    TextColumn("[bold red]{task.fields[findings]}", justify="right"),
     console=console,
-    refresh_per_second=10,
+    refresh_per_second=5,
     expand=True,
 )
 
@@ -182,7 +183,7 @@ class DeepSecretsCliTool:
             type=str,
             default='spawn',
             choices=['fork', 'spawn', 'forkserver'],
-            help='Experimental: control the multiprocessing context\n',
+            help='Control the multiprocessing context\n',
         )
 
         parser.add_argument('--outfile', required=True, type=str)
@@ -197,7 +198,7 @@ class DeepSecretsCliTool:
         parser.add_argument(
             '--disable-masking',
             action='store_true',
-            help='Secrets are rendered masked inside reports by default.\n'
+            help='Secrets are rendered masked inside the report by default.\n'
             'Use this flag if you want to render found secrets in plaintext.',
         )
 
@@ -299,7 +300,7 @@ class DeepSecretsCliTool:
         table.add_column(justify='right')
         table.add_row(
             Align('Files (Tokens) Processed', vertical='middle'),
-            f'{str(len(mode.filepaths))} ({mode.get_total_tokens_processed()})',
+            f'{str(len(mode.filepaths))} ({mode.stats.tokens_processed})',
         )
         table.add_row(Align('Elapsed', vertical='middle'), f'{(finish_time-startup_time).total_seconds():.1f}s')
         findings_line_color = '[bold red]' if len(findings) > 0 else '[bold green]'

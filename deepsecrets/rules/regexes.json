@@ -39,13 +39,14 @@
         "id": "S7",
         "name": "Facebook Oauth",
         "confidence": 9,
-        "pattern": "facebook.*['|\"][0-9a-f]{32}['|\"]"
+        "pattern": "facebook.{0,100}?['\"][0-9a-f]{32}['\"]"
+        
     },
     {
         "id": "S8",
         "name": "Twitter Oauth",
         "confidence": 9,
-        "pattern": "twitter.*['|\"][0-9a-zA-Z]{35,44}['|\"]"
+        "pattern": "twitter.{0,100}?['|\"][0-9a-zA-Z]{35,44}['|\"]"
     },
     {
         "id": "S10",
@@ -57,7 +58,7 @@
         "id": "S12",
         "name": "Heroku API Key",
         "confidence": 9,
-        "pattern": "heroku.*[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}"
+        "pattern": "heroku.*?[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}"
     },
     {
         "id": "S17",
@@ -145,7 +146,7 @@
         "id": "S31",
         "name": "Github App Token",
         "confidence": 9,
-        "pattern": "\b((?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,255})\b"
+        "pattern": "\\b((?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,255})\\b"
     },
     {
         "id": "S32",
@@ -165,5 +166,11 @@
         "name": "Gitlab Personal Access Token",
         "confidence": 9,
         "pattern": "glpat-[0-9a-zA-Z\\-\\_]{20}"
+    },
+    {
+        "id": "S35",
+        "name": "AWS Access Key ID",
+        "confidence": 9,
+        "pattern": "\\b(A3T[A-Z0-9]|AKIA|AGPA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\\b"
     }
 ]

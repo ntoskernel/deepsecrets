@@ -1,7 +1,5 @@
 import sarif_om as om
 
-MAX_LINE_LENGTH_FOR_CONTEXT = 300
-
 
 class SarifHelper:
 
@@ -12,7 +10,8 @@ class SarifHelper:
         end_column = finding.file.get_column_number(position=finding.end_pos)
 
         boundaries = cls._get_context_boundaries(finding, start_column, end_column)
-        snippet = finding.full_line[boundaries[0] : boundaries[1]]
+        base_offset = finding.file.get_line_offset(finding.linum)
+        snippet = finding.file.content[base_offset + boundaries[0] : base_offset + boundaries[1]]
 
         if masking:
             snippet = cls._mask(snippet=snippet, detection=finding.detection)
@@ -61,4 +60,5 @@ class SarifHelper:
         return snippet.replace(detection, masked_detection)
 
 
+from deepsecrets.config import MAX_LINE_LENGTH_FOR_CONTEXT
 from deepsecrets.core.model.finding import Finding

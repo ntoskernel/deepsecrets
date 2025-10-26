@@ -15,8 +15,10 @@ from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from deepsecrets.core.utils.lifecycle_hooks import JobLifecycleHooks
 from deepsecrets.core.utils.log import logger
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
+from deepsecrets.core.utils.progress import Progress
 
 
 class CliScanMode(ScanMode):
@@ -50,6 +52,14 @@ class CliScanMode(ScanMode):
 
     @staticmethod
     def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> List[Finding]:  # type: ignore
+        progress = Progress()
+        lifecycle = JobLifecycleHooks(
+            task_id=task_id,
+            progress=progress,
+            reporter=task_reporter,
+        )
+
+        lifecycle.on_start()
         if logger.level == logging.DEBUG:
             pass
 
@@ -58,8 +68,15 @@ class CliScanMode(ScanMode):
         if not isinstance(file, str):
             raise Exception('Filepath as str expected')
 
-        file = File(path=file, relative_path=file.replace(f'{bundle.workdir}/', ''))
+        try:
+            file = File(path=file, relative_path=file.replace(f'{bundle.workdir}/', ''))
+        except Exception as e:
+            logger.error('Unable to open the file', extra={'message': e})
+            lifecycle.on_finish()
+            return results
+
         if file.length == 0:
+            lifecycle.on_finish()
             return results
 
         file_analyzer = FileAnalyzer(file)
@@ -90,11 +107,12 @@ class CliScanMode(ScanMode):
                 file_analyzer.add_engine(semantic_engine, [lex])
 
         try:
-            results = file_analyzer.process(threaded=False)
+            results = file_analyzer.process()
         except Exception as e:
             logger.exception(e)
 
         if PROFILER_ON:
             pass
 
+        lifecycle.on_finish()
         return results

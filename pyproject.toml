@@ -27,19 +27,19 @@ classifiers = [
 ]
 
 dependencies = [
-  "pydantic == 2.10.6",
-  "pyyaml == 6.0.2",
-  "pygments == 2.19.1",
-  "ordered-set == 4.1.0",
-  "dotwiz == 0.4.0",
-  "mmh3 == 5.1.0",
-  "regex == 2024.11.6",
+  "pydantic (==2.12.3)",
+  "pyyaml (==6.0.3)",
+  "pygments (==2.19.2)",
+  "ordered-set (==4.1.0)",
+  "dotwiz (==0.4.0)",
+  "mmh3 (==5.2.0)",
+  "regex (==2025.10.23)",
   "jsx-lexer == 2.0.1",
-  "aenum == 3.1.15",
+  "aenum (==3.1.16)",
   "puppetparser == 0.2.14",
-  "textual == 1.0.0",
   "sarif-om == 1.0.4",
   "jschema-to-python == 1.2.3",
+  "rich (==14.2.0)",
 ]
 
 [project.urls]
@@ -52,9 +52,9 @@ deepsecrets = "deepsecrets:__main__.runnable_entrypoint"
 
 
 [tool.poetry.group.test.dependencies]
-pytest = "^8.3.4"
-coverage = "^7.6.12"
-pytest-cov = "^6.0.0"
+pytest = "8.4.2"
+coverage = "7.10.7"
+pytest-cov = "7.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"

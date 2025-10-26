@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from multiprocessing.pool import AsyncResult
 import regex as re
 
@@ -19,6 +20,24 @@ from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.fs import get_abspath
 
 from rich.progress import Progress as ProgressBar
+from rich.live import Live
+from rich.text import Text
+
+
+@dataclass
+class FileJob:
+    internal_id: int
+    name: str
+    pb_task_id: Optional[int]
+    result: AsyncResult
+
+
+@dataclass
+class Stats:
+    total_files: int = 0
+    finished: int = 0
+    tokens_processed: int = 0
+    total_findings: int = 0
 
 
 class ScanMode:
@@ -30,20 +49,16 @@ class ScanMode:
     rulesets: Dict[str, List]
     engines_enabled: Dict[Type, bool]
 
-    task_reporter: DictProxy
+    active_task_reporter: DictProxy
     progress_bar: ProgressBar
-    file_jobs: List[AsyncResult]
+
+    file_results: List[AsyncResult]
+    file_jobs: Dict[int, FileJob]
 
     _mp_manager = None
 
-    def get_total_tokens_processed(self):
-        result = 0
-        for _, tr in self.task_reporter.items():
-            result += int(tr.get('total_tokens'))
-        return result
-
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
-        console.print('[*] Looking for applicable files...')
+        console.print('[*] Looking for applicable files...', end='')
         console.line()
         if pool_engine is None:
             self.pool_engine = get_context(config.mp_context).Pool
@@ -51,11 +66,13 @@ class ScanMode:
             self.pool_engine = pool_engine
 
         self._mp_manager = Manager()
-        self.task_reporter = self._mp_manager.dict({})
+        self.active_task_reporter = self._mp_manager.dict({})
         self.progress_bar = None
 
         self.config = config
-        self.file_jobs = []
+        self.file_results = []
+        self.file_jobs = {}
+        self.stats = Stats()
 
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
@@ -71,32 +88,67 @@ class ScanMode:
             return 0
         return limit if file_count >= limit else file_count
 
-    def refresh_progress_bar(self, overall_progress_task, n_finished, final=False):
-        if self.task_reporter is None:
+    def refresh_jobs_progress_bars(self):
+        if self.active_task_reporter is None:
             return
 
-        total_findings = 0
-        for task_id, current_state in self.task_reporter.items():
+        tasks_to_remove = []
+        for internal_task_id, current_state in self.active_task_reporter.items():
+            job = self.file_jobs.get(internal_task_id)
+            if job is None:
+                raise Exception()
+
+            started: bool = current_state.get('started')
+            finished: bool = current_state.get('finished')
+            size: str = current_state.get('file_size')
+
+            if started is True and finished is False and job.pb_task_id is None:
+                job.pb_task_id = self.progress_bar.add_task(
+                    f'[{job.internal_id}] {job.name.split("/")[-1]}',
+                    findings='0',
+                    size='| ? Kb',
+                )
+
+            processed = current_state.get('processed', 0)
+            findings = current_state.get('findings', 0)
+
+            if finished is True:
+                self.stats.tokens_processed += processed
+                self.stats.total_findings += findings
+
+                tasks_to_remove.append(internal_task_id)
+                if job.pb_task_id is not None:
+                    try:
+                        self.progress_bar.remove_task(job.pb_task_id)
+                    except Exception:
+                        pass
+                continue
+
             total = current_state.get('total_tokens')
-            processed = current_state.get('processed')
-            started = current_state.get('started')
-            finished = current_state.get('finished')
-            visible = started is True and finished is False
-            findings = current_state.get('findings')
-            total_findings += findings
-            # update the progress bar for this task:
-            self.progress_bar.update(
-                task_id,
-                completed=processed,
-                total=total,
-                visible=visible if not final else False,
-                findings=f'FINDINGS: {findings}',
-            )
+
+            if job.pb_task_id is not None:
+                self.progress_bar.update(
+                    job.pb_task_id,
+                    completed=processed,
+                    total=total,
+                    visible=True,
+                    findings=findings,
+                    size=f'| {size}',
+                )
+
+        for to_remove in tasks_to_remove:
+            self.stats.finished += 1
+            self.active_task_reporter.pop(to_remove)
+
+    def refresh_overall_progress_bar(self, pb_task_id):
+        if pb_task_id is None:
+            return
+
         self.progress_bar.update(
-            overall_progress_task,
-            completed=n_finished,
-            total=len(self.file_jobs),
-            findings=f'RAW FINDINGS (BEFORE FILTERING): {total_findings}',
+            pb_task_id,
+            completed=self.stats.finished,
+            total=self.stats.total_files,
+            findings=f'FOUND: {self.stats.total_findings}',
         )
 
     def run(self) -> List[Finding]:
@@ -106,38 +158,43 @@ class ScanMode:
         if proc_count == 0:
             return final
 
-        if self.progress_bar is not None:
-            overall_progress_task = self.progress_bar.add_task(
-                "[green bold]OVERALL PROGRESS", visible=True, findings='RAW FINDINGS (BEFORE FILTERING): 0'
-            )
+        overall_progress_task = self.progress_bar.add_task(
+            "[green bold]OVERALL PROGRESS\n", visible=True, findings='FOUND: 0', size=''
+        )
 
         if PROFILER_ON:
             for file in self.filepaths:
-                task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0')
                 final.extend(
-                    self._per_file_analyzer(file=file, bundle=bundle, task_id=task_id, task_reporter=self.task_reporter)
+                    self._per_file_analyzer(file=file, bundle=bundle, task_id=0, task_reporter=self.task_reporter)
                 )
         else:
             with self.pool_engine(processes=proc_count) as pool:
+                tid = 0
                 for file in self.filepaths:
-                    task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0', visible=False)
+                    tid += 1
                     # runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.task_reporter)
-                    self.file_jobs.append(
-                        pool.apply_async(
-                            pool_wrapper,
-                            (bundle, self._per_file_analyzer, task_id, self.task_reporter, file),
-                        )
+                    result = pool.apply_async(
+                        pool_wrapper,
+                        (bundle, self._per_file_analyzer, tid, self.active_task_reporter, file),
                     )
-
-                while (n_finished := sum([job.ready() for job in self.file_jobs])) < len(self.file_jobs):
-                    self.refresh_progress_bar(overall_progress_task, n_finished)
+                    self.file_results.append(result)
+                    self.file_jobs[tid] = FileJob(
+                        name=file,
+                        internal_id=tid,
+                        result=result,
+                        pb_task_id=None,
+                    )
                 pool.close()
 
-        # final refresh
-        self.refresh_progress_bar(overall_progress_task, 100, final=True)
+                self.stats.total_files = len(self.file_jobs.keys())
+                while self.stats.finished < self.stats.total_files:
+                    self.refresh_jobs_progress_bars()
+                    self.refresh_overall_progress_bar(overall_progress_task)
+                pool.join()
+
         self.progress_bar.stop()
 
-        for job_result in self.file_jobs:
+        for job_result in self.file_results:
             file_findings = job_result.get()
             if file_findings is None or len(file_findings) == 0:
                 continue
@@ -164,21 +221,30 @@ class ScanMode:
                 excl_paths_builder.with_rules_from_file(path)
 
             self.path_exclusion_rules = excl_paths_builder.rules
+        with Live(console=console, refresh_per_second=5) as live:
 
-        for fpath, _, files in os.walk(get_abspath(self.config.workdir_path)):
-            for filename in files:
-                full_path = os.path.join(fpath, filename)
-                rel_path = full_path.replace(f'{self.config.workdir_path}/', '')
-                if not self._path_included(rel_path):
-                    continue
+            total_files = 0
+            skipped = 0
+            for fpath, _, files in os.walk(get_abspath(self.config.workdir_path)):
+                for filename in files:
+                    live.update(Text(text=f'Found {total_files} files, {skipped} will be skipped'))
+                    total_files += 1
+                    full_path = os.path.join(fpath, filename)
+                    rel_path = full_path.replace(f'{self.config.workdir_path}/', '')
+                    if not self._path_included(rel_path):
+                        skipped += 1
+                        continue
 
-                if not self._size_check(full_path):
-                    console.print(
-                        f'[bold yellow]:warning: {rel_path}[/bold yellow]: File size exceeds [magenta]--max-file-path[/magenta] of {self.config.max_file_size} bytes and will be [bold]skipped[/bold]'
-                    )
-                    continue
+                    if not self._size_check(full_path):
+                        skipped += 1
+                        '''
+                        console.print(
+                            f'[bold yellow]:warning: {rel_path}[/bold yellow]: File size exceeds [magenta]--max-file-path[/magenta] of {self.config.max_file_size} bytes and will be [bold]skipped[/bold]'
+                        )
+                        '''
+                        continue
 
-                flist.append(full_path)
+                    flist.append(full_path)
 
         return flist
 

@@ -9,7 +9,7 @@ from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.rule import Rule
 
 import sarif_om as om
-from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
+from deepsecrets.config import MAX_LINE_LENGTH_FOR_CONTEXT, SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
 
 
 class Finding(BaseModel):
@@ -17,6 +17,7 @@ class Finding(BaseModel):
     rules: List[Rule] = Field(default=[])
     detection: str
     full_line: Optional[str] = Field(default=None)
+    full_line_partial: bool = Field(default=False)
     linum: Optional[int] = Field(default=None)
     start_pos: int
     end_pos: int
@@ -40,8 +41,19 @@ class Finding(BaseModel):
         self.linum = self.file.get_line_number(self.end_pos)
 
         if not self.full_line:
-            self.full_line = self.file.get_line_contents(self.linum)
+            self._populate_full_line()
+
         self._mapped_on_file = True
+
+    def _populate_full_line(self):
+        self.full_line_partial = False
+        if self.file.get_line_length(self.linum) <= MAX_LINE_LENGTH_FOR_CONTEXT:
+            self.full_line = self.file.get_line_contents(self.linum)
+            return
+
+        self.full_line_partial = True
+        return
+        # TODO: boundaries = self._get_context_boundaries()
 
     def get_reason(self) -> str:
         if self.final_rule is None:
@@ -138,7 +150,7 @@ class FindingResponse:
         return resp
 
     @classmethod
-    def dojo_sarif_from_list(cls, list: List[Finding], disable_masking: bool = False) -> om.SarifLog:
+    def dojo_sarif_from_list(cls, list: List[Finding], disable_masking: bool = False) -> om.SarifLog:  # type: ignore
 
         report = om.SarifLog(
             schema_uri='https://json.schemastore.org/sarif-2.1.0.json',
@@ -213,13 +225,15 @@ class FindingResponse:
 
 
 class FindingApiModel(BaseModel):
-    line: str
+    line: Optional[str]
     string: str
     line_number: int
     rule: str
     reason: str
     confidence: int
     fingerprint: str
+    file_start_offset: int
+    file_end_offset: int
 
     @classmethod
     def from_finding(cls, finding: Finding) -> FindingApiModel:
@@ -232,6 +246,8 @@ class FindingApiModel(BaseModel):
             reason=finding.get_reason(),
             confidence=finding.final_rule.confidence,
             fingerprint=finding.get_fingerprint(),
+            file_start_offset=finding.start_pos,
+            file_end_offset=finding.end_pos,
         )
 
 

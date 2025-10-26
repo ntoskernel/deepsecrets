@@ -11,8 +11,10 @@ from deepsecrets.core.utils.fs import get_abspath, path_exists
 FALLBACK_PROCESS_COUNT = 4
 
 SCANNER_NAME = "DeepSecrets"
-SCANNER_VERSION = "1.4.0"
+SCANNER_VERSION = "1.5.0"
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
+
+MAX_LINE_LENGTH_FOR_CONTEXT = 300
 
 
 class Output(BaseModel):
@@ -72,14 +74,21 @@ class Config:
         count = CpuHelper().get_limit()
         if count > 0:
             self.process_count = count
-            console.print(f'[bold yellow]:warning: Process count[/bold yellow] was not specified. Setting it to [bold magenta]{self.process_count}[/bold magenta] based on the [cyan]machine\'s CPU config[/cyan]')
+            console.print(
+                f'[bold yellow]:warning: Process count[/bold yellow] was not specified. Setting it to [bold magenta]{self.process_count}[/bold magenta] based on the [cyan]machine\'s CPU config[/cyan]'
+            )
             return
 
         self.process_count = FALLBACK_PROCESS_COUNT
-        console.print(f'[bold yellow]:warning:[/bold yellow]: Process count was not specified. Setting it to [bold magenta]{self.process_count}[/bold magenta] as a [yellow]fallback[/yellow]')
+        console.print(
+            f'[bold yellow]:warning:[/bold yellow]: Process count was not specified. Setting it to [bold magenta]{self.process_count}[/bold magenta] as a [yellow]fallback[/yellow]'
+        )
 
     def set_global_exclusion_paths(self, paths: List[str]) -> None:
         for path in paths:
+            if path == 'disable':
+                continue
+
             if not path_exists(path):
                 raise FileNotFoundException(f'global_exclusion_path does not exist ({path})')
             self.global_exclusion_paths.append(path)

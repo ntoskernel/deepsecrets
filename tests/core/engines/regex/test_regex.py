@@ -16,10 +16,12 @@ def file():
     path = 'tests/fixtures/regex_checks.txt'
     return File(path=path, relative_path=path)
 
+
 @pytest.fixture(scope='module')
 def file_extless():
     path = 'tests/fixtures/extless/radius'
     return File(path=path, relative_path=path)
+
 
 @pytest.fixture(scope='module')
 def file_go_7():
@@ -44,7 +46,7 @@ def test_1(file: File, regex_engine: RegexEngine):
             findings.append(finding)
 
     for finding in findings:
-        finding.map_on_file(file=file, relative_start=finding.start_pos)
+        finding.map_on_file(file=file, relative_start=finding.start_offset)
         finding.choose_final_rule()
 
     assert len(findings) == 10
@@ -79,12 +81,11 @@ def test_extless(file_extless: File, regex_engine: RegexEngine):
             findings.append(finding)
 
     for finding in findings:
-        finding.map_on_file(file=file_extless, relative_start=finding.start_pos)
+        finding.map_on_file(file=file_extless, relative_start=finding.start_offset)
         finding.choose_final_rule()
 
     assert len(findings) == 1
     assert findings[0].rules[0].id == 'S28'
-
 
 
 def test_go_7(file_go_7: File, regex_engine: RegexEngine):
@@ -98,7 +99,7 @@ def test_go_7(file_go_7: File, regex_engine: RegexEngine):
             findings.append(finding)
 
     for finding in findings:
-        finding.map_on_file(file=file_go_7, relative_start=finding.start_pos)
+        finding.map_on_file(file=file_go_7, relative_start=finding.start_offset)
         finding.choose_final_rule()
 
     assert len(findings) == 0

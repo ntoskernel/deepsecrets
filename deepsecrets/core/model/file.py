@@ -38,6 +38,7 @@ class File:
                 self.content = self._get_contents()
             except Exception as e:
                 logger.error(f'Error during fetching file contents: {e}')
+                raise
 
         self.length = len(self.content)
 
@@ -130,7 +131,7 @@ class File:
         offsets = self.line_offsets.get(line_number)
         return offsets[1] - offsets[0]
 
-    def get_line_offset(self, line_number: int) -> int:
+    def get_line_start_offset(self, line_number: int) -> int:
         return self.line_offsets.get(line_number)[0]
 
     def __repr__(self) -> str:  # pragma: no cover

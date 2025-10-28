@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List, Type, Optional
+from typing import Any, Dict, Type, Optional
 
 from dotwiz import DotWiz
 
@@ -9,14 +9,14 @@ from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.file import File
-from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.modes.iscan_mode import ScanMode
+from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from deepsecrets.core.utils.lifecycle_hooks import JobLifecycleHooks
-from deepsecrets.core.utils.log import logger
+from deepsecrets.core.utils.log import get_error_list, logger
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.progress import Progress
 
@@ -51,7 +51,12 @@ class CliScanMode(ScanMode):
         return bundle
 
     @staticmethod
-    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> List[Finding]:  # type: ignore
+    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
+
+        def __finalize(result: PerFileAnalysisResult):
+            result.errors = get_error_list()
+            return result
+
         progress = Progress()
         lifecycle = JobLifecycleHooks(
             task_id=task_id,
@@ -63,7 +68,7 @@ class CliScanMode(ScanMode):
         if logger.level == logging.DEBUG:
             pass
 
-        results: List[Finding] = []
+        result = PerFileAnalysisResult(findings=[], errors=[], internal_task_id=task_id)
 
         if not isinstance(file, str):
             raise Exception('Filepath as str expected')
@@ -71,13 +76,13 @@ class CliScanMode(ScanMode):
         try:
             file = File(path=file, relative_path=file.replace(f'{bundle.workdir}/', ''))
         except Exception as e:
-            logger.error('Unable to open the file', extra={'message': e})
-            lifecycle.on_finish()
-            return results
+            logger.error(f'Unable to open the file: {e}')
+            lifecycle.on_failure(task_reporter[task_id])
+            return __finalize(result)
 
         if file.length == 0:
-            lifecycle.on_finish()
-            return results
+            lifecycle.on_finish(task_reporter[task_id])
+            return __finalize(result)
 
         file_analyzer = FileAnalyzer(file)
         file_analyzer.attach_global_task_reporter(task_reporter=task_reporter, task_id=task_id)
@@ -107,12 +112,12 @@ class CliScanMode(ScanMode):
                 file_analyzer.add_engine(semantic_engine, [lex])
 
         try:
-            results = file_analyzer.process()
+            result.findings = file_analyzer.process()
         except Exception as e:
             logger.exception(e)
 
         if PROFILER_ON:
             pass
 
-        lifecycle.on_finish()
-        return results
+        lifecycle.on_finish(task_reporter[task_id])
+        return __finalize(result)

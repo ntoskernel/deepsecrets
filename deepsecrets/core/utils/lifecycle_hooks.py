@@ -18,6 +18,10 @@ class LifecycleHooks:
         self.progress.on_start()
         self._report()
 
+    def on_failure(self, child_report: Optional[dict] = None):
+        self.progress.on_failure()
+        self._report(child_report)
+
     def on_finish(self, child_report: Optional[dict] = None):
         self.progress.on_finish()
         self._report(child_report)

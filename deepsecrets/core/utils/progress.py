@@ -5,10 +5,12 @@ class Progress:
 
     started: bool
     finished: bool
+    failure: bool
 
     def __init__(self) -> None:
         self.started = False
         self.finished = False
+        self.failure = False
 
     def on_start(self):
         self.started = True
@@ -17,12 +19,19 @@ class Progress:
         self.finished = True
         self.started = False
 
+    def on_failure(self):
+        self.failure = True
+        self.finished = True
+
     def report(self, child_report: Optional[dict] = None):
         child_report = child_report if child_report is not None else dict()
-        return child_report | {
+
+        merged = dict(child_report) | {
             'started': self.started,
+            'failure': self.failure,
             'finished': self.finished,
         }
+        return merged
 
 
 class FileProgress(Progress):

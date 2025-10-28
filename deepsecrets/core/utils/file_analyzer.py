@@ -54,8 +54,10 @@ class FileAnalyzer:
         try:
             for et in self.engine_tokenizers:
                 results.extend(self._run_engine(et))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception(e)
+            self.lifecycle.on_failure()
+            return results
 
         self.lifecycle.on_finish()
         return results
@@ -89,7 +91,7 @@ class FileAnalyzer:
                 self.lifecycle.on_token_processing_end(len(findings))
 
             except Exception as e:
-                logger.exception('Unable to process token', extra={'info': e})
+                logger.exception(f'Unable to process token: {e}')
                 continue
 
         return results

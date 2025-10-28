@@ -11,7 +11,8 @@ from deepsecrets.core.utils.fs import get_abspath, path_exists
 FALLBACK_PROCESS_COUNT = 4
 
 SCANNER_NAME = "DeepSecrets"
-SCANNER_VERSION = "1.5.0"
+SCANNER_VERSION = "1.4.1"
+SCANNER_VERSION_NUMERIC = [int(subver) for subver in SCANNER_VERSION.split('.')]
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
 
 MAX_LINE_LENGTH_FOR_CONTEXT = 300

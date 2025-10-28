@@ -123,7 +123,7 @@ def test_5_semantic_engine(file_sh_2: File):
         findings.extend(engine.search(token))
 
     for finding in findings:
-        finding.map_on_file(file=file_sh_2, relative_start=finding.start_pos)
+        finding.map_on_file(file=file_sh_2, relative_start=finding.start_offset)
         finding.choose_final_rule()
 
     findings = FindingMerger(findings).merge()
@@ -142,7 +142,7 @@ def test_6_semantic_engine(file_html_1: File):
         findings.extend(engine.search(token))
 
     for finding in findings:
-        finding.map_on_file(file=file_html_1, relative_start=finding.start_pos)
+        finding.map_on_file(file=file_html_1, relative_start=finding.start_offset)
         finding.choose_final_rule()
 
     findings = FindingMerger(findings).merge()

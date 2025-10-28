@@ -3,14 +3,16 @@ from datetime import datetime
 import json
 import logging
 from argparse import RawTextHelpFormatter
-from typing import List
+from typing import Dict, List
 from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME, console
-from deepsecrets.config import Config, config, Output
+from deepsecrets.config import SCANNER_VERSION, SCANNER_VERSION_NUMERIC, Config, config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
-from deepsecrets.core.model.finding import Finding, FindingResponse
+from deepsecrets.core.model.finding import Finding
+from deepsecrets.core.model.response.builtin import BuiltinFormatResponseBuilder
+from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
@@ -18,14 +20,8 @@ from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger
 from deepsecrets.scan_modes.cli import CliScanMode
 
-from rich.progress import (
-    SpinnerColumn,
-    Progress,
-    TextColumn,
-    BarColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-)
+from rich.progress import SpinnerColumn, Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+from rich.panel import Panel
 from rich.table import Table, Column
 from rich import box
 from rich.text import Text
@@ -49,6 +45,7 @@ progress_bar = Progress(
     TaskProgressColumn(),
     TimeRemainingColumn(),
     TextColumn("[bold red]{task.fields[findings]}", justify="right"),
+    TextColumn("[bold red]{task.fields[errors]}", justify="right"),
     console=console,
     refresh_per_second=5,
     expand=True,
@@ -74,7 +71,7 @@ class DeepSecretsCliTool:
                     Text('____________________________________', style='reverse'),
                     padding=(0, 0),
                     title='A better tool for Secret Scanning ',
-                    subtitle='version 1.4.0',
+                    subtitle=f'version {SCANNER_VERSION}',
                 ),
                 align='center',
             )
@@ -191,15 +188,17 @@ class DeepSecretsCliTool:
             '--outformat',
             default='json',
             type=str,
-            choices=['json', 'dojo-sarif'],
-            help='"json": internal format (default)\n' '"dojo-sarif": SARIF format compatible with DefectDojo\n',
+            choices=['json', 'sarif', 'dojo-sarif'],
+            help='"json": internal format (default)\n'
+            '"sarif": SARIF format (specification accurate)\n'
+            '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n',
         )
 
         parser.add_argument(
             '--disable-masking',
             action='store_true',
-            help='Secrets are rendered masked inside the report by default.\n'
-            'Use this flag if you want to render found secrets in plaintext.',
+            help='Secrets are rendered MASKED inside the report by default.\n'
+            'Use this flag if you want to render found secrets in plaintext but be extremely careful.',
         )
 
         self.argparser = parser
@@ -261,6 +260,51 @@ class DeepSecretsCliTool:
             logger.exception(e)
             return ReturnCodes.ERROR
 
+        if config.output.type == 'json':
+            console.print('\n')
+            if SCANNER_VERSION_NUMERIC[0] == 1 and SCANNER_VERSION_NUMERIC[1] < 5:
+                console.print(
+                    Align(
+                        Panel(
+                            "The internal JSON report format is now DEPRECATED.\n\nThe tool will begin reporting in SARIF BY DEFAULT starting from the release 1.5.0 (January 2026)\n\nConsider switching now.",
+                            padding=(1, 2),
+                            title=Text('SWITCHING TO SARIF NEXT RELEASE', style='reverse'),
+                            highlight=True,
+                            subtitle=Text(' --outformat sarif ', style='reverse'),
+                            title_align='center',
+                            width=90,
+                            subtitle_align='center',
+                            box=box.HEAVY,
+                            style='black on orange_red1',
+                            expand=False,
+                        ),
+                        align='center',
+                    )
+                )
+
+            else:
+                console.print(
+                    Align(
+                        Panel(
+                            f"The internal JSON report format was DEPRECATED in the release 1.4.1.\nNow ({SCANNER_VERSION}) it is REMOVED.\n.",
+                            padding=(1, 2),
+                            title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
+                            highlight=True,
+                            subtitle=Text('', style='reverse'),
+                            title_align='center',
+                            width=90,
+                            subtitle_align='center',
+                            box=box.HEAVY,
+                            style='black on orange_red1',
+                            expand=False,
+                        ),
+                        align='center',
+                    )
+                )
+
+            console.print('\n\n')
+            return -1
+
         console.rule(
             f'Planning a scan against {config.workdir_path} using {config.process_count} process(es)', characters='='
         )
@@ -284,7 +328,11 @@ class DeepSecretsCliTool:
         mode.set_progress_bar(progress_bar)
 
         progress_bar.start()
-        findings: List[Finding] = mode.run()
+
+        findings: List[Finding]
+        errors: Dict[str, List[str]]
+
+        findings, errors = mode.run()
         progress_bar.stop()
         finish_time = datetime.now()
         report_path = get_abspath(config.output.path)
@@ -299,10 +347,17 @@ class DeepSecretsCliTool:
         table.add_column()
         table.add_column(justify='right')
         table.add_row(
-            Align('Files (Tokens) Processed', vertical='middle'),
+            Align('Processed Files (Tokens)', vertical='middle'),
             f'{str(len(mode.filepaths))} ({mode.stats.tokens_processed})',
         )
         table.add_row(Align('Elapsed', vertical='middle'), f'{(finish_time-startup_time).total_seconds():.1f}s')
+        errors_line_color = '[bold red]' if len(errors.keys()) > 0 else '[bold green]'
+        table.add_row(
+            Align(f'{errors_line_color}File Errors', vertical='middle'),
+            f'{errors_line_color}{str(len(errors.keys()))}',
+        )
+        table.add_row()
+
         findings_line_color = '[bold red]' if len(findings) > 0 else '[bold green]'
         table.add_row(
             Align(f'{findings_line_color}Potential Findings', vertical='middle'),
@@ -314,10 +369,25 @@ class DeepSecretsCliTool:
         with open(report_path, 'w+') as f:
 
             if config.output.type == 'json':
-                json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
+                json.dump(
+                    BuiltinFormatResponseBuilder()
+                    .with_current_mode(mode)
+                    .with_findings_list(findings)
+                    .with_masking_enabled(not config.disable_masking)
+                    .build(),
+                    f,
+                )
 
             if config.output.type == 'dojo-sarif':
-                f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
+                f.write(
+                    to_json(
+                        DojoSarifResponseBuilder()
+                        .with_current_mode(mode)
+                        .with_findings_list(findings)
+                        .with_masking_enabled(not config.disable_masking)
+                        .build()
+                    )
+                )
 
         if len(findings) > 0 and config.disable_masking:
             console.print(

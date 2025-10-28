@@ -6,17 +6,19 @@ from multiprocessing import Manager, get_context
 from multiprocessing.managers import DictProxy
 import os
 from abc import abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from dotwiz import DotWiz
 
 from deepsecrets import PROFILER_ON, console
 from deepsecrets.config import Config
-from deepsecrets.core.model.finding import Finding, FindingMerger
+from deepsecrets.core.model.finding import Finding
+from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
 from deepsecrets.core.model.rules.exlcuded_path import ExcludePathRule
 from deepsecrets.core.rulesets.excluded_paths import ExcludedPathsBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
+from deepsecrets.core.utils.finding_merger import FindingMerger
 from deepsecrets.core.utils.fs import get_abspath
 
 from rich.progress import Progress as ProgressBar
@@ -27,15 +29,15 @@ from rich.text import Text
 @dataclass
 class FileJob:
     internal_id: int
-    name: str
     pb_task_id: Optional[int]
-    result: AsyncResult
+    name: str
 
 
 @dataclass
 class Stats:
     total_files: int = 0
     finished: int = 0
+    failed_files: int = 0
     tokens_processed: int = 0
     total_findings: int = 0
 
@@ -100,12 +102,15 @@ class ScanMode:
 
             started: bool = current_state.get('started')
             finished: bool = current_state.get('finished')
+            failure: bool = current_state.get('failure')
+
             size: str = current_state.get('file_size')
 
             if started is True and finished is False and job.pb_task_id is None:
                 job.pb_task_id = self.progress_bar.add_task(
                     f'[{job.internal_id}] {job.name.split("/")[-1]}',
                     findings='0',
+                    errors='',
                     size='| ? Kb',
                 )
 
@@ -113,10 +118,14 @@ class ScanMode:
             findings = current_state.get('findings', 0)
 
             if finished is True:
-                self.stats.tokens_processed += processed
-                self.stats.total_findings += findings
-
                 tasks_to_remove.append(internal_task_id)
+
+                if failure is True:
+                    self.stats.failed_files += 1
+                else:
+                    self.stats.tokens_processed += processed
+                    self.stats.total_findings += findings
+
                 if job.pb_task_id is not None:
                     try:
                         self.progress_bar.remove_task(job.pb_task_id)
@@ -148,24 +157,33 @@ class ScanMode:
             pb_task_id,
             completed=self.stats.finished,
             total=self.stats.total_files,
-            findings=f'FOUND: {self.stats.total_findings}',
+            findings=f'F: {self.stats.total_findings}',
+            errors=f'ERR: {self.stats.failed_files}',
         )
 
-    def run(self) -> List[Finding]:
+    def run(self) -> Tuple[List[Finding], Dict[str, List[str]]]:
         final: List[Finding] = []
+        errors: Dict[str, List[str]] = dict()
+
         bundle = self.analyzer_bundle()
         proc_count = self._get_process_count_for_runner()
         if proc_count == 0:
-            return final
+            return final, errors
 
         overall_progress_task = self.progress_bar.add_task(
-            "[green bold]OVERALL PROGRESS\n", visible=True, findings='FOUND: 0', size=''
+            "[green bold]OVERALL PROGRESS\n",
+            visible=True,
+            findings='F: 0',
+            errors='ERR: 0',
+            size='',
         )
 
         if PROFILER_ON:
             for file in self.filepaths:
                 final.extend(
-                    self._per_file_analyzer(file=file, bundle=bundle, task_id=0, task_reporter=self.task_reporter)
+                    self._per_file_analyzer(
+                        file=file, bundle=bundle, task_id=0, task_reporter=self.task_reporter
+                    ).findings
                 )
         else:
             with self.pool_engine(processes=proc_count) as pool:
@@ -181,7 +199,6 @@ class ScanMode:
                     self.file_jobs[tid] = FileJob(
                         name=file,
                         internal_id=tid,
-                        result=result,
                         pb_task_id=None,
                     )
                 pool.close()
@@ -195,10 +212,13 @@ class ScanMode:
         self.progress_bar.stop()
 
         for job_result in self.file_results:
-            file_findings = job_result.get()
-            if file_findings is None or len(file_findings) == 0:
+            analysis_result: PerFileAnalysisResult = job_result.get()
+            job = self.file_jobs.get(analysis_result.internal_task_id)
+            errors[job.name] = analysis_result.errors
+
+            if analysis_result.findings is None or len(analysis_result.findings) == 0:
                 continue
-            final.extend(file_findings)
+            final.extend(analysis_result.findings)
 
         console.line()
         console.print('[*] Merging similar findings..')
@@ -206,7 +226,7 @@ class ScanMode:
 
         console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
-        return fin
+        return fin, errors
 
     def dispose(self):
         self.task_reporter = None
@@ -280,7 +300,7 @@ class ScanMode:
 
     @staticmethod
     @abstractmethod
-    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> List[Finding]:  # type: ignore
+    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
         pass
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
@@ -305,6 +325,6 @@ class ScanMode:
 
 def pool_wrapper(
     bundle: DotWiz, runner: Callable, task_id: Optional[int], task_reporter: DictProxy, file: str
-) -> List[Finding]:  # pragma: nocover
+) -> PerFileAnalysisResult:  # pragma: nocover
     result = runner(bundle, file, task_id, task_reporter)
     return result

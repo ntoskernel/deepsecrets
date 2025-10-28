@@ -42,7 +42,7 @@ var_name_showstoppers = [
     'change',
     'mock',
     'fake',
-    'dummy'
+    'dummy',
 ]
 
 
@@ -75,8 +75,8 @@ class SemanticEngine(IEngine):
             findings.append(
                 Finding(
                     detection=token.content,
-                    start_pos=0,
-                    end_pos=len(token.content),
+                    start_offset=0,
+                    end_offset=len(token.content),
                     rules=[Rule(id='S107', name='Dangerous condition', confidence=9)],
                 )
             )
@@ -109,8 +109,8 @@ class SemanticEngine(IEngine):
                 findings.append(
                     Finding(
                         detection=token.content,
-                        start_pos=0,
-                        end_pos=len(token.content),
+                        start_offset=0,
+                        end_offset=len(token.content),
                         rules=[Rule(id='S105', name='Entropy+Var naming', confidence=-1)],
                     )
                 )
@@ -122,8 +122,8 @@ class SemanticEngine(IEngine):
                 findings.append(
                     Finding(
                         detection=token.content,
-                        start_pos=0,
-                        end_pos=len(token.content),
+                        start_offset=0,
+                        end_offset=len(token.content),
                         rules=[Rule(id='S106', name='Var naming', confidence=-1)],
                     )
                 )

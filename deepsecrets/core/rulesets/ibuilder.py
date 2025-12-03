@@ -17,7 +17,11 @@ class IRulesetBuilder:
         with open(file) as f:
             rules_raw = json.load(f)
 
-        self.rules.extend([self.rule_model(**rule) for rule in rules_raw])
+        for rule in rules_raw:
+            parsed_model: Rule = self.rule_model(**rule)
+            if parsed_model.enabled is False:
+                continue
+            self.rules.append(parsed_model)
         return self
 
     @property

@@ -15,6 +15,7 @@ class FileTypeGuesser:
             'pp': self._is_puppet,
             'ini': self._is_ini,
             'yaml': self._is_yaml,
+            'rst': self._is_rst,
             # 'properties': self._dot_properties,
         }
 
@@ -22,8 +23,9 @@ class FileTypeGuesser:
         for ext, probe in self.probes.items():
             if probe(content):
                 return ext
-        
+
         # TODO: Guesslang
+        # TODO: HOCON parser
         '''
         ml_guesser = Guess()
         guess = ml_guesser.language_name(content)
@@ -35,13 +37,13 @@ class FileTypeGuesser:
                 return ext
         '''
         return None
-    
+
     def _is_json(self, content: str):
         try:
             json.loads(content)
         except Exception:
             return False
-        
+
         return True
 
     def _is_toml(self, content: str):
@@ -49,7 +51,7 @@ class FileTypeGuesser:
             tomllib.loads(content)
         except Exception:
             return False
-        
+
         return True
 
     def _is_yaml(self, content: str):
@@ -57,20 +59,26 @@ class FileTypeGuesser:
             _ = yaml.safe_load(content)
         except yaml.YAMLError:
             return False
-        
+
         return True
-    
+
     def _is_puppet(self, content: str):
         try:
             _, _ = parse(content)
         except Exception:
             return False
-        
+
         return True
 
     def _is_ini(self, content):
         try:
             _ = ConfigParser().read_string(content)
-        except Exception as e:
+        except Exception:
             return False
         return True
+
+    def _is_rst(self, content: str):
+        features = ['.. code-block::']
+        for feature in features:
+            if feature in content:
+                return True

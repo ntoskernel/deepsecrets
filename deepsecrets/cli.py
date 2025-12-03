@@ -1,7 +1,6 @@
 import argparse
 from datetime import datetime
 import json
-import logging
 from argparse import RawTextHelpFormatter
 from typing import Dict, List
 from jschema_to_python.to_json import to_json
@@ -16,6 +15,7 @@ from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger
 from deepsecrets.scan_modes.cli import CliScanMode
@@ -99,7 +99,7 @@ class DeepSecretsCliTool:
             help='Paths to your Regex Rulesets.\n'
             "- Set 'disable' to turn off regex checks\n"
             '- Ignore this argument to use the built-in ruleset.\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to enable it\n"
+            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
             'eq. --regex-rules built-in /root/my_regex_rules.json\n',
             default=['built-in'],
         )
@@ -117,7 +117,19 @@ class DeepSecretsCliTool:
             type=str,
             help='Controls semantic checks (enabled by default)\n'
             "- Set 'disable' to turn off semantic checks (not recommended)\n"
-            'eq. --semantic-analysis disable',
+            'eq. --semantic-analysis disable\n'
+            'Uses "--variable-scoring-rules" under the hood',
+            default=['built-in'],
+        )
+
+        parser.add_argument(
+            '--variable-scoring-rules',
+            nargs='*',
+            type=str,
+            help='Controls rules for assessing variables as dangerous based on names, values, langs and filenames\n'
+            '- Ignore this argument to use the built-in (mature and robust) ruleset\n'
+            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
+            'eq. --variable-scoring-rules built-in /root/my_var_scoring_rules.json\n',
             default=['built-in'],
         )
 
@@ -189,8 +201,8 @@ class DeepSecretsCliTool:
             default='json',
             type=str,
             choices=['json', 'sarif', 'dojo-sarif'],
-            help='"json": internal format (default)\n'
-            '"sarif": SARIF format (specification accurate)\n'
+            help='"json": internal format (default, will be deprecated soon)\n'
+            '"sarif": SARIF format (specification accurate, will become default soon)\n'
             '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n',
         )
 
@@ -201,23 +213,32 @@ class DeepSecretsCliTool:
             'Use this flag if you want to render found secrets in plaintext but be extremely careful.',
         )
 
+        parser.add_argument('--benchmarking-mode', help=argparse.SUPPRESS, action='store_true')
+        parser.add_argument('--oneshot', help=argparse.SUPPRESS, type=str, default=None)
+
         self.argparser = parser
 
     def parse_arguments(self) -> None:
 
         user_args = self.argparser.parse_args(args=self.args[1:])
         if user_args.verbose:
-            config.set_logging_level(logging.DEBUG)
+            pass
+            # config.set_logging_level(logging.DEBUG)
 
         if user_args.disable_masking:
             config.set_disable_masking(True)
 
+        if user_args.benchmarking_mode:
+            config._set_benchmarking_mode(True)
+
         self.say_hello()
 
         config.set_workdir(user_args.target_dir)
+        config.set_oneshot_path(user_args.oneshot)
         config.set_max_file_size(user_args.max_file_size)
         config.set_process_count(user_args.process_count)
         config.set_mp_context(user_args.multiprocessing_context)
+        config.set_verbose(user_args.verbose)
         config.output = Output(type=user_args.outformat, path=user_args.outfile)
 
         if user_args.reflect_findings_in_return_code:
@@ -239,6 +260,13 @@ class DeepSecretsCliTool:
         conf_semantic_analysis = user_args.semantic_analysis
         if conf_semantic_analysis is not None and conf_semantic_analysis != DISABLED:
             config.engines.append(SemanticEngine)
+
+            VARIABLE_SCORING_RULESET = get_path_inside_package('rules/variable_scoring_rules.json')
+            if user_args.variable_scoring_rules is not None:
+                rules = [
+                    rule.replace('built-in', VARIABLE_SCORING_RULESET) for rule in user_args.variable_scoring_rules
+                ]
+                config.add_ruleset(VariableScoringRulesetBuilder, rules)
 
         conf_hashed_ruleset = user_args.hashed_values
         if conf_hashed_ruleset is not None and conf_hashed_ruleset != DISABLED:
@@ -301,9 +329,9 @@ class DeepSecretsCliTool:
                         align='center',
                     )
                 )
+                return ReturnCodes.ERROR
 
             console.print('\n\n')
-            return -1
 
         console.rule(
             f'Planning a scan against {config.workdir_path} using {config.process_count} process(es)', characters='='
@@ -333,6 +361,14 @@ class DeepSecretsCliTool:
         errors: Dict[str, List[str]]
 
         findings, errors = mode.run()
+
+        '''
+        for finding in findings:
+            if finding._mapped_on_file is False:
+                continue
+            finding.file = None
+        '''
+
         progress_bar.stop()
         finish_time = datetime.now()
         report_path = get_abspath(config.output.path)
@@ -354,7 +390,7 @@ class DeepSecretsCliTool:
         errors_line_color = '[bold red]' if len(errors.keys()) > 0 else '[bold green]'
         table.add_row(
             Align(f'{errors_line_color}File Errors', vertical='middle'),
-            f'{errors_line_color}{str(len(errors.keys()))}',
+            f'{errors_line_color}{mode.stats.failed_files}',
         )
         table.add_row()
 
@@ -363,8 +399,11 @@ class DeepSecretsCliTool:
             Align(f'{findings_line_color}Potential Findings', vertical='middle'),
             f'{findings_line_color}{str(len(findings))}',
         )
-        table.add_row(Align('Report Location', vertical='middle'), report_path)
+        table.add_row(Align(f'Report Location ({config.output.type})', vertical='middle'), report_path)
         console.print(Align(table, align='center'))
+
+        if config._benchmarking_mode is True:
+            return findings, errors, mode._oneshot_file
 
         with open(report_path, 'w+') as f:
 
@@ -378,7 +417,7 @@ class DeepSecretsCliTool:
                     f,
                 )
 
-            if config.output.type == 'dojo-sarif':
+            if config.output.type in ['sarif', 'dojo-sarif']:
                 f.write(
                     to_json(
                         DojoSarifResponseBuilder()

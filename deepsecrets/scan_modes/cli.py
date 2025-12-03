@@ -13,6 +13,7 @@ from deepsecrets.core.modes.iscan_mode import ScanMode
 from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from deepsecrets.core.utils.lifecycle_hooks import JobLifecycleHooks
@@ -45,6 +46,7 @@ class CliScanMode(ScanMode):
         bundle = super().analyzer_bundle()
         bundle.update(
             workdir=self.config.workdir_path,
+            benchmarking_mode=self.config._benchmarking_mode,
             engines=self.engines_enabled,
             rulesets=self.rulesets,
         )
@@ -54,6 +56,9 @@ class CliScanMode(ScanMode):
     def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
 
         def __finalize(result: PerFileAnalysisResult):
+            if bundle.benchmarking_mode is True:
+                result._file = file
+
             result.errors = get_error_list()
             return result
 
@@ -108,7 +113,9 @@ class CliScanMode(ScanMode):
                 file_analyzer.add_engine(hashed_secret_engine, [lex])
 
             if eng == SemanticEngine.name:
-                semantic_engine = SemanticEngine(regex_engine)
+                semantic_engine = SemanticEngine(
+                    regex_engine, ruleset=bundle.rulesets.get(VariableScoringRulesetBuilder.ruleset_name, [])
+                )
                 file_analyzer.add_engine(semantic_engine, [lex])
 
         try:
@@ -119,5 +126,7 @@ class CliScanMode(ScanMode):
         if PROFILER_ON:
             pass
 
-        lifecycle.on_finish(task_reporter[task_id])
+        if task_reporter is not None:
+            lifecycle.on_finish(task_reporter.get('task_id'))
+
         return __finalize(result)

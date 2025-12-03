@@ -66,3 +66,7 @@ amqp://login:%password%@example.com
 //	redis://<user>:<password>@<host>:<port>
 http://localhost:3001/@whatever/path/more
 http://user:sneakypass@localhost:3001/@whatever/path/more
+
+on PLAINTEXT://localhost:9092 123456terrence@igloo /usr/local/kafka15:51:25 𝜆 diff config/server.pro
+
+eing prematurely saved to database\n  ([230e4a11](https://gitlab-ci-token:ridCNWnbTpavfVuJvWmS@git.sickrage.ca/SiCKRAGE/sickrage/commit/230e4a11b46145fc881186a3e

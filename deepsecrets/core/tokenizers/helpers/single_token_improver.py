@@ -5,10 +5,11 @@ from pygments.token import Token as PygmentsToken
 
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
+from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, RegionDetector
 from deepsecrets.core.tokenizers.helpers.type_stream import token_to_typestream_item
 
 
-class SpotImprovements:
+class SingleTokenImprover:
     language: Language
     acc: dict[Language, List[Callable]]
 
@@ -16,7 +17,7 @@ class SpotImprovements:
         self.language = lang
         self.acc = {Language.SHELL: [self._curl_argstring_breakdown]}
 
-    def improve_token(self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token) -> List[Token]:
+    def improve(self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token) -> List[Token]:
         tokens = []
         for improvement in self.acc.get(self.language, []):
             tokens.extend(improvement(so_far_tokens, so_far_type_stream, current_token))
@@ -30,16 +31,16 @@ class SpotImprovements:
         self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token
     ) -> List[Token]:
         projected_typestream = so_far_type_stream + token_to_typestream_item(current_token)
-        rule = {'pattern': re.compile('(L)(L)$'), 'checks': {1: re.compile('^-u$')}}
-        match: re.Match = rule['pattern'].search(projected_typestream)
+
+        rule = RegionDetector(
+            stream_pattern=re.compile('(L)(L)$'),
+            match_rules={1: Match(values=[re.compile('^-u$')])},
+            match_semantics={},
+        )
+
+        match = rule.match(so_far_tokens, projected_typestream)
         if not match:
             return [current_token]
-
-        for group_i, pattern in rule['checks'].items():
-            span = match.span(group_i)
-            group_token: Token = so_far_tokens[span[0]]
-            if not pattern.search(group_token.content):
-                return [current_token]
 
         new_parts = current_token.content.split(':')
         if new_parts[0] == '' or new_parts[1] == '':

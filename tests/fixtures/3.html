@@ -1,0 +1,22 @@
+<html>
+
+<head>
+    <script type="text/javascript">
+        new ClipboardJS('.copy-button');
+
+        let tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        let tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+        docsearch({
+            apiKey: 'f8ac7fd943r5rfdsab72c1301f8ac79',
+            indexName: 'apereo',
+            inputSelector: '#searchField',
+            algoliaOptions: { 'facetFilters': ["version: 6.4.x"] },
+            debug: false 
+        });
+    </script>
+</head>
+
+</html>

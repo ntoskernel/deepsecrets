@@ -4,46 +4,33 @@ from sarif_om import (
     Tool,
     ToolComponent,
     ReportingDescriptor,
-    ArtifactContent,
     Result,
-    Region,
     Message,
-    ArtifactLocation,
-    PhysicalLocation,
     Location,
+    PhysicalLocation,
+    ArtifactLocation,
+    ArtifactContent,
+    Region,
 )
 from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
-from deepsecrets.core.model import Finding
-from typing import Dict
+from typing import List
 
+from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.base import BaseResponseBuilder
+from deepsecrets.core.model.rules.rule import Rule
+from deepsecrets.core.modes.iscan_mode import ScanMode
+
+
+SRC_PATH_BASE_ID = 'SRCROOT'
 
 
 class DojoSarifResponseBuilder(BaseResponseBuilder):
 
-    def _get_levels(self, finding: Finding):
-        if finding.final_rule.confidence > 5:
-            precision = 'high'
-            security_severity = 'High'
-            level = 'error'
-        elif finding.final_rule.confidence > 0:
-            precision = 'medium'
-            security_severity = 'High'
-            level = 'error'
-        else:
-            precision = 'low'
-            security_severity = 'Medium'
-            level = 'warning'
+    report: SarifLog
 
-        return {
-            'precision': precision,
-            'security_severity': security_severity,
-            'level': level,
-        }
-
-    def build(self) -> SarifLog:  # type: ignore
-
-        report = SarifLog(
+    def __init__(self) -> None:
+        super().__init__()
+        self.report = SarifLog(
             schema_uri='https://json.schemastore.org/sarif-2.1.0.json',
             version='2.1.0',
             runs=[
@@ -61,33 +48,81 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
             ],
         )
 
-        sarif_rules: Dict[str, ReportingDescriptor] = {}
+    def with_current_mode(self, mode: ScanMode):
+        super().with_current_mode(mode)
+        self.report.runs[0].original_uri_base_ids = (
+            {
+                SRC_PATH_BASE_ID: {
+                    'uri': self.mode.config.workdir_path,
+                },
+            },
+        )
+        return self
+
+    def _get_levels(self, rule: Rule):
+        precision = 'very-high'
+        security_severity = 'High'
+        level = 'error'
+
+        if rule.confidence >= 9:
+            precision = 'very-high'
+            security_severity = 'High'
+            level = 'error'
+        elif 9 > rule.confidence >= 6:
+            precision = 'high'
+            security_severity = 'High'
+            level = 'error'
+        elif 6 > rule.confidence >= 3:
+            precision = 'medium'
+            security_severity = 'High'
+            level = 'error'
+        elif 3 > rule.confidence >= 0:
+            precision = 'low'
+            security_severity = 'High'
+            level = 'error'
+
+        return {
+            'precision': precision,
+            'security_severity': security_severity,
+            'level': level,
+        }
+
+    def _get_list_of_all_rules(self) -> List[ReportingDescriptor]:
+        sarif_rules = []
+        for _, ruleset in self.mode.rulesets.items():
+            for rule in ruleset:
+                sarif_rules.append(self._get_rule(rule))
+
+        return sarif_rules
+
+    def _get_rule(self, rule: Rule) -> ReportingDescriptor:
+        levels = self._get_levels(rule)
+        return ReportingDescriptor(
+            id=rule.id,
+            short_description={'text': rule.name},
+            full_description={'text': rule.name},
+            help={'text': rule.name},
+            properties={
+                'security-severity': levels.get('security_severity'),
+                'precision': levels.get('precision'),
+            },
+            default_configuration={'level': levels.get('level')},
+        )
+
+    def build(self) -> SarifLog:  # type: ignore
+
+        rules: set[Rule] = set()  # self._get_list_of_rules()
 
         for finding in self.findings:
-
             finding.choose_final_rule()
-            levels = self._get_levels(finding=finding)
-
-            rule = ReportingDescriptor(
-                id=finding.final_rule.id,
-                short_description={'text': finding.final_rule.name},
-                full_description={'text': finding.final_rule.name},
-                help={'text': finding.final_rule.name},
-                properties={
-                    'security_severity': levels.get('security_severity'),
-                    'precision': levels.get('precision'),
-                },
-                default_configuration={'level': levels.get('level')},
-            )
-
-            sarif_rules[finding.final_rule.id] = rule
-
             region = self.get_region(finding=finding, masking=self.masking_enabled)
             context_region = self.get_context_region(finding=finding, masking=self.masking_enabled)
 
+            rules.add(finding.final_rule)
+
             result = Result(
                 rule_id=finding.final_rule.id,
-                message=Message(text=f'Secret in code ({finding.final_rule.name})'),
+                message=Message(text=f'Secret in code: ({finding.final_rule.name})'),
                 locations=[
                     Location(
                         physical_location=PhysicalLocation(
@@ -99,10 +134,10 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
                 ],
             )
 
-            report.runs[0].results.append(result)
+            self.report.runs[0].results.append(result)
 
-        report.runs[0].tool.driver.rules = [rule for rule in sarif_rules.values()]
-        return report
+        self.report.runs[0].tool.driver.rules = [self._get_rule(rule) for rule in rules]
+        return self.report
 
     def get_context_region(self, finding: Finding, masking: bool = True):
 
@@ -124,7 +159,7 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
             snippet=ArtifactContent(text=snippet),
         )
 
-    def get_region(self, finding: 'Finding', masking: bool = True):
+    def get_region(self, finding: Finding, masking: bool = True):
 
         start_column = finding.file.get_column_number(position=finding.start_offset)
         end_column = finding.file.get_column_number(position=finding.end_offset)

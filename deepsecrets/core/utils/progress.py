@@ -1,4 +1,5 @@
-from typing import Optional
+from datetime import datetime
+from typing import Dict, Optional
 
 
 class Progress:
@@ -6,11 +7,13 @@ class Progress:
     started: bool
     finished: bool
     failure: bool
+    latest_report: datetime
 
     def __init__(self) -> None:
         self.started = False
         self.finished = False
         self.failure = False
+        self.latest_report = None
 
     def on_start(self):
         self.started = True
@@ -31,49 +34,87 @@ class Progress:
             'failure': self.failure,
             'finished': self.finished,
         }
+        self.latest_report = datetime.now()
         return merged
+
+
+REPORT_THROTTLING_PERIOD_SECONDS = 1
 
 
 class FileProgress(Progress):
     total_tokens: int
     processed_count: int
     findings: int
-    file_size: str
+    file_size: int
+    file_size_str: str
 
-    tokenizers_total: int
-    tokenizers_done: int
+    tokenizers: Dict[str, Dict]
 
-    def __init__(self, tokenizers_total: int, tokenizers_done: int = 0):
+    def add_tokenizer(self, name: str):
+        self.tokenizers[name] = {
+            'tokenization_done': False,
+            'tokenization_progress_percent': 0,
+            'tokens_count': 0,
+            'tokens_processed': 0,
+        }
+
+    def on_tokenization_progress(self, name: str, new_offset: int):
+        self.tokenizers[name]['tokenization_progress_percent'] = new_offset
+
+    def __init__(self):
         super().__init__()
         self.total_tokens = 0
         self.processed_count = 0
         self.findings = 0
+        self.tokenizers = {}
 
-        self.tokenizers_total = tokenizers_total
-        self.tokenizers_done = tokenizers_done
-
-    def on_tokenization_finished(self, token_count: int):
+    def on_tokenization_finished(self, name: str, token_count: int):
+        self.tokenizers[name]['tokenization_done'] = True
+        self.tokenizers[name]['tokens_count'] = token_count
         self.total_tokens += token_count
-        self.tokenizers_done += 1
 
-    def on_token_processing_start(self):
+    def on_token_processing_start(self, name: str):
         self.processed_count += 1
+        self.tokenizers[name]['tokens_processed'] += 1
 
     def add_findings_count(self, count: int):
         self.findings += count
 
     def set_file_size(self, file_size: int):
-        self.file_size = f'{round(file_size / 1024)} Kb'
+        self.file_size = file_size
+        self.file_size_str = f'{round(file_size / 1024)} Kb'
 
     def report(self, child_report: Optional[dict] = None):
-        if self.tokenizers_total > 0 and self.tokenizers_done > 0:
-            total_tokens = self.total_tokens / (self.tokenizers_done / self.tokenizers_total)
-        else:
-            total_tokens = self.total_tokens
+        # percentages
+        # Lexer: 95%             |       FullContent: 5%
+        # Tokenization: 80%.             Tokenization: 5%
+        # Search: 20%                    Search: 95%
 
-        return super().report() | {
-            'total_tokens': total_tokens,
+        percentage = 0
+        for name, tokenizer_info in self.tokenizers.items():
+            tokens_count = tokenizer_info['tokens_count']
+            tokenization_done = tokenizer_info['tokenization_done']
+            tokenization_progress_percent = tokenizer_info.get('tokenization_progress_percent', 0)
+            tokens_processed = tokenizer_info['tokens_processed']
+
+            if name == 'LexerTokenizer':
+                if tokenization_done is True:
+                    percentage += 76
+                    percentage += 14 * (tokens_processed / tokens_count) if tokens_count > 0 else 0
+                else:
+                    percentage += 76 * tokenization_progress_percent
+
+            if name == 'FullContentTokenizer':
+                if tokenization_done is True:
+                    percentage += 0.25
+                    percentage += 4.75 * (tokens_processed / tokens_count) if tokens_count > 0 else 0
+                else:
+                    percentage += 0.25 * tokenization_progress_percent
+
+        return {
+            'total_tokens': self.total_tokens,
+            'percentage': percentage,
             'processed': self.processed_count,
             'findings': self.findings,
-            'file_size': self.file_size,
-        }
+            'file_size': self.file_size_str,
+        } | super().report()

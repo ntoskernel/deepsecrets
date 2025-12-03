@@ -1,9 +1,13 @@
 from typing import Dict, List, Optional
 
+from pygments import highlight
+
 from deepsecrets.core.model.file import File
 from deepsecrets.core.utils.guess_filetype import FileTypeGuesser
 from pygments.lexers import load_lexer_from_file, get_lexer_for_filename, get_lexer_by_name
 from pygments.util import ClassNotFound
+from pygments.formatters import RawTokenFormatter
+from pygments.lexers.special import RawTokenLexer
 from jsx import lexer as lexer_mod
 
 
@@ -51,6 +55,15 @@ class LexerFinder:
         except ClassNotFound as e:
             pass
 
+        # Extremely unreliable
+        '''
+        try:
+            lexer = guess_lexer(file.content)
+            return lexer
+        except ClassNotFound as e:
+            pass
+        '''
+
         return lexer
 
     def _determine_extension(self):
@@ -60,8 +73,27 @@ class LexerFinder:
 
         return self.file.extension
 
+    def _if_hocon_coffeescript_hack(self):
+        lexer = get_lexer_by_name('coffeescript')
+        try:
+            result = highlight(self.file.content, lexer, RawTokenFormatter())
+            raw_tokens = list(RawTokenLexer().get_tokens(result))
+        except Exception:
+            return None
+
+        if len(raw_tokens) == 0:
+            return None
+
+        return 'coffeescript'
+
     def _try_guess_extension(self) -> Optional[str]:
-        return FileTypeGuesser().guess(self.file.content)
+        guess = FileTypeGuesser().guess(self.file.content)
+        if guess is not None:
+            return guess
+
+        # HOCON-files are well lexed by the coffeescript pygments lexer.
+        # so let's try it first
+        return self._if_hocon_coffeescript_hack()
 
     def _determine_distinguishing_feature(self):
         applicable_strategies = self.probes.get(self.extension, [])

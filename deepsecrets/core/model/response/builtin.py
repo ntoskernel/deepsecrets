@@ -50,7 +50,9 @@ class BuiltinFormatResponseBuilder(BaseResponseBuilder):
             resp_finding = FindingApiModel.from_finding(finding)
 
             if self.masking_enabled:
-                resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
+                if resp_finding.line is not None:
+                    resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
+
                 resp_finding.string = '*' * len(resp_finding.string)
 
             resp[finding.file.path].append(resp_finding.model_dump())

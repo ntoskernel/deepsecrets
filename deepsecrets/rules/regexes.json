@@ -9,31 +9,31 @@
         "id": "S1",
         "name": "RSA private key",
         "confidence": 9,
-        "pattern": "-----BEGIN RSA PRIVATE KEY-----[\\S\\s]{15,}?-----END RSA PRIVATE KEY-----"
+        "pattern": "-----BEGIN[\\S\\s].*RSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*RSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
     },
     {
         "id": "S2",
         "name": "SSH (OPENSSH) private key",
         "confidence": 9,
-        "pattern": "-----BEGIN OPENSSH PRIVATE KEY-----[\\S\\s]{15,}?-----END OPENSSH PRIVATE KEY-----"
+        "pattern": "-----BEGIN[\\S\\s].*OPENSSH[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*OPENSSH[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
     },
     {
         "id": "S3",
         "name": "SSH (DSA) private key",
         "confidence": 9,
-        "pattern": "-----BEGIN DSA PRIVATE KEY-----[\\S\\s]{15,}?-----END DSA PRIVATE KEY-----"
+        "pattern": "-----BEGIN[\\S\\s].*DSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*DSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
     },
     {
         "id": "S4",
         "name": "SSH (EC) private key",
         "confidence": 9,
-        "pattern": "-----BEGIN EC PRIVATE KEY-----[\\S\\s]{15,}?-----END EC PRIVATE KEY-----"
+        "pattern": "-----BEGIN[\\S\\s].*EC[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*EC[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
     },
     {
         "id": "S5",
         "name": "PGP private key block",
         "confidence": 9,
-        "pattern": "-----BEGIN PGP PRIVATE KEY BLOCK-----"
+        "pattern": "-----BEGIN[\\S\\s].*PGP[\\S\\s].*PRIVATE[\\S\\s].*KEY[\\S\\s].*BLOCK-----"
     },
     {
         "id": "S7",
@@ -80,7 +80,7 @@
         "target_group": 2,
         "match_rules": {
             "2": {
-                "pattern": "^[^\\$|{|%|<].+[^\\$|}|%|>]$"
+                "pattern": "^[^\\$|{|%|<|][^ ]+[^\\$|}|%|>]$"
             }
         }
     },
@@ -112,7 +112,7 @@
         "id": "S26",
         "name": "Custom private key",
         "confidence": 9,
-        "pattern": "-----BEGIN PRIVATE KEY-----[\\S\\s]{15,}?-----END PRIVATE KEY-----"
+        "pattern": "-----BEGIN[\\S\\s]{,10}?PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
     },
     {
         "id": "S28",
@@ -172,5 +172,12 @@
         "name": "AWS Access Key ID",
         "confidence": 9,
         "pattern": "\\b(A3T[A-Z0-9]|AKIA|AGPA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\\b"
+    },
+    {
+        "id": "S36",
+        "description": "https://docs.stripe.com/keys",
+        "name": "Stripe Secret",
+        "confidence": 9,
+        "pattern": "\\b(sk|rk)_(test|live)_[0-9a-zA-Z]{24,35}\\b"
     }
-]
+] 

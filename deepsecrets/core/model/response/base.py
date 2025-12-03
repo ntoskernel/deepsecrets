@@ -37,7 +37,7 @@ class BaseResponseBuilder:
         line_partial = False
 
         if line_length <= MAX_LINE_LENGTH_FOR_CONTEXT:
-            return boundaries
+            return boundaries, line_partial
 
         line_partial = True
         boundaries[0] = int(start_column - (MAX_LINE_LENGTH_FOR_CONTEXT / 2))

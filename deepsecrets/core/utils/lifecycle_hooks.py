@@ -1,5 +1,4 @@
 from typing import Optional
-from deepsecrets.core.model.token import Token
 from deepsecrets.core.utils.progress import FileProgress, Progress
 from multiprocessing.managers import DictProxy
 
@@ -40,10 +39,21 @@ class JobLifecycleHooks(LifecycleHooks):
 class FileLifecycleHooks(LifecycleHooks):
     progress: FileProgress
 
-    def on_token_processing_start(self, token: Token):
-        self.progress.on_token_processing_start()
+    def on_new_tokenizer_added(self, name: str):
+        self.progress.add_tokenizer(name)
         self._report()
+
+    def on_token_processing_start(self, name: str):
+        self.progress.on_token_processing_start(name=name)
+        self._report()
+
+    def on_tokenization_finished(self, name: str, token_count: int):
+        self.progress.on_tokenization_finished(name=name, token_count=token_count)
 
     def on_token_processing_end(self, findings_count: int):
         self.progress.add_findings_count(findings_count)
+        self._report()
+
+    def on_tokenization_progress(self, name: str, new_offset: int):
+        self.progress.on_tokenization_progress(name, new_offset)
         self._report()

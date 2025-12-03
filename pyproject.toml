@@ -40,6 +40,7 @@ dependencies = [
   "sarif-om == 1.0.4",
   "jschema-to-python == 1.2.3",
   "rich (==14.2.0)",
+  "nostril @ git+https://github.com/casics/nostril.git",
 ]
 
 [project.urls]

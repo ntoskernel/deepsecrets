@@ -9,6 +9,18 @@ from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import 
 )
 from pygments.token import Token as PygmentsToken
 
+'''
+VariableDetector(
+    language=Language.YAML,
+    stream_pattern=re.compile('(n)(p)(L)'),
+    match_rules={
+        1: Match(types=[PygmentsToken.Name.Tag]),
+        2: Match(values=[':']),
+    },
+    match_semantics={1: 'name', 3: 'value'},
+),
+'''
+
 
 class VariableDetectionRules:
     rules = [
@@ -43,8 +55,8 @@ class VariableDetectionRules:
         # GOLANG
         VariableDetector(
             language=Language.GOLANG,
-            stream_pattern=re.compile('(n)(p)(L)(?:p|\n)?'),
-            match_rules={2: Match(values=[':', '='])},
+            stream_pattern=re.compile('(n)(o|p)(L)(?:p|\n)?'),
+            match_rules={2: Match(values=[':', '=', ':='])},
             match_semantics={1: 'name', 3: 'value'},
         ),
         VariableDetector(
@@ -167,6 +179,16 @@ class VariableDetectionRules:
             },
             match_semantics={3: 'name', 5: 'value'},
         ),
+        VariableDetector(
+            language=Language.MARKDOWN,
+            stream_pattern=re.compile('(n)(p)(.)(p)(L)'),
+            match_rules={
+                1: Match(values=[re.compile('^put$')]),
+                2: Match(values=[re.compile('^\\($')]),
+                4: Match(values=[re.compile('^,$')]),
+            },
+            match_semantics={3: 'name', 5: 'value'},
+        ),
     ]
 
     @classmethod
@@ -177,8 +199,9 @@ class VariableDetectionRules:
 class VariableSuppressionRules(VariableDetectionRules):
     rules = [
         VariableSuppressor(
+            # For cases like <Tag key="ffda">
             language=Language.JS,
-            stream_pattern=re.compile('(p)(n).+?(p)(u|L|\n)'),
+            stream_pattern=re.compile('(p)(n).+?(p)(u|L|\n|$)'),
             match_rules={
                 1: Match(
                     values=[
@@ -198,7 +221,7 @@ class VariableSuppressionRules(VariableDetectionRules):
         ),
         VariableSuppressor(
             language=Language.JS,
-            stream_pattern=re.compile('(n)(o)L.{0,4}(?:u|\n)(n)(o)(?:L|u)'),
+            stream_pattern=re.compile('(n)(o)L.{0,4}(?:u|\n)?(n)(o)(?:L|u|n)'),
             match_rules={
                 1: Match(
                     values=[
@@ -212,7 +235,9 @@ class VariableSuppressionRules(VariableDetectionRules):
                 ),
                 3: Match(
                     values=[
-                        re.compile('^value$'),
+                        re.compile('^.*value.*$', flags=re.IGNORECASE),
+                        re.compile('^.*name.*$', flags=re.IGNORECASE),
+                        re.compile('^.*title.*$', flags=re.IGNORECASE),
                     ]
                 ),
                 4: Match(

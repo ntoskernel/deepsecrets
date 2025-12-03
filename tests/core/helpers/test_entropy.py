@@ -22,4 +22,4 @@ def test_password_entropy():
     assert 3.85 <= entropy <= 3.86
 
 
-# Oops, it seems like the password has less entropy that a statement
+# Oops, it seems like the password has less entropy than a statement

@@ -9,6 +9,7 @@ from deepsecrets.scan_modes.cli import CliScanMode
 
 FP_TO_BE_EXCLUDED = '/app/tests/fixtures/service.postman_collection.json'
 
+
 @pytest.fixture()
 def config() -> Config:
     config = None
@@ -31,10 +32,11 @@ def test_cli_scan_mode(config: Config) -> None:
 
     mode.progress_bar = Mock()
     mode.progress_bar.add_task.return_value = 0
+    mode.progress_bar.task_ids = []
 
     findings = []
     for file in mode.filepaths:
-        findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file))
+        findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file, 0, {}).findings)
 
     assert len(findings) == 3
 

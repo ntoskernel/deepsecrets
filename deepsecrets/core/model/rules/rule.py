@@ -1,5 +1,5 @@
 import regex as re
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class Rule(BaseModel):
     id: str
     name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: bool = Field(default=True)
     confidence: int = Field(default=9)
     applicable_file_patterns: List[re.Pattern] = Field(default=[])
 
@@ -27,3 +29,12 @@ class Rule(BaseModel):
 
     def __hash__(self) -> int:  # pragma: nocover
         return hash(self.id)
+
+    def __eq__(self, other: Any):
+        if not isinstance(other, Rule):
+            return False
+
+        if self.id == other.id:
+            return True
+
+        return False

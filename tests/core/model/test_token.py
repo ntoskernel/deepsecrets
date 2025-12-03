@@ -4,18 +4,11 @@ from deepsecrets.core.model.file import File
 from deepsecrets.core.model.semantic import Variable
 from deepsecrets.core.model.token import Semantic, SemanticType, Token
 
-TEST_TOKEN_CONTENTS = (
-    '"amqp://fake_user:TESTSECRET1234@rabbitmq-esp01.miami.example.com:5672/esp"'
-)
+TEST_TOKEN_CONTENTS = '"amqp://fake_user:TESTSECRET1234@rabbitmq-esp01.miami.example.com:5672/esp"'
 TOKEN_SPAN = (76, 151)
 
 
-@pytest.fixture(scope='module')
-def file() -> File:
-    path = 'tests/fixtures/4.go'
-    return File(path=path, relative_path=path)
-
-
+@pytest.mark.fixture_file_path('4.go')
 def test_token(file: File):
     token = Token(
         file=file,
@@ -29,6 +22,7 @@ def test_token(file: File):
     assert len(token.type) == 0
 
 
+@pytest.mark.fixture_file_path('4.go')
 def test_semantic_token(file: File):
     token = Token(
         file=file,
@@ -41,7 +35,7 @@ def test_semantic_token(file: File):
     variable.name = token
     variable.value = token
 
-    token.semantic = Semantic(type=SemanticType.VAR, name=variable.name.content)
+    token.semantic = Semantic(type=SemanticType.VARIABLE, payload=variable)
 
     assert token.span == TOKEN_SPAN
     assert token.length == 75

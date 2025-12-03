@@ -2,56 +2,24 @@ import pytest
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from tests.case_helpers import variable_detection_case
 
 
-@pytest.fixture(scope='module')
-def file_py_1():
-    path = 'tests/fixtures/1.py'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_py_2():
-    path = 'tests/fixtures/2.py'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_py_3():
-    path = 'tests/fixtures/3.py'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_py_4():
-    path = 'tests/fixtures/4.py'
-    return File(path=path, relative_path=path)
-
-@pytest.fixture(scope='module')
-def file_py_6():
-    path = 'tests/fixtures/6.py'
-    return File(path=path, relative_path=path)
-
-
-def test_1(file_py_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_py_1, post_filter=False)
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.py')
+def test_1(file: File, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 5
 
 
-def test_2(file_py_2):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_py_2, post_filter=False)
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('2.py')
+def test_2(file: File, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 93
 
 
-def test_3(file_py_3):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_py_3, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('3.py')
+def test_3(file: File, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 3
     assert variables[1].semantic.name == 'password'
     assert variables[1].content == 'TESTSECRET1234'
@@ -60,17 +28,13 @@ def test_3(file_py_3):
     assert variables[2].content == '2TESTSECRET1234'
 
 
-def test_4(file_py_4):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_py_4, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('4.py')
+def test_4(file: File, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 11
 
 
-def test_5(file_py_6):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_py_6, post_filter=False)
-
-    variables = lex.get_variables()
-    assert len(variables) == 1
+@pytest.mark.fixture_file_path('5.py')
+def test_5(file: File, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
+    assert len(variables) == 2

@@ -1,113 +1,52 @@
 import pytest
 
-from deepsecrets.core.model.file import File
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from tests.case_helpers import variable_detection_case
 
 
-@pytest.fixture(scope='module')
-def file_toml_1():
-    path = 'tests/fixtures/1.toml'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_json_1():
-    path = 'tests/fixtures/1.json'
-    return File(path=path, relative_path=path)
-
-@pytest.fixture(scope='module')
-def file_json_2_broken():
-    path = 'tests/fixtures/2.json'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_yaml_1():
-    path = 'tests/fixtures/1.yaml'
-    return File(path=path, relative_path=path)
-
-@pytest.fixture(scope='module')
-def file_yml_1():
-    path = 'tests/fixtures/1.yml'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_ini_1():
-    path = 'tests/fixtures/1.ini'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_pp_1():
-    path = 'tests/fixtures/1.pp'
-    return File(path=path, relative_path=path)
-
-@pytest.fixture(scope='module')
-def file_conf_2():
-    path = 'tests/fixtures/2.conf'
-    return File(path=path, relative_path=path)
-
-
-def test_1(file_toml_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_toml_1, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.toml')
+def test_1(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 50
 
 
-def test_2(file_json_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_json_1, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.json')
+def test_2(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 1
 
 
-def test_3(file_yaml_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_yaml_1, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.yaml')
+def test_3(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 4
 
 
-def test_4(file_ini_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_ini_1, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.ini')
+def test_4(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 9
 
 
-def test_5(file_pp_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_pp_1, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.pp')
+def test_5(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 37
 
 
-def test_6(file_json_2_broken):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_json_2_broken, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('2.json')
+def test_6(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 6
 
 
-def test_7(file_yml_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_yml_1, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.yml')
+def test_7(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 1
 
 
-def test_8(file_conf_2):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_conf_2, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('2.conf')
+def test_8(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 6

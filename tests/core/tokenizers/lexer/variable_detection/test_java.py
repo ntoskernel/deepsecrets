@@ -2,17 +2,16 @@ import pytest
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from tests.case_helpers import variable_detection_case
 
 
-@pytest.fixture(scope='module')
-def file_java_1():
-    path = 'tests/fixtures/1.java'
-    return File(path=path, relative_path=path)
-
-
-def test_1(file_java_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_java_1, post_filter=False)
-
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('1.java')
+def test_1(file: File, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 2
+
+
+@pytest.mark.fixture_file_path('2.java')
+def test_2(file: File, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
+    assert len(variables) == 1

@@ -14,7 +14,7 @@ def file() -> File:
     return File(path=path, relative_path=path, content=BASE_64_STR)
 
 
-def test_semantic_engine(file: File):
+def test_content_analyzer_engine(file: File):
     tokens = FullContentTokenizer().tokenize(file)
     assert len(tokens) == 1
 

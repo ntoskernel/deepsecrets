@@ -1,0 +1,95 @@
+[
+    {
+        "id": "SEM_VAR_FALSE_STARTING_SEQ",
+        "name": "Ignore variable values with specific starting",
+        "pattern": "^(\\$\\{|%env|true|false|\\(|<)",
+        "target": "VALUE",
+        "score": -1000
+    },
+    {
+        "id": "SEM_VAR_DUMMY_VALUES",
+        "name": "Ignore variable values with specific flags in values",
+        "description": "For me in future: The last part of the regex matches only special symbols",
+        "pattern": "^(null|bearer|undefined|none|todo|.*change.*|.*restore.*|[^A-Za-z0-9]*|%.*%|\\[.*\\]|{.*})$",
+        "target": "VALUE",
+        "score": -50
+    },
+    {
+        "id": "SEM_VAR_FILE_PATHS",
+        "enabled": false,
+        "description": "Slightly reduce score for test/mock/minified files",
+        "target": "FILEPATH",
+        "pattern": "(.*\\.min\\.js$|/test/|/tests/|/spec/|/mock/|_test\\.)",
+        "score": -5
+    },
+    {
+        "id": "SEM_VAR_NAME_SLICE_REDFLAGS",
+        "description": "Reduce score for common non-secret words inside the variable name PARTS",
+        "target": "NAME_SPACED",
+        "pattern": "\\b(item|limit|result|window|open|public|str|path|location|field|cache|prefix|threshold|name|algo|algorithm|mock|fake|dummy|output|uri|type|example|template)\\b",
+        "score": -20
+    },
+    {
+        "id": "SEM_VAR_FULLNAME_REDFLAGS",
+        "description": "Reduce score for common non-secret words inside the variable name",
+        "target": "NAME_NORMALIZED",
+        "pattern": "(item|limit|result|public|path|location|input|field|data|cache|prefix|threshold|name|algo|algorithm|mock|fake|dummy|output|uri|type|example|template)",
+        "score": -15
+    },
+    {
+        "id": "SEM_VAR_HIGH_CONFIDENCE_SLICES_1",
+        "description": "Critical confidence: api key, auth token, etc",
+        "target": "NAME_SPACED",
+        "pattern": "\\b(csrf|api|access|refresh|auth|oauth|site|app)\\s+(key|token|secret)\\b",
+        "score": 25
+    },
+    {
+        "id": "SEM_VAR_HIGH_CONFIDENCE_FULLNAME_1",
+        "description": "Critical confidence: api key, auth token, etc",
+        "target": "NAME_NORMALIZED",
+        "pattern": "(csrf|site|api|access|refresh|auth|oauth|site|app)(key|token|secret)",
+        "score": 16
+    },
+    {
+        "id": "SEM_VAR_HIGH_CONFIDENCE_SLICES_2",
+        "description": "Critical confidence: password, pwd, private key",
+        "target": "NAME_SPACED",
+        "pattern": "(oauth|sitekey|passw|pwd|secret)|private\\s+key\\b",
+        "score": 15
+    },
+    {
+        "id": "SEM_VAR_HIGH_CONFIDENCE_FULLNAME_2",
+        "description": "Critical confidence: password, pwd, private key",
+        "target": "NAME_NORMALIZED",
+        "pattern": "(authke|oauth|passw|pwd|secret|rivateke|cesstoke)",
+        "score": 10
+    },
+    {
+        "id": "SEM_VAR_TOKEN_AS_PART_OF_NAME",
+        "description": "",
+        "target": "NAME_SPACED",
+        "pattern": "(\\btoken\\b)",
+        "score": 8
+    },
+    {
+        "id": "SEM_VAR_TOKEN_AS_NAME",
+        "description": "",
+        "target": "NAME_NORMALIZED",
+        "pattern": "(^token$)",
+        "score": 4
+    },
+    {
+        "id": "SEM_VAR_KEY_AS_PART_OF_NAME",
+        "description": "Key in a variable name slice",
+        "target": "NAME_SPACED",
+        "pattern": "\\bkey\\b",
+        "score": 5
+    },
+    {
+        "id": "SEM_VAR_KEY_AS_NAME",
+        "description": "Only key",
+        "target": "NAME_NORMALIZED",
+        "pattern": "^key$",
+        "score": 2
+    }
+]

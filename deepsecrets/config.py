@@ -26,6 +26,7 @@ class Output(BaseModel):
 class Config:
     logging_level: int
     workdir_path: str
+    oneshot_path: str
     max_file_size: int = 0  # 0 means no limit
     mp_context: str = 'spawn'
     engines: List[Type] = []
@@ -35,6 +36,9 @@ class Config:
     process_count: int
     return_code_if_findings: bool
     disable_masking: bool
+    verbose: bool = False
+
+    _benchmarking_mode: bool
 
     def __init__(self) -> None:
         self.engines = []
@@ -43,12 +47,21 @@ class Config:
         self.return_code_if_findings = False
         self.disable_masking = False
 
+        self._benchmarking_mode = False
+        self.oneshot_path = None
+
         # equals to CPU count
         self.process_count = FALLBACK_PROCESS_COUNT
         self.logging_level = logging.INFO
 
+    def set_verbose(self, verbose: bool):
+        self.verbose = verbose
+
     def set_logging_level(self, level: int):
         self.logging_level = level
+
+    def _set_benchmarking_mode(self, mode: bool):
+        self._benchmarking_mode = mode
 
     def set_disable_masking(self, state: bool):
         self.disable_masking = state
@@ -57,6 +70,11 @@ class Config:
         if not path_exists(path):
             raise FileNotFoundException(f'{field} path does not exist ({path})')
         setattr(self, field, get_abspath(path))
+
+    def set_oneshot_path(self, path: str):
+        self.oneshot_path = path
+        if self.oneshot_path is not None:
+            self.workdir_path = ''
 
     def set_workdir(self, path: str) -> None:
         self._set_path(path, 'workdir_path')

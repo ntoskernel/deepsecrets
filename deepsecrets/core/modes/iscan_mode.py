@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from multiprocessing.pool import AsyncResult
 import regex as re
 
@@ -12,6 +12,7 @@ from dotwiz import DotWiz
 
 from deepsecrets import PROFILER_ON, console
 from deepsecrets.config import Config
+from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
 from deepsecrets.core.model.rules.exlcuded_path import ExcludePathRule
@@ -31,6 +32,7 @@ class FileJob:
     internal_id: int
     pb_task_id: Optional[int]
     name: str
+    result_holder: AsyncResult
 
 
 @dataclass
@@ -40,6 +42,11 @@ class Stats:
     failed_files: int = 0
     tokens_processed: int = 0
     total_findings: int = 0
+    finished_ids: set[int] = field(default_factory=set)
+
+    def new_finished(self, tid):
+        self.finished_ids.add(tid)
+        self.finished = len(self.finished_ids)
 
 
 class ScanMode:
@@ -58,6 +65,9 @@ class ScanMode:
     file_jobs: Dict[int, FileJob]
 
     _mp_manager = None
+
+    # ONLY IN BENCHMARKING MODE
+    _oneshot_file: Optional[File] = None
 
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
         console.print('[*] Looking for applicable files...', end='')
@@ -82,6 +92,18 @@ class ScanMode:
     def set_progress_bar(self, progress_bar: ProgressBar):
         self.progress_bar = progress_bar
 
+    def stop_progress_bar(self, overall_progress):
+        if not self.progress_bar:
+            return
+
+        self.refresh_jobs_progress_bars()
+        self.refresh_overall_progress_bar(overall_progress)
+        for task_id in self.progress_bar.task_ids:
+            if task_id == overall_progress:
+                continue
+            self.progress_bar.remove_task(task_id=task_id)
+        self.progress_bar.stop()
+
     def _get_process_count_for_runner(self) -> int:
         limit = self.config.process_count
 
@@ -94,8 +116,11 @@ class ScanMode:
         if self.active_task_reporter is None:
             return
 
-        tasks_to_remove = []
+        tasks_to_remove = set()
+
         for internal_task_id, current_state in self.active_task_reporter.items():
+            if current_state is None:
+                continue
             job = self.file_jobs.get(internal_task_id)
             if job is None:
                 raise Exception()
@@ -118,7 +143,7 @@ class ScanMode:
             findings = current_state.get('findings', 0)
 
             if finished is True:
-                tasks_to_remove.append(internal_task_id)
+                tasks_to_remove.add(internal_task_id)
 
                 if failure is True:
                     self.stats.failed_files += 1
@@ -134,20 +159,21 @@ class ScanMode:
                 continue
 
             total = current_state.get('total_tokens')
+            completed = current_state.get('percentage')
 
             if job.pb_task_id is not None:
                 self.progress_bar.update(
                     job.pb_task_id,
-                    completed=processed,
-                    total=total,
+                    completed=completed,
+                    total=100,
                     visible=True,
                     findings=findings,
                     size=f'| {size}',
                 )
 
         for to_remove in tasks_to_remove:
-            self.stats.finished += 1
             self.active_task_reporter.pop(to_remove)
+            self.stats.new_finished(to_remove)
 
     def refresh_overall_progress_bar(self, pb_task_id):
         if pb_task_id is None:
@@ -159,6 +185,7 @@ class ScanMode:
             total=self.stats.total_files,
             findings=f'F: {self.stats.total_findings}',
             errors=f'ERR: {self.stats.failed_files}',
+            size=f'{self.stats.finished}/{self.stats.total_files}',
         )
 
     def run(self) -> Tuple[List[Finding], Dict[str, List[str]]]:
@@ -171,11 +198,11 @@ class ScanMode:
             return final, errors
 
         overall_progress_task = self.progress_bar.add_task(
-            "[green bold]OVERALL PROGRESS\n",
+            "[green bold]OVERALL\nPROGRESS\n",
             visible=True,
             findings='F: 0',
             errors='ERR: 0',
-            size='',
+            size=f'0/{self.stats.total_files}',
         )
 
         if PROFILER_ON:
@@ -190,29 +217,27 @@ class ScanMode:
                 tid = 0
                 for file in self.filepaths:
                     tid += 1
-                    # runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.task_reporter)
                     result = pool.apply_async(
                         pool_wrapper,
                         (bundle, self._per_file_analyzer, tid, self.active_task_reporter, file),
                     )
                     self.file_results.append(result)
-                    self.file_jobs[tid] = FileJob(
-                        name=file,
-                        internal_id=tid,
-                        pb_task_id=None,
-                    )
+                    self.file_jobs[tid] = FileJob(name=file, internal_id=tid, pb_task_id=None, result_holder=result)
                 pool.close()
 
                 self.stats.total_files = len(self.file_jobs.keys())
                 while self.stats.finished < self.stats.total_files:
                     self.refresh_jobs_progress_bars()
                     self.refresh_overall_progress_bar(overall_progress_task)
+                    # self.refresh_overall_debug_progress_bar(overall_debug)
+                self.stop_progress_bar(overall_progress_task)
+                console.print('[*] Collecting results..')
                 pool.join()
-
-        self.progress_bar.stop()
 
         for job_result in self.file_results:
             analysis_result: PerFileAnalysisResult = job_result.get()
+            self._oneshot_file = analysis_result._file
+
             job = self.file_jobs.get(analysis_result.internal_task_id)
             errors[job.name] = analysis_result.errors
 
@@ -241,14 +266,18 @@ class ScanMode:
                 excl_paths_builder.with_rules_from_file(path)
 
             self.path_exclusion_rules = excl_paths_builder.rules
-        with Live(console=console, refresh_per_second=5) as live:
 
+        if self.config.oneshot_path is not None:
+            flist.append(get_abspath(self.config.oneshot_path))
+            return flist
+
+        with Live(console=console, refresh_per_second=5) as live:
             total_files = 0
             skipped = 0
             for fpath, _, files in os.walk(get_abspath(self.config.workdir_path)):
                 for filename in files:
-                    live.update(Text(text=f'Found {total_files} files, {skipped} will be skipped'))
                     total_files += 1
+                    live.update(Text(text=f'Found {total_files} files, {skipped} will be skipped'))
                     full_path = os.path.join(fpath, filename)
                     rel_path = full_path.replace(f'{self.config.workdir_path}/', '')
                     if not self._path_included(rel_path):

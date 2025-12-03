@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from enum import Enum
-from typing import List, Optional, Type
+from enum import Enum, auto
+from typing import Any, List, Optional, Type
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.hashing import HashingAlgorithm
@@ -9,18 +9,22 @@ from deepsecrets.core.utils.hashing import get_hash
 
 
 class SemanticType(Enum):
-    VAR = 1
+    VARIABLE = auto()
 
 
 class Semantic:
     type: SemanticType
-    name: str
+    payload: Any = None
     creds_probability: int
 
-    def __init__(self, type: SemanticType, name: str, creds_probability: int = 0) -> None:
+    def __init__(self, type: SemanticType, creds_probability: int = 0, payload: Any = None) -> None:
         self.type = type
-        self.name = name
         self.creds_probability = creds_probability
+        self.payload = payload
+
+    @property
+    def name(self):
+        return self.payload.context.name
 
 
 class Token:
@@ -63,7 +67,7 @@ class Token:
         if self.semantic is None and self.type is not None:
             return f'{self.content} | {self.type[0]}\n'
 
-        out = f'======== VAR: {self.semantic.name} = {self.content}'  # type: ignore
+        out = f'======== VAR: {self.semantic.payload.context.name} = {self.content}'  # type: ignore
         if self.type is not None:
             out += f' | {self.type[0]}\n'
 

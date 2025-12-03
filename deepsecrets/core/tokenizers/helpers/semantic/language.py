@@ -5,7 +5,7 @@ class Language(MultiValueEnum):
     PYTHON = 'py'
     GOLANG = 'go'
     PHP = 'php'
-    JS = 'js','jsx'
+    JS = 'js', 'jsx'
     TOML = 'toml'
     JSON = 'json'
     YAML = 'yaml'
@@ -16,6 +16,7 @@ class Language(MultiValueEnum):
     JAVA = 'java'
     KOTLIN = 'kt'
     SWIFT = 'swift'
+    MARKDOWN = 'md'
 
     ANY = 'any'
     UNKNOWN = 'unknown'

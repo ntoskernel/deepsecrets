@@ -79,15 +79,45 @@ class Match(BaseModel):
         return patterns
 
 
-class VariableDetector(BaseModel):
+class RegionDetector(BaseModel):
     language: Optional[Language] = None
     stream_pattern: re.Pattern
-    # re_flags: Optional[re.RegexFlag] = None
+
     match_rules: Dict[int, Match]
     match_semantics: Dict[int, str]
     creds_probability: int = 0
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def match(self, tokens: List[Token], token_stream: str) -> List['Variable']:
+        true_detections = []
+
+        for match in re.finditer(self.stream_pattern, token_stream, overlapped=True):
+            if not self._verify(match, tokens):
+                continue
+
+            reg = Region()
+            for i, name in self.match_semantics.items():
+                setattr(reg, name, [match.span(i)[0], match.span(i)[1]])
+            reg.found_by = self
+            reg.span = [match.span(0)[0], match.span(0)[1]]
+
+            true_detections.append(reg)
+
+        return true_detections
+
+    def _verify(self, match: re.Match, tokens: List[Token]) -> bool:
+        for group_i, match_rule in self.match_rules.items():
+            span = match.span(group_i)
+            window = tokens[span[0] : span[1]]
+
+            if not match_rule.check(window):
+                return False
+
+        return True
+
+
+class VariableDetector(RegionDetector):
+    creds_probability: int = 0
 
     def match(self, tokens: List[Token], token_stream: str) -> List['Variable']:
         true_detections = []
@@ -106,16 +136,6 @@ class VariableDetector(BaseModel):
 
         return true_detections
 
-    def _verify(self, match: re.Match, tokens: List[Token]) -> bool:
-        for group_i, match_rule in self.match_rules.items():
-            span = match.span(group_i)
-            window = tokens[span[0] : span[1]]
-
-            if not match_rule.check(window):
-                return False
-
-        return True
-
 
 class VariableSuppressor(VariableDetector):
 
@@ -128,4 +148,4 @@ class VariableSuppressor(VariableDetector):
         return spans
 
 
-from deepsecrets.core.model.semantic import Variable
+from deepsecrets.core.model.semantic import Region, Variable

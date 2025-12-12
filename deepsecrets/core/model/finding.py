@@ -117,14 +117,18 @@ class FindingMerger:
 
 class FindingResponse:
     @classmethod
-    def from_list(cls, list: List[Finding], disable_masking: bool = False) -> Dict[str, List[Dict]]:
+    def from_list(cls, list: List[Finding], disable_masking: bool = False, relative_path: bool = False) -> Dict[str, List[Dict]]:
         resp: Dict[str, List[Dict]] = {}
         for finding in list:
             if finding.file is None:
                 continue
 
-            if finding.file.path not in resp:
-                resp[finding.file.path] = []
+            if not relative_path:
+                if finding.file.path not in resp:
+                    resp[finding.file.path] = []
+            else:
+                if finding.file.relative_path not in resp:
+                    resp[finding.file.relative_path] = []
 
             resp_finding = FindingApiModel.from_finding(finding)
 
@@ -133,7 +137,10 @@ class FindingResponse:
                 resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
                 resp_finding.string = '*' * len(resp_finding.string)
 
-            resp[finding.file.path].append(resp_finding.model_dump())
+            if not relative_path:
+                resp[finding.file.path].append(resp_finding.model_dump())
+            else:
+                resp[finding.file.relative_path].append(resp_finding.model_dump())
 
         return resp
 

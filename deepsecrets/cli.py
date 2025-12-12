@@ -201,6 +201,13 @@ class DeepSecretsCliTool:
             'Use this flag if you want to render found secrets in plaintext.',
         )
 
+        parser.add_argument(
+            '--relative-path',
+            action='store_true',
+            help='By default absolute path is used in JSON report.\n'
+            'Use this flag if you want to use relative path instead.',
+        )
+
         self.argparser = parser
 
     def parse_arguments(self) -> None:
@@ -211,6 +218,9 @@ class DeepSecretsCliTool:
 
         if user_args.disable_masking:
             config.set_disable_masking(True)
+
+        if user_args.relative_path:
+            config.set_relative_path(True)
 
         self.say_hello()
 
@@ -313,7 +323,7 @@ class DeepSecretsCliTool:
         with open(report_path, 'w+') as f:
 
             if config.output.type == 'json':
-                json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
+                json.dump(FindingResponse.from_list(findings, config.disable_masking, config.relative_path), f)
 
             if config.output.type == 'dojo-sarif':
                 f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))

@@ -32,6 +32,7 @@ class Config:
     process_count: int
     return_code_if_findings: bool
     disable_masking: bool
+    relative_path: bool
 
     def __init__(self) -> None:
         self.engines = []
@@ -39,6 +40,7 @@ class Config:
         self.global_exclusion_paths = []
         self.return_code_if_findings = False
         self.disable_masking = False
+        self.relative_path = False
 
         # equals to CPU count
         self.process_count = FALLBACK_PROCESS_COUNT
@@ -49,6 +51,9 @@ class Config:
 
     def set_disable_masking(self, state: bool):
         self.disable_masking = state
+    
+    def set_relative_path(self, state: bool):
+        self.relative_path = state
 
     def _set_path(self, path: str, field: str) -> None:
         if not path_exists(path):

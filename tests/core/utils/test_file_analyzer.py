@@ -23,9 +23,12 @@ def test_file_analyzer(file_toml_1):
     assert findings is not None
 
 
-def test_progress_reporter_is_batched(file_toml_1):
-    file_analyzer = FileAnalyzer(file_toml_1)
+def test_progress_reporter_is_batched(file_toml_1, monkeypatch):
+    import deepsecrets.core.utils.file_analyzer as fa_module
 
+    monkeypatch.setattr(fa_module, 'PROGRESS_BATCH_SIZE', 8)
+
+    file_analyzer = FileAnalyzer(file_toml_1)
     lex = LexerTokenizer(deep_token_inspection=True)
     semantic_engine = SemanticEngine(subengine=None)
     file_analyzer.add_engine(engine=semantic_engine, tokenizers=[lex])
@@ -41,5 +44,8 @@ def test_progress_reporter_is_batched(file_toml_1):
     file_analyzer.process()
 
     total_tokens = file_analyzer.progress.total_tokens
-    # Up to ceil(total_tokens / 256) batched updates + start/end markers.
-    assert len(calls) <= max(4, (total_tokens // 256) + 4)
+    # Sanity: fixture must produce enough tokens to cross the batch threshold multiple times.
+    assert total_tokens // 8 >= 2, f'fixture too small to exercise batching ({total_tokens} tokens)'
+    # Lower bound proves batching fires; upper bound proves we're not still reporting per-token.
+    assert len(calls) >= 2
+    assert len(calls) <= max(4, total_tokens // 8 + 4)

@@ -119,14 +119,17 @@ class ScanMode:
                     self._per_file_analyzer(file=file, bundle=bundle, task_id=task_id, task_reporter=self.task_reporter)
                 )
         else:
-            with self.pool_engine(processes=proc_count) as pool:
+            with self.pool_engine(
+                processes=proc_count,
+                initializer=_worker_init,
+                initargs=(bundle,),
+            ) as pool:
                 for file in self.filepaths:
                     task_id = self.progress_bar.add_task(file, findings='FINDINGS: 0', visible=False)
-                    # runnable = partial(pool_wrapper, bundle, self._per_file_analyzer, self.task_reporter)
                     self.file_jobs.append(
                         pool.apply_async(
                             pool_wrapper,
-                            (bundle, self._per_file_analyzer, task_id, self.task_reporter, file),
+                            (self._per_file_analyzer, task_id, self.task_reporter, file),
                         )
                     )
 
@@ -246,8 +249,16 @@ class ScanMode:
         return final
 
 
-def pool_wrapper(
-    bundle: DotWiz, runner: Callable, task_id: Optional[int], task_reporter: DictProxy, file: str
+_WORKER_BUNDLE: Optional[DotWiz] = None
+
+
+def _worker_init(bundle: DotWiz) -> None:
+    global _WORKER_BUNDLE
+    _WORKER_BUNDLE = bundle
+
+
+def pool_wrapper(  # type: ignore[no-redef]
+    runner: Callable, task_id: Optional[int], task_reporter: DictProxy, file: str
 ) -> List[Finding]:  # pragma: nocover
-    result = runner(bundle, file, task_id, task_reporter)
-    return result
+    assert _WORKER_BUNDLE is not None, 'Worker bundle was not initialized'
+    return runner(_WORKER_BUNDLE, file, task_id, task_reporter)

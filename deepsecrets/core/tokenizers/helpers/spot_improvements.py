@@ -46,13 +46,15 @@ class SpotImprovements:
             return [current_token]
 
         final = []
-        for part in new_parts:
+        cursor = current_token.span[0]
+        for i, part in enumerate(new_parts):
             t = Token(
                 file=current_token.file,
                 content=part,
-                span=current_token.file.get_span_for_string(part, between=current_token.span),
+                span=[cursor, cursor + len(part)],
             )
             t.set_type([PygmentsToken.Text])
             final.append(t)
+            cursor += len(part) + 1  # +1 for ':' separator
 
         return final

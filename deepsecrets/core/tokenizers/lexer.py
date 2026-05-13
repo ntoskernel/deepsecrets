@@ -3,9 +3,7 @@ from typing import List, Optional, Sequence, Set, Type, Union
 from deepsecrets.core.utils.log import logger
 
 from ordered_set import OrderedSet
-from pygments import highlight
-from pygments.formatters import RawTokenFormatter
-from pygments.lexers.special import Lexer, RawTokenLexer
+from pygments.lexers.special import Lexer
 from pygments.token import Token as PygmentsToken
 
 from deepsecrets.core.model.file import File
@@ -85,30 +83,35 @@ class LexerTokenizer(Tokenizer):
         except Exception as e:
             logger.exception(e)
 
-        result = highlight(file.content, self.lexer, RawTokenFormatter())
-        raw_tokens = list(RawTokenLexer().get_tokens(result))
+        try:
+            raw_tokens = list(self.lexer.get_tokens_unprocessed(file.content))
+        except Exception as e:
+            logger.exception(e)
+            return self.tokens
+
         token_improver = SpotImprovements(lang=self.language)
 
-        current_position = 0
-
-        for i, raw_token in enumerate(raw_tokens):
-            content: str = raw_token[1]
-            types: List[Type] = self._get_types_for_token(raw_token[0])
-            start = current_position
+        for index, ttype, content in raw_tokens:
+            types: List[Type] = self._get_types_for_token(ttype)
+            start = index
             end = start + len(content)
-            current_position = end
 
             try:
-                content = self.sanitize(content)
-                if not content:
+                sanitized = self.sanitize(content)
+                if not sanitized:
                     continue
 
-                span = file.get_span_for_string(content, between=[start - 1, end + 1])
-                token = Token(file=file, content=content, span=span)
+                # Adjust span if sanitize stripped surrounding quotes.
+                if sanitized != content:
+                    offset = content.find(sanitized)
+                    if offset >= 0:
+                        start = index + offset
+                        end = start + len(sanitized)
+
+                token = Token(file=file, content=sanitized, span=[start, end])
                 token.set_type(types)
 
                 improved_tokens = token_improver.improve_token(self.tokens, self.token_stream, token)
-
                 self.tokens.extend(improved_tokens)
                 self.add_to_token_stream(improved_tokens)
             except Exception as e:

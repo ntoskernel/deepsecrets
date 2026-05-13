@@ -12,6 +12,9 @@ from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.itokenizer import Tokenizer
 
 
+PROGRESS_BATCH_SIZE = 256
+
+
 class EngineWithTokenizer(BaseModel):
     engine: IEngine
     tokenizer: Tokenizer
@@ -80,6 +83,7 @@ class FileAnalyzer:
         self.progress = Progress()
         self.task_reporter = None
         self.task_id = None
+        self._since_last_report = 0
 
     def attach_global_task_reporter(self, task_reporter, task_id):
         self.task_reporter = task_reporter
@@ -153,12 +157,16 @@ class FileAnalyzer:
                 continue
 
         self.progress.on_finish()
+        self.global_report()  # final flush per engine
         return results
 
     def on_token_processing_start(self, token: Token):
         self.progress.on_token_processing_start()
-        self.global_report()
+        self._since_last_report += 1
+        if self._since_last_report >= PROGRESS_BATCH_SIZE:
+            self._since_last_report = 0
+            self.global_report()
 
     def on_token_processing_end(self, findings_count: int):
         self.progress.add_findings_count(findings_count)
-        self.global_report()
+        # No per-token report; batched by start hook.

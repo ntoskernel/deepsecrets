@@ -4,6 +4,7 @@ import regex as re
 from multiprocessing import Manager, get_context
 from multiprocessing.managers import DictProxy
 import os
+import time
 from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Type
 
@@ -129,8 +130,16 @@ class ScanMode:
                         )
                     )
 
-                while (n_finished := sum([job.ready() for job in self.file_jobs])) < len(self.file_jobs):
-                    self.refresh_progress_bar(overall_progress_task, n_finished)
+                last_render = 0.0
+                while True:
+                    n_finished = sum(1 for job in self.file_jobs if job.ready())
+                    now = time.monotonic()
+                    if now - last_render >= 0.1:
+                        self.refresh_progress_bar(overall_progress_task, n_finished)
+                        last_render = now
+                    if n_finished >= len(self.file_jobs):
+                        break
+                    time.sleep(0.05)
                 pool.close()
 
         # final refresh

@@ -1,0 +1,38 @@
+[
+        {
+        "company": "",
+        "description": {
+            "ENGLISH": "Co-fondateur et Product Owner de Logmatic.io",
+            "FRENCH": "Co-fondateur et Product Owner de Logmatic.io"
+        },
+        "email": null,
+        "emailHash": "6e7c4baafac736c922ba2c3274d28ff0",
+        "firstname": "Renaud",
+        "lastname": "Boutet",
+        "legacyId": 5922,
+        "links": [],
+        "login": "Renaud",
+        "photoUrl": null,
+        "role": "USER",
+        "token": "8fc3344199b6",
+        "tokenExpiration": "2018-03-03T17:17:35.524"
+    },
+    {
+        "company": "",
+        "description": {
+            "ENGLISH": "Co-Fondateur & CEO de Logmatic.io",
+            "FRENCH": "Co-Fondateur & CEO de Logmatic.io"
+        },
+        "email": null,
+        "emailHash": "e7a279c50ff3efb9efdaa17d55e4e772",
+        "firstname": "Amirhossein",
+        "lastname": "Malekzadeh",
+        "legacyId": 5932,
+        "links": [],
+        "login": "Amirhossein",
+        "photoUrl": null,
+        "role": "USER",
+        "token": "empty-token",
+        "tokenExpiration": "2018-03-03T17:17:35.524"
+    }
+]

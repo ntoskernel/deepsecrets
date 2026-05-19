@@ -68,7 +68,7 @@ class Token:
             return f'{self.content} | {self.type[0]}\n'
 
         out = f'======== VAR: {self.semantic.payload.context.name} = {self.content}'  # type: ignore
-        if self.type is not None:
+        if self.type is not None and len(self.type) > 0:
             out += f' | {self.type[0]}\n'
 
         return out

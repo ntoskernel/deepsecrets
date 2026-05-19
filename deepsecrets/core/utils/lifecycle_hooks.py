@@ -1,9 +1,13 @@
+from datetime import datetime
 from typing import Optional
 from deepsecrets.core.utils.progress import FileProgress, Progress
 from multiprocessing.managers import DictProxy
 
 
 class LifecycleHooks:
+    start_ts: datetime
+    end_ts: datetime
+
     progress: Progress
     reporter: DictProxy
     task_id: int
@@ -14,14 +18,17 @@ class LifecycleHooks:
         self.reporter = reporter
 
     def on_start(self):
+        self.start_ts = datetime.now()
         self.progress.on_start()
         self._report()
 
     def on_failure(self, child_report: Optional[dict] = None):
+        self.end_ts = datetime.now()
         self.progress.on_failure()
         self._report(child_report)
 
     def on_finish(self, child_report: Optional[dict] = None):
+        self.end_ts = datetime.now()
         self.progress.on_finish()
         self._report(child_report)
 

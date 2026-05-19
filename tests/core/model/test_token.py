@@ -32,8 +32,8 @@ def test_semantic_token(file: File):
 
     token.set_type(['Variable'])
     variable = Variable()
-    variable.name = token
-    variable.value = token
+    variable.name_token = token
+    variable.value_token = token
 
     token.semantic = Semantic(type=SemanticType.VARIABLE, payload=variable)
 

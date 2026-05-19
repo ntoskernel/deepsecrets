@@ -6,6 +6,7 @@ from deepsecrets.core.model.file import File
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
+from deepsecrets.core.tokenizers.cheap_var_search import CheapVarSearchTokenizer
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from deepsecrets.core.tokenizers.per_line import PerLineTokenizer
@@ -76,3 +77,8 @@ def full_content_tokenizer():
 @pytest.fixture
 def per_line_tokenizer():
     yield PerLineTokenizer()
+
+
+@pytest.fixture
+def cheap_var_search_tokenizer():
+    yield CheapVarSearchTokenizer()

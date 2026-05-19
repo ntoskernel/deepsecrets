@@ -27,7 +27,6 @@ from rich import box
 from rich.text import Text
 from rich.align import Align
 
-
 DISABLED = 'disabled'
 
 
@@ -42,13 +41,14 @@ progress_bar = Progress(
     TextColumn("[progress.description]{task.description}", table_column=Column(max_width=60, no_wrap=True)),
     TextColumn("[bold blue]{task.fields[size]}"),
     BarColumn(bar_width=None),
-    TaskProgressColumn(),
+    TaskProgressColumn('[progress.percentage]{task.percentage:>3.1f}%'),
     TimeRemainingColumn(),
     TextColumn("[bold red]{task.fields[findings]}", justify="right"),
     TextColumn("[bold red]{task.fields[errors]}", justify="right"),
     console=console,
     refresh_per_second=5,
     expand=True,
+    speed_estimate_period=90,
 )
 
 
@@ -198,12 +198,12 @@ class DeepSecretsCliTool:
         parser.add_argument('--outfile', required=True, type=str)
         parser.add_argument(
             '--outformat',
-            default='json',
+            default='sarif',
             type=str,
             choices=['json', 'sarif', 'dojo-sarif'],
-            help='"json": internal format (default, will be deprecated soon)\n'
-            '"sarif": SARIF format (specification accurate, will become default soon)\n'
-            '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n',
+            help='"sarif": SARIF format (specification accurate, default)\n'
+            '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n'
+            '"json": old internal format (deprecated and will be removed soon)',
         )
 
         parser.add_argument(
@@ -280,6 +280,9 @@ class DeepSecretsCliTool:
     def get_current_config(self) -> Config:
         return config
 
+    def _add_ignorefiles(self, files: List[str]):
+        config.set_global_exclusion_paths(files)
+
     def start(self) -> int:  # pragma: nocover
         startup_time = datetime.now()
         try:
@@ -290,13 +293,13 @@ class DeepSecretsCliTool:
 
         if config.output.type == 'json':
             console.print('\n')
-            if SCANNER_VERSION_NUMERIC[0] == 1 and SCANNER_VERSION_NUMERIC[1] < 5:
+            if SCANNER_VERSION_NUMERIC[0] == 2 and SCANNER_VERSION_NUMERIC[1] < 1:
                 console.print(
                     Align(
                         Panel(
-                            "The internal JSON report format is now DEPRECATED.\n\nThe tool will begin reporting in SARIF BY DEFAULT starting from the release 1.5.0 (January 2026)\n\nConsider switching now.",
+                            "The internal JSON report format is now DEPRECATED and will be removed in release 2.1.0\n\nConsider switching now.",
                             padding=(1, 2),
-                            title=Text('SWITCHING TO SARIF NEXT RELEASE', style='reverse'),
+                            title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
                             highlight=True,
                             subtitle=Text(' --outformat sarif ', style='reverse'),
                             title_align='center',
@@ -314,11 +317,11 @@ class DeepSecretsCliTool:
                 console.print(
                     Align(
                         Panel(
-                            f"The internal JSON report format was DEPRECATED in the release 1.4.1.\nNow ({SCANNER_VERSION}) it is REMOVED.\n.",
+                            f"The internal JSON report format was DEPRECATED since the release 2.0.0.\nNow ({SCANNER_VERSION}) it is REMOVED. Switch to SARIF\n.",
                             padding=(1, 2),
                             title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
                             highlight=True,
-                            subtitle=Text('', style='reverse'),
+                            subtitle=Text(' --outformat sarif ', style='reverse'),
                             title_align='center',
                             width=90,
                             subtitle_align='center',
@@ -359,8 +362,9 @@ class DeepSecretsCliTool:
 
         findings: List[Finding]
         errors: Dict[str, List[str]]
+        timings: Dict[str, int]
 
-        findings, errors = mode.run()
+        findings, errors, timings = mode.run()
 
         '''
         for finding in findings:
@@ -403,7 +407,7 @@ class DeepSecretsCliTool:
         console.print(Align(table, align='center'))
 
         if config._benchmarking_mode is True:
-            return findings, errors, mode._oneshot_file
+            return findings, errors, timings, mode._oneshot_file
 
         with open(report_path, 'w+') as f:
 

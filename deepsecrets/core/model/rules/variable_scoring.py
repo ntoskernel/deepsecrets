@@ -9,6 +9,7 @@ class Target(str, Enum):
     NAME_NORMALIZED = "NAME_NORMALIZED"  # "apiaccesskey" (Best for fuzzy)
     VALUE = "VALUE"
     FILEPATH = "FILEPATH"  # The file path
+    VALUE_NORMALIZED = 'VALUE_NORMALIZED'
 
 
 target_to_fields = {
@@ -16,6 +17,7 @@ target_to_fields = {
     Target.NAME_SPACED: 'name_spaced',
     Target.VALUE: 'value',
     Target.NAME_NORMALIZED: 'name_normalized',
+    Target.VALUE_NORMALIZED: 'value_normalized',
 }
 
 

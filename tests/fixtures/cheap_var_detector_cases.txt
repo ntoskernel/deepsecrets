@@ -1,0 +1,8 @@
+client_secret: '5846d428b5340812b76c9637eceaee979340b922'
+client_secret = '5846d428b5340812b76c9637eceaee979340b922'
+
+"client_secret": "5846d428b5340812b76c9637eceaee979340b922"
+'client_secret'= '5846d428b5340812b76c9637eceaee979340b922'
+
+https://www.youtube.com/watch?v=HHi19zvnyGM&key=5846d428b5340812b76c9637eceaee979340b922
+https://www.youtube.com/watch?key=5846d428b5340812b76c9637eceaee979340b922

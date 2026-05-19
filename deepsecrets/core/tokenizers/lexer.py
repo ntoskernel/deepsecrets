@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Union
+from typing import List, Type, Union
 
 
 from deepsecrets.core.model.tokenized_region import TokenizedRegion
@@ -9,7 +9,7 @@ from pygments.lexers.special import Lexer
 from pygments.token import Token as PygmentsToken
 
 from deepsecrets.core.model.file import File
-from deepsecrets.core.model.token import SemanticType, Token
+from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
 from deepsecrets.core.tokenizers.helpers.single_token_improver import SingleTokenImprover
 from deepsecrets.core.tokenizers.helpers.type_stream import (
@@ -127,23 +127,6 @@ class LexerTokenizer(Tokenizer):
 
     def print_token_type_stream(self) -> None:
         print(self.token_stream)
-
-    def get_variables(self, tokens: Optional[List[Token]] = None) -> List[Token]:
-        tokens = tokens if tokens is not None else self.tokens
-        vars = []
-        if len(tokens) == 0:
-            return []
-
-        for token in tokens:
-            if token.semantic is None:
-                continue
-
-            if token.semantic.type != SemanticType.VARIABLE:
-                continue
-
-            vars.append(token)
-
-        return vars
 
 
 from deepsecrets.core.tokenizers.helpers.subfile_regions_helper import SubFileRegionsHelper

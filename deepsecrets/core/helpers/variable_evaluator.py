@@ -25,8 +25,13 @@ class EvaluationResult:
     # < 3: 0
     # 3-4: 0 -> 35
 
-    def summary(self) -> str:
-        return f'conf: {self.export_confidence}; n+c:{self.naming_and_content_score}; e:{self.entropy_score}; gib:{self.nonsence_value_score}'
+    def summary(self) -> dict:
+        return {
+            'conf': self.export_confidence,
+            'n+c': self.naming_and_content_score,
+            'e': round(self.entropy_score, 2),
+            'gib': self.nonsence_value_score,
+        }
 
 
 HOPELESS_THRESHOLD = -100
@@ -41,6 +46,9 @@ class VariableEvaluator:
         self.rules = rules
 
     def calculate_entropy_score(self, entropy: float) -> float:
+        if entropy == 0:
+            return -1
+
         if entropy < 3:
             return 0
 
@@ -89,6 +97,11 @@ class VariableEvaluator:
 
         naming_and_content_score = 0
         matched_rules = []
+
+        if len(context.value) <= 4:
+            matched_rules.append('SEM_INTRNL_VAL_LENGTH')
+            return EvaluationResult(total_score=-100, is_dangerous=False, matched_rules=matched_rules)
+
         for rule in self.rules:
             fired = rule.match_by_context(context)
             if fired:
@@ -104,9 +117,16 @@ class VariableEvaluator:
 
         entropy = EntropyHelper.get_for_string(context.value)
         entropy_score = self.calculate_entropy_score(entropy)
+        if entropy == 0 and entropy_score == -1:
+            return EvaluationResult(
+                total_score=naming_and_content_score,
+                is_dangerous=False,
+                entropy=entropy,
+                entropy_score=entropy_score,
+                matched_rules=matched_rules,
+            )
 
         nonsense_value_score = self.calculate_nonsense_value_score(context.value_parts, context.value_normalized)
-
         total_score = naming_and_content_score + entropy_score
 
         result = EvaluationResult(

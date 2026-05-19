@@ -68,16 +68,18 @@ class DeepAnalyzer:
         for var in true_var_detections:
             suppressed = self._if_suppressed(var, suppression_regions)
             if suppressed:
-                exclude_after.update([var.name, var.value])
+                exclude_after.update([var.name_token, var.value_token])
                 continue
 
-            var.value.semantic = Semantic(
+            var.value_token.semantic = Semantic(
                 type=SemanticType.VARIABLE,
                 # name=var.name.content,
                 payload=var,
                 creds_probability=var.found_by.creds_probability,
             )
-            exclude_after.add(var.name)
+
+            if var.name_token is not None:
+                exclude_after.add(var.name_token)
 
         return exclude_after
 

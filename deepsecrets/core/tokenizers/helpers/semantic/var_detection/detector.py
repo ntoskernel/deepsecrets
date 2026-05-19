@@ -84,20 +84,28 @@ class RegionDetector(BaseModel):
     stream_pattern: re.Pattern
 
     match_rules: Dict[int, Match]
-    match_semantics: Dict[int, str]
+    match_semantics: Dict[int | str, str]
+
+    # Useful when positive lookaheads are used as a Match's span window is empty
+    span_by_group_index: Optional[int] = None
     creds_probability: int = 0
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def match(self, tokens: List[Token], token_stream: str) -> List['Variable']:
         true_detections = []
-
         for match in re.finditer(self.stream_pattern, token_stream, overlapped=True):
             if not self._verify(match, tokens):
                 continue
 
             reg = Region()
             for i, name in self.match_semantics.items():
-                setattr(reg, name, [match.span(i)[0], match.span(i)[1]])
+                if isinstance(i, int):
+                    setattr(reg, name, [match.span(i)[0], match.span(i)[1]])
+                elif isinstance(i, str):
+                    setattr(reg, name, i)
+                else:
+                    pass
+
             reg.found_by = self
             reg.span = [match.span(0)[0], match.span(0)[1]]
 
@@ -128,9 +136,20 @@ class VariableDetector(RegionDetector):
 
             var = Variable()
             for i, name in self.match_semantics.items():
-                setattr(var, name, tokens[match.span(i)[0]])
+                if isinstance(i, int):
+                    setattr(var, name, tokens[match.span(i)[0]])
+                elif isinstance(i, str):
+                    setattr(var, name, i)
+                else:
+                    pass
+
             var.found_by = self
-            var.span = [match.span(0)[0], match.span(0)[1]]
+
+            if self.span_by_group_index is not None:
+                span_group = match.span(self.span_by_group_index)
+                var.span = [span_group[0], span_group[1]]
+            else:
+                var.span = [match.span(0)[0], match.span(0)[1]]
 
             true_detections.append(var)
 
@@ -146,6 +165,49 @@ class VariableSuppressor(VariableDetector):
             spans.append(detection.span)
 
         return spans
+
+
+class CheapVariableDetector(RegionDetector):
+
+    def match(self, content: str) -> List['Variable']:
+        true_detections = []
+        for m in re.finditer(self.stream_pattern, content, overlapped=True):
+            if not self._verify(m):
+                continue
+
+            var = Variable()
+            for i, name in self.match_semantics.items():
+                if isinstance(i, int):
+                    setattr(var, name, content[m.span(i)[0] : m.span(i)[1]])
+                elif isinstance(i, str):
+                    setattr(var, name, i)
+                else:
+                    pass
+
+            var.found_by = self
+
+            if self.span_by_group_index is not None:
+                span_group = m.span(self.span_by_group_index)
+                var.span = [span_group[0], span_group[1]]
+            else:
+                var.span = [m.span(0)[0], m.span(0)[1]]
+
+            true_detections.append(var)
+
+        return true_detections
+
+    def _verify(self, match: re.Match) -> bool:
+        match_ok = True
+
+        if self.match_rules is not None:
+            for group_i, match_rule in self.match_rules.items():
+                span = match.span(group_i)
+                window = match.string[span[0] : span[1]]
+                if not match_rule.match(window):  # type: ignore
+                    match_ok = False
+                    return False
+
+        return match_ok
 
 
 from deepsecrets.core.model.semantic import Region, Variable

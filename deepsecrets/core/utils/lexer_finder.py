@@ -67,7 +67,7 @@ class LexerFinder:
         return lexer
 
     def _determine_extension(self):
-        meta_extensions = ['txt', 'conf']
+        meta_extensions = ['txt', 'conf', 'Rd']
         if self.file.extension is None or self.file.extension in meta_extensions:
             return self._try_guess_extension()
 
@@ -87,7 +87,11 @@ class LexerFinder:
         return 'coffeescript'
 
     def _try_guess_extension(self) -> Optional[str]:
-        guess = FileTypeGuesser().guess(self.file.content)
+        guess = FileTypeGuesser().guess(
+            name=self.file.name,
+            extension=self.file.extension,
+            content=self.file.content,
+        )
         if guess is not None:
             return guess
 

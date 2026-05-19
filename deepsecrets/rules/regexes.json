@@ -9,31 +9,37 @@
         "id": "S1",
         "name": "RSA private key",
         "confidence": 9,
-        "pattern": "-----BEGIN[\\S\\s].*RSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*RSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
+        "pattern": "-BEGIN[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-"
     },
     {
         "id": "S2",
         "name": "SSH (OPENSSH) private key",
         "confidence": 9,
-        "pattern": "-----BEGIN[\\S\\s].*OPENSSH[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*OPENSSH[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
+        "pattern": "-BEGIN[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S3",
         "name": "SSH (DSA) private key",
         "confidence": 9,
-        "pattern": "-----BEGIN[\\S\\s].*DSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*DSA[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
+        "pattern": "-BEGIN[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S4",
         "name": "SSH (EC) private key",
         "confidence": 9,
-        "pattern": "-----BEGIN[\\S\\s].*EC[\\S\\s].*PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*EC[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
+        "pattern": "-BEGIN[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S5",
         "name": "PGP private key block",
         "confidence": 9,
-        "pattern": "-----BEGIN[\\S\\s].*PGP[\\S\\s].*PRIVATE[\\S\\s].*KEY[\\S\\s].*BLOCK-----"
+        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----([^-][\\s\\S]{50,3000})[^-]-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
+        "match_rules": {
+            "1": {
+                "pattern": ".*",
+                "negative_pattern": "[-{}()<>]"
+            }
+        }
     },
     {
         "id": "S7",
@@ -80,7 +86,8 @@
         "target_group": 2,
         "match_rules": {
             "2": {
-                "pattern": "^[^\\$|{|%|<|][^ ]+[^\\$|}|%|>]$"
+                "pattern": "^[^\\${%<*][^ ]+[^}%>*]$",
+                "negative_pattern": "^(.*symb.*|.*mock.*|.*color.*|.*password.*|.*ctrl.*|.*help.*|.*numb.*|.*long.*|.*short.*|.*tip.*|.*down.*|.*head.*|.*info.*|.*last.*|.*next.*|.*title.*|.*label.*|.*error.*|.*view.*|.*center.*|.*date.*|.*paren.*|.*able.*|.*examp.*|.*servi.*|.*class.*|.*prope.*|.*reset.*|.*eract.*|.*rule.*|.*track.*|.*cloud.*|.*call.*|.*index.*|.*limit.*|.*acces.*|.*param.*|.*note.*|.*name.*|.*descr.*|.*value.*|.*polic.*|.*part.*|.*correc.*|.*conte.*|.*media.*|.*exten.*|.*defau.*|.*fill.*|.*unive.*|.*star.*|.*addit.*|.*stac.*|.*excep.*|.*messa.*|.*zone.*|.*total.*|.*type.*|.*valid.*|.*instan.*|.*seria.*|.*docum.*|.*base.*|.*addre.*|.*size.*|.*first.*|.*sourc.*|.*cover.*|.*gener.*|.*config.*|.*with.*|.*window.*|.*support.*|.*comment.*|.*batch.*|.*vault.*|.*secret.*|.*copy.*|.*filte.*|.*clear.*|.*status.*|.*private.*|.*password.*|.*invalid.*|.*link.*|.*test.*|.*expir.*|.*empty.*|.*token.*|null|bearer|foo|foobar|xyz|undefined|none|.*todo.*|.*change.*|.*restore.*|[^A-Za-z0-9]*|%.*%|\\[.*\\]|{.*})$"
             }
         }
     },
@@ -112,7 +119,13 @@
         "id": "S26",
         "name": "Custom private key",
         "confidence": 9,
-        "pattern": "-----BEGIN[\\S\\s]{,10}?PRIVATE[\\S\\s].*KEY-----[\\S\\s]{15,}?-----END[\\S\\s].*PRIVATE[\\S\\s].*KEY-----"
+        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----([\\s\\S]{50,3500})?-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
+        "match_rules": {
+            "1": {
+                "pattern": ".*",
+                "negative_pattern": "[-]"
+            }
+        }
     },
     {
         "id": "S28",
@@ -121,7 +134,7 @@
         "confidence": 0,
         "match_rules": {
             "2": {
-                "pattern": "^\\s*(?:'|:|=)*\\s*$"
+                "pattern": "^\\s*(?:'|:|=)+\\s*$"
             }
         },
         "target_group": 3,
@@ -171,13 +184,40 @@
         "id": "S35",
         "name": "AWS Access Key ID",
         "confidence": 9,
-        "pattern": "\\b(A3T[A-Z0-9]|AKIA|AGPA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\\b"
+        "pattern": "\\b(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16,17}\\b",
+        "case_sensitive": true
     },
     {
         "id": "S36",
         "description": "https://docs.stripe.com/keys",
         "name": "Stripe Secret",
         "confidence": 9,
-        "pattern": "\\b(sk|rk)_(test|live)_[0-9a-zA-Z]{24,35}\\b"
+        "pattern": "\\b(?:pk|sk|rk)_(?:test|live)_[0-9a-zA-Z]{24,45}\\b"
+    },
+    {
+        "id": "S37",
+        "name": "BitCoin WIF Private Key",
+        "confidence": 7,
+        "pattern": "\\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\\b",
+        "case_sensitive": true
+    },
+    {
+        "id": "S38",
+        "name": "Google API Key",
+        "confidence": 9,
+        "pattern": "\\bAIzaSy[A-Za-z0-9\\-_]{33}\\b"
+    },
+    {
+        "id": "S39",
+        "name": "Mailchimp API Key",
+        "confidence": 6,
+        "pattern": "\\b[0-9a-f]{32}-[a-z]{2}\\d{1,2}\\b"
+    },
+    {
+        "id": "S40",
+        "name": "LocationIQ Key",
+        "confidence": 9,
+        "pattern": "\\bpk\\.[a-zA-Z0-9]{30,32}\\b"
     }
+    
 ] 

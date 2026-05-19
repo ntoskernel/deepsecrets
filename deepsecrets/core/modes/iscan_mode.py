@@ -1,3 +1,8 @@
+from deepsecrets.utils import setup_interrupts_for_subprocess
+
+setup_interrupts_for_subprocess()
+import time
+
 from dataclasses import dataclass, field
 from multiprocessing.pool import AsyncResult
 import regex as re
@@ -188,14 +193,15 @@ class ScanMode:
             size=f'{self.stats.finished}/{self.stats.total_files}',
         )
 
-    def run(self) -> Tuple[List[Finding], Dict[str, List[str]]]:
+    def run(self) -> Tuple[List[Finding], Dict[str, List[str]], Dict[str, int]]:
         final: List[Finding] = []
         errors: Dict[str, List[str]] = dict()
+        timings: Dict[str, int] = dict()
 
         bundle = self.analyzer_bundle()
         proc_count = self._get_process_count_for_runner()
         if proc_count == 0:
-            return final, errors
+            return final, errors, timings
 
         overall_progress_task = self.progress_bar.add_task(
             "[green bold]OVERALL\nPROGRESS\n",
@@ -213,37 +219,57 @@ class ScanMode:
                     ).findings
                 )
         else:
-            with self.pool_engine(processes=proc_count) as pool:
-                tid = 0
-                for file in self.filepaths:
-                    tid += 1
-                    result = pool.apply_async(
-                        pool_wrapper,
-                        (bundle, self._per_file_analyzer, tid, self.active_task_reporter, file),
-                    )
-                    self.file_results.append(result)
-                    self.file_jobs[tid] = FileJob(name=file, internal_id=tid, pb_task_id=None, result_holder=result)
-                pool.close()
+            try:
+                with self.pool_engine(processes=proc_count) as pool:
+                    tid = 0
+                    for file in self.filepaths:
+                        tid += 1
+                        result = pool.apply_async(
+                            pool_wrapper,
+                            (bundle, self._per_file_analyzer, tid, self.active_task_reporter, file),
+                        )
+                        self.file_results.append(result)
+                        self.file_jobs[tid] = FileJob(name=file, internal_id=tid, pb_task_id=None, result_holder=result)
+                    pool.close()
 
-                self.stats.total_files = len(self.file_jobs.keys())
-                while self.stats.finished < self.stats.total_files:
-                    self.refresh_jobs_progress_bars()
-                    self.refresh_overall_progress_bar(overall_progress_task)
-                    # self.refresh_overall_debug_progress_bar(overall_debug)
-                self.stop_progress_bar(overall_progress_task)
-                console.print('[*] Collecting results..')
-                pool.join()
+                    self.stats.total_files = len(self.file_jobs.keys())
+                    while self.stats.finished < self.stats.total_files:
+                        self.refresh_jobs_progress_bars()
+                        self.refresh_overall_progress_bar(overall_progress_task)
+                        time.sleep(0.1)
+                        # self.refresh_overall_debug_progress_bar(overall_debug)
+                    self.stop_progress_bar(overall_progress_task)
+                    console.print('[*] Collecting results..')
+                    pool.join()
 
-        for job_result in self.file_results:
-            analysis_result: PerFileAnalysisResult = job_result.get()
-            self._oneshot_file = analysis_result._file
+            except KeyboardInterrupt:
+                if getattr(self, 'progress_bar', None):
+                    self.stop_progress_bar(overall_progress_task)
 
-            job = self.file_jobs.get(analysis_result.internal_task_id)
-            errors[job.name] = analysis_result.errors
+                console.print(
+                    "\n[bold red][!] Scan abort request was received (Ctrl+C).\n    Intermediate results will NOT be saved.\n    Shutting down workers...[/bold red]"
+                )
 
-            if analysis_result.findings is None or len(analysis_result.findings) == 0:
-                continue
-            final.extend(analysis_result.findings)
+                if 'pool' in locals():
+                    pool.terminate()
+                    pool.join()
+
+                if getattr(self, '_mp_manager', None):
+                    self._mp_manager.shutdown()
+
+                raise
+
+            for job_result in self.file_results:
+                analysis_result: PerFileAnalysisResult = job_result.get(timeout=1000)
+                self._oneshot_file = analysis_result._file
+
+                job = self.file_jobs.get(analysis_result.internal_task_id)
+                errors[job.name] = analysis_result.errors
+                timings[job.name] = analysis_result.processing_time_seconds
+
+                if analysis_result.findings is None or len(analysis_result.findings) == 0:
+                    continue
+                final.extend(analysis_result.findings)
 
         console.line()
         console.print('[*] Merging similar findings..')
@@ -251,7 +277,7 @@ class ScanMode:
 
         console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
-        return fin, errors
+        return fin, errors, timings
 
     def dispose(self):
         self.task_reporter = None
@@ -355,5 +381,6 @@ class ScanMode:
 def pool_wrapper(
     bundle: DotWiz, runner: Callable, task_id: Optional[int], task_reporter: DictProxy, file: str
 ) -> PerFileAnalysisResult:  # pragma: nocover
+
     result = runner(bundle, file, task_id, task_reporter)
     return result

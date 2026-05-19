@@ -8,7 +8,7 @@ from tests.case_helpers import regex_case, semantic_case, variable_detection_cas
 
 
 @pytest.mark.fixture_file_path('cases/inline_yaml_inside_yaml_inside_markdown.md')
-def test_6(file: File):
+def test_inline_yaml_inside_yaml_inside_markdown(file: File):
 
     findings, tokens, variables = semantic_case(file)
     assert len(variables) == 7
@@ -16,29 +16,41 @@ def test_6(file: File):
 
 
 @pytest.mark.fixture_file_path('cases/inline_yaml_inside_yaml.yaml')
-def test_7(file: File, lexer_tokenizer: LexerTokenizer):
+def test_inline_yaml_inside_yaml(file: File, lexer_tokenizer: LexerTokenizer):
     vars, _, tokens = variable_detection_case(lexer_tokenizer, file)
     assert len(vars) == 7
 
 
 @pytest.mark.fixture_file_path('cases/code_in_markdown_with_lang_labels.md')
-def test_8(file: File, lexer_tokenizer: LexerTokenizer):
+def test_code_in_markdown_with_lang_labels(file: File, lexer_tokenizer: LexerTokenizer):
     vars, _, tokens = variable_detection_case(lexer_tokenizer, file)
     assert 1 == 1
 
 
 @pytest.mark.fixture_file_path('cases/tricky_secrets.min.js')
-def test_9(file: File):
+def test_tricky_secrets(file: File):
 
-    findings, tokens, variables = semantic_case(file)
-    assert len(findings) == 4
+    findings, _, _ = semantic_case(file)
+    assert len(findings) == 5
 
 
 @pytest.mark.fixture_file_path('1.pem')
-def test_10(file: File, full_content_tokenizer: FullContentTokenizer, regex_engine: RegexEngine):
+def test_1_pem(file: File, full_content_tokenizer: FullContentTokenizer, regex_engine: RegexEngine):
     findings, tokens, variables = regex_case(
         tokenizer=full_content_tokenizer,
         engine=regex_engine,
         file=file,
     )
     assert 1 == 1
+
+
+@pytest.mark.fixture_file_path('4.json')
+def test_4_json(file: File):
+    findings, tokens, variables = semantic_case(file)
+    assert len(findings) == 1
+
+
+@pytest.mark.fixture_file_path('cases/js_in_html.html')
+def test_5_jsinhtml(file: File):
+    findings, tokens, variables = semantic_case(file)
+    assert len(findings) == 1

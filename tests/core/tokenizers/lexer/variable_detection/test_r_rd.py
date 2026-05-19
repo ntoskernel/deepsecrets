@@ -5,7 +5,9 @@ from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from tests.case_helpers import variable_detection_case
 
 
-@pytest.mark.fixture_file_path('cases/markdown_with_yaml.txt')
+@pytest.mark.fixture_file_path(
+    'problem_files/dmpe-rbitly_5e7b14925d70ccc7f59a05e4b5a398c4acce6e76_man-link_Metrics_EncodersByCount.Rd'
+)
 def test_1(file: File, lexer_tokenizer: LexerTokenizer):
     variables, _, _ = variable_detection_case(lexer_tokenizer, file)
-    assert len(variables) == 3
+    assert len(variables) == 1

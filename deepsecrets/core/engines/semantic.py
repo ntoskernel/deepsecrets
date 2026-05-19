@@ -87,7 +87,7 @@ class SemanticEngine(IEngine):
                                     confidence=evaluation_result.export_confidence,
                                 )
                             ],
-                            internal_score=evaluation_result.summary(),
+                            internal_score={'var': token.semantic.name} | evaluation_result.summary(),
                         )
                     )
                 else:
@@ -103,7 +103,7 @@ class SemanticEngine(IEngine):
                                     confidence=evaluation_result.export_confidence,
                                 )
                             ],
-                            internal_score=evaluation_result.summary(),
+                            internal_score={'var': token.semantic.name} | evaluation_result.summary(),
                         )
                     )
 

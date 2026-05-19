@@ -14,6 +14,7 @@ from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
+from deepsecrets.core.tokenizers.cheap_var_search import CheapVarSearchTokenizer
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from deepsecrets.core.utils.lifecycle_hooks import JobLifecycleHooks
@@ -59,6 +60,7 @@ class CliScanMode(ScanMode):
             if bundle.benchmarking_mode is True:
                 result._file = file
 
+            result.processing_time_seconds = int((lifecycle.end_ts - lifecycle.start_ts).total_seconds())
             result.errors = get_error_list()
             return result
 
@@ -93,6 +95,7 @@ class CliScanMode(ScanMode):
         file_analyzer.attach_global_task_reporter(task_reporter=task_reporter, task_id=task_id)
 
         fct = FullContentTokenizer()
+        cheap_var_search = CheapVarSearchTokenizer()
         lex = LexerTokenizer(deep_token_inspection=True)
 
         regex_engine = RegexEngine(
@@ -116,7 +119,7 @@ class CliScanMode(ScanMode):
                 semantic_engine = SemanticEngine(
                     regex_engine, ruleset=bundle.rulesets.get(VariableScoringRulesetBuilder.ruleset_name, [])
                 )
-                file_analyzer.add_engine(semantic_engine, [lex])
+                file_analyzer.add_engine(semantic_engine, [lex, cheap_var_search])
 
         try:
             result.findings = file_analyzer.process()

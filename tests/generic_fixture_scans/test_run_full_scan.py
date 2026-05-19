@@ -27,7 +27,7 @@ def test_everything(config: Config) -> None:
     mode.progress_bar = Mock()
     mode.progress_bar.add_task.return_value = 0
     mode.progress_bar.task_ids = []
-    findings, errors = mode.run()
+    findings, errors, timings = mode.run()
 
     detections = [finding.detection for finding in findings]
     assert 'bAicxJVa5uVY7MjDlapthw' in detections

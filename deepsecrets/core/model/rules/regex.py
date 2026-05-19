@@ -12,10 +12,12 @@ RegexRule = ForwardRef('RegexRule')
 
 class RegexRule(Rule):  # type: ignore
     pattern: re.Pattern
+    negative_pattern: Optional[re.Pattern] = Field(default=None)
     match_rules: Optional[Dict[int, RegexRule]] = Field(default={})  # type: ignore
     target_group: int = Field(default=0)
     entropy_settings: Optional[float] = Field(default=None)
     escaping_needed: bool = False
+    case_sensitive: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -27,12 +29,33 @@ class RegexRule(Rule):  # type: ignore
     @classmethod
     def build_pattern(cls, values: Dict) -> Dict:
         pattern_str = values.get('pattern', None)
+        negative_pattern_str = values.get('negative_pattern', None)
+
         if pattern_str is not None and isinstance(pattern_str, str):
             escaping_needed = values.get('escaping_needed', False)
+
+            flags = 0
+            case_sensitive = values.get('case_sensitive', False)
             if escaping_needed:
                 pattern_str = re.escape(pattern_str)
 
-            values['pattern'] = re.compile(pattern_str, re.IGNORECASE)
+            if case_sensitive is False:
+                flags = flags | re.IGNORECASE
+
+            values['pattern'] = re.compile(pattern_str, flags)
+
+        if negative_pattern_str is not None and isinstance(negative_pattern_str, str):
+            escaping_needed = values.get('escaping_needed', False)
+
+            flags = 0
+            case_sensitive = values.get('case_sensitive', False)
+            if escaping_needed:
+                negative_pattern_str = re.escape(negative_pattern_str)
+
+            if case_sensitive is False:
+                flags = flags | re.IGNORECASE
+
+            values['negative_pattern'] = re.compile(negative_pattern_str, flags)
 
         match_rules = values.get('match_rules', {})
         for _, match_rule in match_rules.items():
@@ -51,6 +74,12 @@ class RegexRule(Rule):  # type: ignore
         contents.extend(token.uncovered_content if isinstance(token, Token) else [])
 
         for i, content in enumerate(contents):
+            if (
+                self.negative_pattern is not None
+                and re.search(pattern=self.negative_pattern, string=content) is not None
+            ):
+                continue
+
             matches = re.finditer(self.pattern, content)
 
             for match in matches:

@@ -3,6 +3,7 @@ from typing import List
 
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
 from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import (
+    CheapVariableDetector,
     Match,
     VariableDetector,
     VariableSuppressor,
@@ -28,19 +29,19 @@ class VariableDetectionRules:
             language=Language.PYTHON,
             stream_pattern=re.compile('(n)(o|p)(?:\n?)(L)(?:\n|p|\?)'),  # noqa
             match_rules={2: Match(values=[re.compile('^=$'), re.compile('^:$')])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.PYTHON,
             stream_pattern=re.compile('(L)(p)(L)(?:p|\n)'),
             match_rules={2: Match(values=[':'])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.PYTHON,
             stream_pattern=re.compile('(L)(p)(o)(L)'),
             match_rules={2: Match(values=[']']), 3: Match(values=['='])},
-            match_semantics={1: 'name', 4: 'value'},
+            match_semantics={1: 'name_token', 4: 'value_token'},
         ),
         VariableDetector(
             language=Language.PYTHON,
@@ -50,14 +51,24 @@ class VariableDetectionRules:
                 3: Match(values=['(']),
                 5: Match(values=[')']),
             },
-            match_semantics={1: 'name', 4: 'value'},
+            match_semantics={1: 'name_token', 4: 'value_token'},
+        ),
+        VariableDetector(
+            language=Language.PYTHON,
+            stream_pattern=re.compile('(n)(p)(L)(p)(L)', flags=re.MULTILINE | re.S),
+            match_rules={
+                1: Match(values=['getenv']),
+                2: Match(values=['(']),
+                4: Match(values=[',']),
+            },
+            match_semantics={3: 'name_token', 5: 'value_token'},
         ),
         # GOLANG
         VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(o|p)(L)(?:p|\n)?'),
             match_rules={2: Match(values=[':', '=', ':='])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.GOLANG,
@@ -67,7 +78,7 @@ class VariableDetectionRules:
                 2: Match(values=['(']),
                 5: Match(values=[')']),
             },
-            match_semantics={3: 'name', 4: 'value'},
+            match_semantics={3: 'name_token', 4: 'value_token'},
         ),
         VariableDetector(
             language=Language.GOLANG,
@@ -76,20 +87,20 @@ class VariableDetectionRules:
                 2: Match(values=[':=']),
                 3: Match(not_values=['Getenv', 'Setenv', 'Format']),
             },
-            match_semantics={1: 'name', 5: 'value'},
+            match_semantics={1: 'name_token', 5: 'value_token'},
         ),
         VariableDetector(
             language=Language.GOLANG,
             stream_pattern=re.compile('(n)(?:o|p){1,3}(\?|u)p(L)p'),  # noqa
             match_rules={2: Match(values=['byte', 'string'])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         # PHP
         VariableDetector(
             language=Language.PHP,
             stream_pattern=re.compile('(n|v|L)(o)(L)'),
             match_rules={2: Match(values=['=', '=>'])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.PHP,
@@ -99,32 +110,32 @@ class VariableDetectionRules:
                 3: Match(values=['env']),
                 4: Match(values=['(']),
             },
-            match_semantics={1: 'name', 5: 'value'},
+            match_semantics={1: 'name_token', 5: 'value_token'},
         ),
         # CONFIGS AND FORMATS
         VariableDetector(
             language=Language.TOML,
             stream_pattern=re.compile('(n)(o)(L)\n'),
             match_rules={2: Match(values=['='])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.YAML,
             stream_pattern=re.compile('(L)(p)(L)'),
             match_rules={2: Match(values=[':'])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.INI,
             stream_pattern=re.compile('(n)(o)(L)'),
             match_rules={2: Match(values=['='])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.PUPPET,
             stream_pattern=re.compile('(v|n)(o)(L)'),
             match_rules={2: Match(values=['=>', '='])},
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.ANY,
@@ -137,7 +148,7 @@ class VariableDetectionRules:
                     ]
                 )
             },
-            match_semantics={1: 'name', 3: 'value'},
+            match_semantics={1: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.SHELL,
@@ -147,7 +158,7 @@ class VariableDetectionRules:
                 2: Match(values=[re.compile('^-u$')]),
                 4: Match(not_values=[re.compile('^\\$')]),
             },
-            match_semantics={3: 'name', 4: 'value'},
+            match_semantics={3: 'name_token', 4: 'value_token'},
             creds_probability=9,
         ),
         VariableDetector(
@@ -157,7 +168,7 @@ class VariableDetectionRules:
                 1: Match(values=[re.compile('^KeyValuePair$')]),
                 4: Match(not_values=[re.compile('^}$')]),
             },
-            match_semantics={2: 'name', 3: 'value'},
+            match_semantics={2: 'name_token', 3: 'value_token'},
         ),
         VariableDetector(
             language=Language.CSHARP,
@@ -167,7 +178,7 @@ class VariableDetectionRules:
                 3: Match(values=[re.compile('^,$')]),
                 5: Match(values=[re.compile('^}$')]),
             },
-            match_semantics={2: 'name', 4: 'value'},
+            match_semantics={2: 'name_token', 4: 'value_token'},
         ),
         VariableDetector(
             language=Language.JAVA,
@@ -177,7 +188,7 @@ class VariableDetectionRules:
                 2: Match(values=[re.compile('^\\($')]),
                 4: Match(values=[re.compile('^,$')]),
             },
-            match_semantics={3: 'name', 5: 'value'},
+            match_semantics={3: 'name_token', 5: 'value_token'},
         ),
         VariableDetector(
             language=Language.MARKDOWN,
@@ -187,7 +198,36 @@ class VariableDetectionRules:
                 2: Match(values=[re.compile('^\\($')]),
                 4: Match(values=[re.compile('^,$')]),
             },
-            match_semantics={3: 'name', 5: 'value'},
+            match_semantics={3: 'name_token', 5: 'value_token'},
+        ),
+        VariableDetector(
+            language=Language.JS,
+            stream_pattern=re.compile('(L)(o)(L)'),
+            match_rules={
+                1: Match(types=[PygmentsToken.Literal.String.Double, PygmentsToken.Literal.String.Single]),
+                2: Match(values=[re.compile('^:$')]),
+                3: Match(types=[PygmentsToken.Literal.String.Double, PygmentsToken.Literal.String.Single]),
+            },
+            match_semantics={1: 'name_token', 3: 'value_token'},
+        ),
+        VariableDetector(
+            language=Language.JS,
+            stream_pattern=re.compile('(n)(p)Lp(L)p'),
+            match_rules={
+                1: Match(values=[re.compile('^algoliasearch$')]),
+                2: Match(values=[re.compile('^\\($')]),
+            },
+            match_semantics={'algolia_api_secret_key': 'name_override', 3: 'value_token'},
+        ),
+        VariableDetector(
+            language=Language.JS,
+            stream_pattern=re.compile('(n)p(n)p(n)(o)(L)'),
+            match_rules={
+                1: Match(values=[re.compile('^process$')]),
+                2: Match(values=[re.compile('^env$')]),
+                4: Match(values=[re.compile('^||')]),
+            },
+            match_semantics={3: 'name_token', 5: 'value_token'},
         ),
     ]
 
@@ -295,5 +335,32 @@ class VariableSuppressionRules(VariableDetectionRules):
                 ),
             },
             match_semantics={},
+        ),
+        VariableSuppressor(
+            language=Language.JSON,
+            stream_pattern=re.compile('(?=((n)pL(?:.|\n)*?(n)pL))'),
+            match_rules={
+                2: Match(values=[re.compile('.*key.*'), re.compile('.*value.*')]),
+                3: Match(values=[re.compile('.*key.*'), re.compile('.*value.*')]),
+            },
+            match_semantics={},
+            span_by_group_index=1,
+        ),
+    ]
+
+
+class CheapVariableDetectionRules(VariableDetectionRules):
+    rules = [
+        # looking for generic key-value
+        CheapVariableDetector(
+            stream_pattern=re.compile('(["\'])([^\\[\\]"\'\\)\\(;\\s]+)\\1\\s*[:=]\\s*(["\'])([^\\[\\]"\';\\s]+)\\3'),
+            match_rules={},
+            match_semantics={2: 'name', 4: 'value'},
+        ),
+        # looking for random urls
+        CheapVariableDetector(
+            stream_pattern=re.compile('(?:\\:\\/\\/[^\n\r" ]*?|\\G)[?&]([^=&\\s]+)=([^&\\s"\',]*)'),
+            match_rules={},
+            match_semantics={1: 'name', 2: 'value'},
         ),
     ]

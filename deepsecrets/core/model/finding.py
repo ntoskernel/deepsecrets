@@ -23,7 +23,7 @@ class Finding(BaseModel):
     end_offset: int
     reason: str = Field(default='')
     final_rule: Optional[Rule] = Field(default=None)
-    internal_score: Optional[str] = Field(default_factory=str)
+    internal_score: Optional[dict] = Field(default_factory=dict)
     _mapped_on_file: bool = PrivateAttr(default=False)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -77,7 +77,7 @@ class Finding(BaseModel):
         return hash(f'{self.file.path}{self.detection}{self.start_offset}{self.end_offset}')
 
     def get_id(self) -> int:
-        return 99000 + self.__hash__()
+        return int(str(abs(self.__hash__()))[:8])
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Finding):

@@ -37,4 +37,4 @@ def test_4(file: File, lexer_tokenizer: LexerTokenizer):
 @pytest.mark.fixture_file_path('5.py')
 def test_5(file: File, lexer_tokenizer: LexerTokenizer):
     variables, _, _ = variable_detection_case(lexer_tokenizer, file)
-    assert len(variables) == 2
+    assert len(variables) == 5

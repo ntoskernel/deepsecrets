@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.utils.string import StringUtils
@@ -55,9 +55,12 @@ class Context:
 
 
 class Variable:
-    name: Token
-    value: Token
+    name_token: Token = None
+    value_token: Token = None
     _context: Context = None
+
+    name_override: Optional[str]
+    value_override: Optional[str]
     span: List[int]
     found_by: 'VariableDetector'
 
@@ -65,9 +68,9 @@ class Variable:
     def context(self):
         if self._context is None:
             self._context = Context(
-                name=self.name.content,
-                value=self.value.content,
-                filepath=self.name.file.path,
+                name=self.name_token.content if self.name_token is not None else self.name_override,
+                value=self.value_token.content if self.value_token is not None else self.value_override,
+                filepath=self.value_token.file.path,
             )
         return self._context
 

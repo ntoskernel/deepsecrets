@@ -3,6 +3,7 @@ from typing import Callable, List
 
 from pygments.token import Token as PygmentsToken
 
+from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
 from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, RegionDetector
@@ -15,11 +16,16 @@ class SingleTokenImprover:
 
     def __init__(self, lang: Language) -> None:
         self.language = lang
-        self.acc = {Language.SHELL: [self._curl_argstring_breakdown]}
+        self.acc = {
+            Language.SHELL: [self._curl_argstring_breakdown],
+        }
 
     def improve(self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token) -> List[Token]:
+        checkers: List[Callable] = self.acc.get(Language.ANY, [])
+        checkers.extend(self.acc.get(self.language, []))
+
         tokens = []
-        for improvement in self.acc.get(self.language, []):
+        for improvement in checkers:
             tokens.extend(improvement(so_far_tokens, so_far_type_stream, current_token))
 
         if len(tokens) == 0:

@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from collections import namedtuple
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 from deepsecrets.core.model.file import File
-from deepsecrets.core.model.token import Token
+from deepsecrets.core.model.token import SemanticType, Token
 from deepsecrets.core.utils.lifecycle_hooks import FileLifecycleHooks
 
 
@@ -40,12 +40,25 @@ class Tokenizer:
     def tokenize(self, file: File) -> List[Token]:
         pass
 
-    @abstractmethod
-    def get_variables(self):
-        return []
-
     def __hash__(self) -> int:  # pragma: nocover
         return hash(type(self))
 
     def __repr__(self) -> str:  # pragma: no cover
         return self.__class__.__name__
+
+    def get_variables(self, tokens: Optional[List[Token]] = None) -> List[Token]:
+        tokens = tokens if tokens is not None else self.tokens
+        vars = []
+        if len(tokens) == 0:
+            return []
+
+        for token in tokens:
+            if token.semantic is None:
+                continue
+
+            if token.semantic.type != SemanticType.VARIABLE:
+                continue
+
+            vars.append(token)
+
+        return vars

@@ -9,6 +9,9 @@ from puppetparser.parser import parse
 class FileTypeGuesser:
 
     def __init__(self) -> None:
+
+        self.host_swaps = {'Rd': 'R'}
+
         self.probes = {
             'json': self._is_json,
             'toml': self._is_toml,
@@ -19,7 +22,12 @@ class FileTypeGuesser:
             # 'properties': self._dot_properties,
         }
 
-    def guess(self, content: str) -> Optional[str]:
+    def guess(self, name: str, content: str, extension: Optional[str]) -> Optional[str]:
+
+        swap = self.host_swaps.get(extension)
+        if swap is not None:
+            return swap
+
         for ext, probe in self.probes.items():
             if probe(content):
                 return ext

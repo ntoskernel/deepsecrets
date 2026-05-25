@@ -48,6 +48,7 @@ acc = {
     PygmentsToken.Literal: 'L',
     PygmentsToken.Literal.Scalar.Plain: 'L',
     PygmentsToken.Literal.String: 'L',
+    PygmentsToken.Literal.String.Symbol: 'L',
     PygmentsToken.String: 'L',
     PygmentsToken.String.Single: 'L',
     PygmentsToken.String.Double: 'L',

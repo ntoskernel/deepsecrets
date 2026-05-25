@@ -1,13 +1,25 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from deepsecrets.core.helpers.naturalness_scorer import naturalness_scorer
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.utils.string import StringUtils
 import regex as re
 
-
 number_pattern = re.compile(r'\b\d+\b')
 hex_color = re.compile(r'#(?:[0-9a-fA-F]{3}){1,2}\b')
+
+
+# TODO DS2.1: Migrate to this data structure
+@dataclass
+class SemanticAttributes:
+    raw_value: str
+    parts: List[str] = field(default_factory=list, repr=False)
+    normalized: str = field(default_factory=str, repr=False)
+    spaced: str = field(default_factory=str, repr=False)
+    length: int = field(default_factory=int, repr=False)
+    # is_url
+    # is_
 
 
 @dataclass
@@ -19,16 +31,22 @@ class Context:
     name_parts: List[str] = field(default_factory=list, repr=False)
     name_normalized: str = field(default_factory=str, repr=False)
     name_spaced: str = field(default_factory=str, repr=False)
+    name_length: int = field(default_factory=int, repr=False)
 
     value_parts: List[str] = field(default_factory=list, repr=False)
     value_normalized: str = field(default_factory=str, repr=False)
     value_spaced: str = field(default_factory=str, repr=False)
+    value_length: int = field(default_factory=int, repr=False)
+    value_normalized_naturalness_score: float = field(default_factory=float, repr=False)
 
     def __post_init__(self):
         self.name_spaced, self.name_normalized, self.name_parts = self.normalize_punctuation(self.name)
         self.value_spaced, self.value_normalized, self.value_parts = self.normalize_punctuation(
             self.value, split_camel_case=False
         )
+        self.name_length = len(self.name)
+        self.value_length = len(self.value)
+        self.value_normalized_naturalness_score = naturalness_scorer.calculate_score(self.value_normalized)
 
     def normalize_punctuation(self, string: str, split_camel_case=True):
         normalized = string.replace(' ', '_')
@@ -44,6 +62,7 @@ class Context:
             .replace('#', ' ')
             .replace('/', ' ')
             .replace('@', ' ')
+            .replace(',', '')
         )
 
         parts = []

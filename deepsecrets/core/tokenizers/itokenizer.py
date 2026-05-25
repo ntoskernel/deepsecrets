@@ -11,13 +11,14 @@ class Tokenizer:
     tokens: List[Token]
     settings: NamedTuple
     lifecycle: FileLifecycleHooks
-
+    silent_regions: List
     last_offset_reported: float = 0
 
     def __init__(self, **kwargs) -> None:
         self.tokens = []
         Settings = namedtuple('Settings', kwargs.keys())  # type: ignore
         self.settings = Settings._make(kwargs.values())  # type: ignore
+        self.silent_regions = []
         self.lifecycle = None
 
     def add_lifecycle_hooks(self, lifecycle):
@@ -62,3 +63,6 @@ class Tokenizer:
             vars.append(token)
 
         return vars
+
+    def get_silent_regions(self):
+        return self.silent_regions

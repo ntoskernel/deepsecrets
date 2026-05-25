@@ -81,7 +81,7 @@ def test_html_3(file: File):
 @pytest.mark.fixture_file_path('cases/code_in_markdown.md')
 def test_ec_code_in_markdown(file: File):
     findings, tokens, vars = semantic_case(file)
-    assert len(findings) == 2
+    assert len(findings) == 1
 
 
 @pytest.mark.fixture_file_path('8.go')
@@ -107,3 +107,9 @@ def test_conf_3(file: File):
 def test_with_cheap_var_search(file: File):
     findings, tokens, vars = semantic_case_with_cheap_var_search(file)
     assert len(findings) == 2
+
+
+@pytest.mark.fixture_file_path('5.py')
+def test_5(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 1

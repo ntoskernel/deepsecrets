@@ -1,0 +1,18 @@
+[    {
+        "id_knwKB": 15,
+        "m_key": "01.10.Cr",
+        "m_value": "Communication, education, history, and philosophy: Announcements, news, and awards"
+    },
+    {
+        "id_knwKB": 15,
+        "m_value": "Communication, education, history, and philosophy: Announcements, news, and awards",
+        "id_knwKB2": 15,
+        "m_key": "01.10.Cr"
+    },
+    {
+        "password": "fdjsakfbdajsklfkdsajknfjkdsafnmdklasmfds"
+    },
+    {
+    "ResponseBody": "{\r\n  \"status\": {\r\n    \"mapProgress\": 0.0,\r\n    \"reduceProgress\": 0.0,\r\n    \"cleanupProgress\": 0.0,\r\n    \"setupProgress\": 1.0,\r\n    \"runState\": 1,\r\n    \"startTime\": 1460774301631,\r\n    \"queue\": \"default\",\r\n    \"priority\": \"NORMAL\",\r\n    \"schedulingInfo\": \"NA\",\r\n    \"failureInfo\": \"NA\",\r\n    \"jobACLs\": {},\r\n    \"jobName\": \"TempletonControllerJob\",\r\n    \"jobFile\": \"wasb://pattipakawin33@pattipakastorageaccount.blob.core.windows.net/user/admin/.staging/job_1460573144061_0069/job.xml\",\r\n    \"finishTime\": 0,\r\n    \"historyFile\": \"\",\r\n    \"trackingUrl\": \"http://headnodehost:9014/proxy/application_1460573144061_0069/\",\r\n    \"numUsedSlots\": 0,\r\n    \"numReservedSlots\": 0,\r\n    \"usedMem\": 0,\r\n    \"reservedMem\": 0,\r\n    \"neededMem\": 0,\r\n    \"jobPriority\": \"NORMAL\",\r\n    \"jobID\": {\r\n      \"id\": 69,\r\n      \"jtIdentifier\": \"1460573144061\"\r\n    },\r\n    \"username\": \"hdp\",\r\n    \"jobId\": \"job_1460573144061_0069\",\r\n    \"state\": \"RUNNING\",\r\n    \"jobComplete\": false,\r\n    \"retired\": false,\r\n    \"uber\": false\r\n  },\r\n  \"profile\": {\r\n    \"user\": \"hdp\",\r\n    \"jobFile\": \"wasb://pattipakawin33@pattipakastorageaccount.blob.core.windows.net/user/admin/.staging/job_1460573144061_0069/job.xml\",\r\n    \"url\": \"http://headnodehost:9014/proxy/application_1460573144061_0069/\",\r\n    \"queueName\": \"default\",\r\n    \"jobID\": {\r\n      \"id\": 69,\r\n      \"jtIdentifier\": \"1460573144061\"\r\n    },\r\n    \"jobName\": \"TempletonControllerJob\",\r\n    \"jobId\": \"job_1460573144061_0069\"\r\n  },\r\n  \"id\": \"job_1460573144061_0069\",\r\n  \"parentId\": null,\r\n  \"percentComplete\": \"map 0% reduce 0%\",\r\n  \"exitValue\": null,\r\n  \"user\": \"hdp\",\r\n  \"callback\": null,\r\n  \"completed\": null,\r\n  \"userargs\": {\r\n    \"statusdir\": \"SqoopStatus\",\r\n    \"optionsfile\": null,\r\n    \"files\": null,\r\n    \"enablelog\": \"false\",\r\n    \"user.name\": \"admin\",\r\n    \"callback\": null,\r\n    \"command\": \"import --connect jdbc:sqlserver://hdinsightjobtest.database.windows.net:1433;database=HdInsightJobTest;user=jobtest@hdinsightjobtest;password=Password@1; --table dept --warehouse-dir /user/admin/sqoop/1573600b-9f05-414c-beac-03e29667ae63 --hive-import -m 1 --hive-table dept5b2d22b4cb8e4043a7632776970a43fb\",\r\n    \"enablejobreconnect\": null,\r\n    \"libdir\": null\r\n  },\r\n  \"msg\": null\r\n}",
+    }
+]

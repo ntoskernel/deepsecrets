@@ -16,11 +16,13 @@ from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
+from deepsecrets.core.ui.progress_bar import DSApplicationProgess
+from deepsecrets.core.ui.time_remaining_column import SyncedTimeRemainingColumn
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger
 from deepsecrets.scan_modes.cli import CliScanMode
 
-from rich.progress import SpinnerColumn, Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+from rich.progress import SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.panel import Panel
 from rich.table import Table, Column
 from rich import box
@@ -36,13 +38,14 @@ class ReturnCodes:
     FINDINGS_DETECTED = 66
 
 
-progress_bar = Progress(
+overall_time_column = SyncedTimeRemainingColumn()
+progress_bar = DSApplicationProgess(
     SpinnerColumn(),
     TextColumn("[progress.description]{task.description}", table_column=Column(max_width=60, no_wrap=True)),
     TextColumn("[bold blue]{task.fields[size]}"),
     BarColumn(bar_width=None),
     TaskProgressColumn('[progress.percentage]{task.percentage:>3.1f}%'),
-    TimeRemainingColumn(),
+    overall_time_column,
     TextColumn("[bold red]{task.fields[findings]}", justify="right"),
     TextColumn("[bold red]{task.fields[errors]}", justify="right"),
     console=console,
@@ -50,6 +53,7 @@ progress_bar = Progress(
     expand=True,
     speed_estimate_period=90,
 )
+overall_time_column.progress_instance = progress_bar
 
 
 class DeepSecretsCliTool:
@@ -354,11 +358,10 @@ class DeepSecretsCliTool:
         mode = CliScanMode(config=config)
 
         console.line()
-        console.rule('Starting analysis', characters='—')
-        console.line()
-        mode.set_progress_bar(progress_bar)
 
-        progress_bar.start()
+        mode.set_progress_bar(progress_bar)
+        mode.progress_bar.set_start_time(startup_time)
+        mode.progress_bar.start()
 
         findings: List[Finding]
         errors: Dict[str, List[str]]
@@ -373,7 +376,7 @@ class DeepSecretsCliTool:
             finding.file = None
         '''
 
-        progress_bar.stop()
+        mode.progress_bar.stop()
         finish_time = datetime.now()
         report_path = get_abspath(config.output.path)
 
@@ -381,9 +384,16 @@ class DeepSecretsCliTool:
         console.print('[bold green]Scanning finished successfully', justify='center')
         console.line()
 
-        console.rule('REPORT', characters='=')
+        console.rule('', characters='=')
         console.line()
-        table = Table(box=box.HORIZONTALS, show_header=False, row_styles=['blink'], style='dim', width=80)
+        table = Table(
+            title=Text('REPORT SUMMARY'),
+            box=box.HORIZONTALS,
+            show_header=False,
+            row_styles=['blink'],
+            style='dim',
+            width=80,
+        )
         table.add_column()
         table.add_column(justify='right')
         table.add_row(

@@ -17,6 +17,11 @@ class Language(MultiValueEnum):
     KOTLIN = 'kt'
     SWIFT = 'swift'
     MARKDOWN = 'md'
+    XML = 'xml'
+    HTML = 'html'
+    R = 'r'
+    NIX = 'nix'
+    RUBY = 'rb'
 
     ANY = 'any'
     UNKNOWN = 'unknown'

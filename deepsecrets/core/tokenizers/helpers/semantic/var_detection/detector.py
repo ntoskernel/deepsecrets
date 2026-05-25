@@ -81,7 +81,9 @@ class Match(BaseModel):
 
 class RegionDetector(BaseModel):
     language: Optional[Language] = None
+    languages_exclude: List[Language] = Field(default_factory=list)
     stream_pattern: re.Pattern
+    overlapped: bool = Field(default=True)
 
     match_rules: Dict[int, Match]
     match_semantics: Dict[int | str, str]
@@ -171,7 +173,7 @@ class CheapVariableDetector(RegionDetector):
 
     def match(self, content: str) -> List['Variable']:
         true_detections = []
-        for m in re.finditer(self.stream_pattern, content, overlapped=True):
+        for m in re.finditer(self.stream_pattern, content, overlapped=self.overlapped):
             if not self._verify(m):
                 continue
 

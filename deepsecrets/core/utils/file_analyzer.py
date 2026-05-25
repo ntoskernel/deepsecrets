@@ -23,6 +23,7 @@ class FileAnalyzer:
     file: File
     engine_tokenizers: List[EngineWithTokenizer]
     tokens: Dict[Tokenizer, List[Token]]
+    silent_regions: List
     progress: FileProgress
     task_reporter: Any
     task_id: Optional[int]
@@ -32,6 +33,7 @@ class FileAnalyzer:
         self.file = file
         self.tokens = {}
         self.progress = FileProgress()
+        self.silent_regions = []
         self.lifecycle = FileLifecycleHooks(reporter=None, task_id=None, progress=self.progress)
         self.task_reporter = None
         self.task_id = None
@@ -62,6 +64,9 @@ class FileAnalyzer:
         self.lifecycle.on_finish()
         return results
 
+    def _add_silent_regions(self, regions: List):
+        self.silent_regions.extend(regions)
+
     def _run_engine(self, et: EngineWithTokenizer) -> List[Finding]:
         results: List[Finding] = []
         processed_values: Dict[int, bool] = {}
@@ -69,6 +74,8 @@ class FileAnalyzer:
         if et.tokenizer not in self.tokens:
             et.tokenizer.add_lifecycle_hooks(self.lifecycle)
             self.tokens[et.tokenizer] = et.tokenizer.tokenize(self.file)
+            self._add_silent_regions(et.tokenizer.get_silent_regions())
+
             self.lifecycle.on_tokenization_finished(
                 name=et.tokenizer.__class__.__name__,
                 token_count=len(

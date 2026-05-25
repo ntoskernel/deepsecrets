@@ -3,41 +3,41 @@
         "id": "S0",
         "name": "Slack Token",
         "confidence": 9,
-        "pattern": "xox(?:a|b|p|o|s|r)-(?:\\d+-)+[a-z0-9]+"
+        "pattern": "(?=.{29,256}$)xox[abpors]-(?:[A-Za-z0-9]+-){3,4}[A-Za-z0-9]+"
     },
     {
         "id": "S1",
         "name": "RSA private key",
         "confidence": 9,
-        "pattern": "-BEGIN[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-"
+        "pattern": "-BEGIN[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-"
     },
     {
         "id": "S2",
         "name": "SSH (OPENSSH) private key",
         "confidence": 9,
-        "pattern": "-BEGIN[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
+        "pattern": "-BEGIN[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S3",
         "name": "SSH (DSA) private key",
         "confidence": 9,
-        "pattern": "-BEGIN[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
+        "pattern": "-BEGIN[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S4",
         "name": "SSH (EC) private key",
         "confidence": 9,
-        "pattern": "-BEGIN[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,}?-----END[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
+        "pattern": "-BEGIN[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S5",
         "name": "PGP private key block",
         "confidence": 9,
-        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----([^-][\\s\\S]{50,3000})[^-]-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
+        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
         "match_rules": {
             "1": {
                 "pattern": ".*",
-                "negative_pattern": "[-{}()<>]"
+                "negative_pattern": "{|}|<|>|(\\)\\))"
             }
         }
     },
@@ -45,8 +45,8 @@
         "id": "S7",
         "name": "Facebook Oauth",
         "confidence": 9,
-        "pattern": "facebook.{0,100}?['\"][0-9a-f]{32}['\"]"
-        
+        "pattern": "facebook.{0,100}?['\"][0-9a-f]{32}['\"]",
+        "enabled": false
     },
     {
         "id": "S8",
@@ -64,7 +64,7 @@
         "id": "S12",
         "name": "Heroku API Key",
         "confidence": 9,
-        "pattern": "heroku.*?[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}"
+        "pattern": "(?i)heroku.*?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     },
     {
         "id": "S17",
@@ -119,11 +119,11 @@
         "id": "S26",
         "name": "Custom private key",
         "confidence": 9,
-        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----([\\s\\S]{50,3500})?-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
+        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
         "match_rules": {
             "1": {
                 "pattern": ".*",
-                "negative_pattern": "[-]"
+                "negative_pattern": "{|}|<|>|(\\)\\))"
             }
         }
     },
@@ -192,7 +192,13 @@
         "description": "https://docs.stripe.com/keys",
         "name": "Stripe Secret",
         "confidence": 9,
-        "pattern": "\\b(?:pk|sk|rk)_(?:test|live)_[0-9a-zA-Z]{24,45}\\b"
+        "pattern": "\\b(?:pk|sk|rk)_(?:test|live)_([0-9a-zA-Z]{24,45})\\b",
+        "match_rules": {
+            "1": {
+                "pattern": ".*",
+                "negative_pattern": "^(.)\\1{10,}"
+            }
+        }
     },
     {
         "id": "S37",
@@ -218,6 +224,14 @@
         "name": "LocationIQ Key",
         "confidence": 9,
         "pattern": "\\bpk\\.[a-zA-Z0-9]{30,32}\\b"
+    },
+    {
+        "id": "S41",
+        "name": "SQL Server Connection String",
+        "confidence": 9,
+        "pattern": "sqlserver://(?:.*?);.*?(?:password)=(.*?)(?:;|\\s|$)",
+        "target_group": 1
     }
+    
     
 ] 

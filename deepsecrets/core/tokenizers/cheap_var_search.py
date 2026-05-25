@@ -3,14 +3,24 @@ from typing import List
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.semantic import Variable
 from deepsecrets.core.model.token import Semantic, SemanticType, Token
+from deepsecrets.core.tokenizers.helpers.semantic.language import Language
+from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import CheapVariableDetector
 from deepsecrets.core.tokenizers.helpers.semantic.var_detection.rules import CheapVariableDetectionRules
 from deepsecrets.core.tokenizers.itokenizer import Tokenizer
+from deepsecrets.core.utils.log import logger
 
 
 class CheapVarSearchTokenizer(Tokenizer):
 
     def tokenize(self, file: File) -> List[Token]:
-        rules = CheapVariableDetectionRules.rules
+        language: Language = Language.ANY
+        if file.extension is not None:
+            try:
+                language = Language.from_text(file.extension)
+            except Exception as e:
+                logger.exception(e)
+
+        rules: List[CheapVariableDetector] = CheapVariableDetectionRules.for_language(language)
         vars: List[Variable] = []
         for rule in rules:
             vars.extend(rule.match(file.content))

@@ -20,11 +20,13 @@ class DeepAnalyzer:
     regions: List[TokenizedRegion]
     deep_inspection: bool
     post_filter: bool
+    silent_regions: List
 
     def __init__(self, regions: List[TokenizedRegion], post_filter: bool, deep_inspection: bool = True) -> None:
         self.regions = regions
         self.deep_inspection = deep_inspection
         self.post_filter = post_filter
+        self.silent_regions = []
 
     def get_final_tokens(self):
         tokens = []
@@ -32,7 +34,7 @@ class DeepAnalyzer:
         if self.deep_inspection is True:  # type: ignore
             self.run()
 
-        [tokens.extend(region.tokens) for region in self.regions]
+        [tokens.extend(region.tokens) for region in sorted(self.regions, key=lambda x: x.substitute_start_index)]
         return tokens
 
     def run(self):
@@ -64,6 +66,7 @@ class DeepAnalyzer:
             suppression_regions.extend(rule.match(tokens, stream))
 
         suppression_regions = self._collapse_suppression_regions(suppression_regions)
+        self.silent_regions.append(suppression_regions)
 
         for var in true_var_detections:
             suppressed = self._if_suppressed(var, suppression_regions)

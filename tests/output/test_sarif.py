@@ -33,7 +33,7 @@ def test_dojo_sarif(config: Config) -> None:
 
     findings = []
     for file in mode.filepaths[:10]:
-        pfar = mode._per_file_analyzer(mode.analyzer_bundle(), file)
+        pfar = mode._per_file_analyzer(mode.analyzer_bundle(), file, task_reporter=MagicMock())
         findings.extend(pfar.findings)
 
     sarif_response = to_json(

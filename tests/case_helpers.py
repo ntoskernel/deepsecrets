@@ -12,7 +12,7 @@ from deepsecrets.core.utils.finding_merger import FindingMerger
 from deepsecrets.core.utils.fs import get_path_inside_package
 
 
-def run(file, engine, tokenizer):
+def run(file, engine, tokenizer: Tokenizer):
     fa = FileAnalyzer(file)
     fa.add_engine(engine, [tokenizer])
     findings: List[Finding] = fa.process()

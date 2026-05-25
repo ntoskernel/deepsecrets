@@ -86,9 +86,9 @@ class FileProgress(Progress):
 
     def report(self, child_report: Optional[dict] = None):
         # percentages
-        # Lexer: 95%             |       FullContent: 5%
-        # Tokenization: 80%.             Tokenization: 5%
-        # Search: 20%                    Search: 95%
+        # Lexer: 75%             |       FullContent: 5%      | CheapVarSearch: 20%
+        # Tokenization: 80%              Tokenization: 5%.    | Tokenization: 70%
+        # Search: 20%                    Search: 95%          | Search: 30%
 
         percentage = 0
         for name, tokenizer_info in self.tokenizers.items():

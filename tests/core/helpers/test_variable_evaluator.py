@@ -2,6 +2,16 @@ from deepsecrets.core.helpers.variable_evaluator import EvaluationResult, Variab
 from deepsecrets.core.model.semantic import Context
 
 
+def test_0(variable_scoring_rules):
+    ctx = Context(name='SERVICE_OAUTH', value='aaa', filepath='good')
+    ve = VariableEvaluator(variable_scoring_rules)
+    result: EvaluationResult = ve.evaluate(ctx)
+
+    assert result.is_dangerous is False
+    assert 'SEM_VAR_VALUE_LENGTH' in result.matched_rules
+    assert result.export_confidence == 0
+
+
 def test_1(variable_scoring_rules):
     ctx = Context(name='SERVICE_OAUTH', value='vhpn6mbsvhpn6mbsvhpn6mbsvhpn6mbs', filepath='good')
     ve = VariableEvaluator(variable_scoring_rules)
@@ -195,3 +205,27 @@ def test_16(variable_scoring_rules):
     result: EvaluationResult = ve.evaluate(ctx)
     assert result.is_dangerous is True
     assert result.export_confidence >= 8
+
+
+def test_17(variable_scoring_rules):
+    ctx = Context(
+        name='db_pass',
+        value='nacc6opq',
+        filepath='1.py',
+    )
+    ve = VariableEvaluator(variable_scoring_rules)
+    result: EvaluationResult = ve.evaluate(ctx)
+    assert result.is_dangerous is True
+    assert result.export_confidence >= 6
+
+
+def test_18(variable_scoring_rules):
+    ctx = Context(
+        name='Mytoken',
+        value='13572850-V1bz11ZrIGoGpqCOJw8mhwBfoswbVjWCA',
+        filepath='ssifier.md',
+    )
+    ve = VariableEvaluator(variable_scoring_rules)
+    result: EvaluationResult = ve.evaluate(ctx)
+    assert result.is_dangerous is True
+    assert result.export_confidence >= 6

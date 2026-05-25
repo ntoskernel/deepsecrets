@@ -10,7 +10,11 @@ class FileTypeGuesser:
 
     def __init__(self) -> None:
 
-        self.host_swaps = {'Rd': 'R'}
+        self.hot_swaps = {
+            'Rd': 'R',
+            'cshtml': 'html',
+            'xml': 'html',  # TODO: Check https://github.com/pygments/pygments/issues/1785
+        }
 
         self.probes = {
             'json': self._is_json,
@@ -24,7 +28,7 @@ class FileTypeGuesser:
 
     def guess(self, name: str, content: str, extension: Optional[str]) -> Optional[str]:
 
-        swap = self.host_swaps.get(extension)
+        swap = self.hot_swaps.get(extension)
         if swap is not None:
             return swap
 

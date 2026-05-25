@@ -16,6 +16,7 @@ def config() -> Config:
     config = Config()
     config.set_workdir('tests/fixtures')
     config.engines.append(RegexEngine)
+
     config.add_ruleset(RegexRulesetBuilder, ['tests/fixtures/regexes.json'])
     config.add_ruleset(FalseFindingsBuilder, ['tests/fixtures/false_findings.json'])
     config.output = Output(type='json', path='tests/1.json')
@@ -38,11 +39,11 @@ def test_cli_scan_mode(config: Config) -> None:
     for file in mode.filepaths:
         findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file, 0, {}).findings)
 
-    assert len(findings) == 3
+    assert len(findings) == 6
 
     # checking through the 'run' method
     # false findings checked at the end
     findings = []
     findings = mode.run()
 
-    assert len(findings) == 2
+    assert len(findings) == 3

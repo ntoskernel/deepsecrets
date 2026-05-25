@@ -77,7 +77,7 @@ class Finding(BaseModel):
         return hash(f'{self.file.path}{self.detection}{self.start_offset}{self.end_offset}')
 
     def get_id(self) -> int:
-        return int(str(abs(self.__hash__()))[:8])
+        return int(str(abs(self.__hash__()))[:9])
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Finding):

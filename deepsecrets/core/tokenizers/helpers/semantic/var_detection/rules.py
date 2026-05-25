@@ -112,6 +112,16 @@ class VariableDetectionRules:
             },
             match_semantics={1: 'name_token', 5: 'value_token'},
         ),
+        VariableDetector(
+            language=Language.PHP,
+            stream_pattern=re.compile('(p)(L)(p)(o)(L)'),
+            match_rules={
+                1: Match(values=[re.compile(r'.*\[$')]),
+                3: Match(values=[re.compile(r'^\]$')]),
+                4: Match(values=[re.compile('^=$')]),
+            },
+            match_semantics={2: 'name_token', 5: 'value_token'},
+        ),
         # CONFIGS AND FORMATS
         VariableDetector(
             language=Language.TOML,
@@ -229,11 +239,56 @@ class VariableDetectionRules:
             },
             match_semantics={3: 'name_token', 5: 'value_token'},
         ),
+        VariableDetector(
+            language=Language.NIX,
+            stream_pattern=re.compile('(L)(o)(L)(p)'),
+            match_rules={
+                1: Match(types=[PygmentsToken.Literal.String.Symbol]),
+                2: Match(values=[re.compile('^=$')]),
+                4: Match(values=[re.compile('^;$')]),
+            },
+            match_semantics={1: 'name_token', 3: 'value_token'},
+        ),
+        VariableDetector(
+            language=Language.RUBY,
+            stream_pattern=re.compile('(L)(p)(L)'),
+            match_rules={
+                1: Match(types=[PygmentsToken.Literal.String.Symbol]),
+                2: Match(values=[re.compile('^:$')]),
+                3: Match(types=[PygmentsToken.Literal.String.Single, PygmentsToken.Literal.String.Double]),
+            },
+            match_semantics={1: 'name_token', 3: 'value_token'},
+        ),
+        VariableDetector(
+            language=Language.RUBY,
+            stream_pattern=re.compile('(L)(o)(o)(L)'),
+            match_rules={
+                1: Match(types=[PygmentsToken.Literal.String.Symbol]),
+                2: Match(values=[re.compile('^=$')]),
+                3: Match(values=[re.compile('^>$')]),
+                4: Match(types=[PygmentsToken.Literal.String.Single, PygmentsToken.Literal.String.Double]),
+            },
+            match_semantics={1: 'name_token', 4: 'value_token'},
+        ),
+        VariableDetector(
+            language=Language.SHELL,
+            stream_pattern=re.compile('(L)(L)'),
+            match_rules={
+                1: Match(values=[re.compile('^--')]),
+                2: Match(values=[re.compile('^(?!--).*$')]),
+            },
+            match_semantics={1: 'name_token', 2: 'value_token'},
+        ),
     ]
 
     @classmethod
     def for_language(cls, language: Language) -> List[VariableDetector]:
-        return list(filter(lambda x: x.language in [language, Language.ANY], cls.rules))
+        if language is None:
+            return list(filter(lambda x: x.language == Language.ANY, cls.rules))
+
+        return list(
+            filter(lambda x: x.language in [language, Language.ANY] and language not in x.languages_exclude, cls.rules)
+        )
 
 
 class VariableSuppressionRules(VariableDetectionRules):
@@ -353,14 +408,44 @@ class CheapVariableDetectionRules(VariableDetectionRules):
     rules = [
         # looking for generic key-value
         CheapVariableDetector(
-            stream_pattern=re.compile('(["\'])([^\\[\\]"\'\\)\\(;\\s]+)\\1\\s*[:=]\\s*(["\'])([^\\[\\]"\';\\s]+)\\3'),
+            language=Language.ANY,
+            languages_exclude=[Language.JSON],
+            stream_pattern=re.compile(r'(["\'])([^\[\]"\'\)\(;\s]+)\1\s*[:=]\s*(["\'])([^\[\]"\';\s]+)\3'),
             match_rules={},
             match_semantics={2: 'name', 4: 'value'},
         ),
+        # looking for key-values when key is not in quoted, ignoring html tags (important really)
+        CheapVariableDetector(
+            language=Language.ANY,
+            stream_pattern=re.compile(
+                r'<[a-zA-Z]+[^>]*(*SKIP)(*F)|\b([a-zA-Z0-9_]+?)\b[\s]*?[:=][\s]*?([\'"])\b([^\'"()]+?)\b\2'
+            ),
+            match_rules={},
+            match_semantics={1: 'name', 3: 'value'},
+        ),
         # looking for random urls
         CheapVariableDetector(
-            stream_pattern=re.compile('(?:\\:\\/\\/[^\n\r" ]*?|\\G)[?&]([^=&\\s]+)=([^&\\s"\',]*)'),
+            language=Language.ANY,
+            # stream_pattern=re.compile(r'(?:|://[^\n\r" ]*?)[?&]([^=&\s]+)=([^&\s"\'),]*)'),
+            stream_pattern=re.compile(
+                r'(?:(?::\/\/[^\s" =]*?)[?&]|\G(?!^)[&])([^=&\s,()!".:+<>]+)=([^&\s"\'),?=[\]:]*)'
+            ),
+            overlapped=False,
             match_rules={},
             match_semantics={1: 'name', 2: 'value'},
+        ),
+        # cases with var (or def) a = "aaaa"  in documentations
+        CheapVariableDetector(
+            language=Language.ANY,
+            stream_pattern=re.compile(r'(var|def)[\s{,]*?([a-zA-Z0-9_]+?)[\s]*?[:=][\s]*?([\'"])([^\'"()]+?)\3'),
+            match_rules={},
+            match_semantics={2: 'name', 4: 'value'},
+        ),
+        # Searching key-value escaped (JSON inside JSON)
+        CheapVariableDetector(
+            language=Language.JSON,
+            stream_pattern=re.compile(r'(\\")([^\[\]"\'\)\(;\s]+)\1\s*[:=]\s*(\\")([^\[\]"\';\s]+)\3'),
+            match_rules={},
+            match_semantics={2: 'name', 4: 'value'},
         ),
     ]

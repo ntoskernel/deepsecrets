@@ -14,7 +14,7 @@ def test_1(file: File, regex_engine: RegexEngine):
         file=file,
     )
 
-    assert len(findings) == 11
+    assert len(findings) == 13
     assert findings[0].final_rule.id == 'S0'
     assert findings[1].final_rule.id == 'S0'
     assert findings[2].final_rule.id == 'S1'

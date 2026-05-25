@@ -55,3 +55,11 @@ def test_7_context():
     assert ctx.name_normalized == 'datasitekey'
     assert ctx.name_parts == ['data', 'sitekey']
     assert ctx.name_spaced == 'data sitekey'
+
+
+def test_8_context():
+    ctx = Context(name='siteKey', value='', filepath='')
+    assert ctx.name == 'siteKey'
+    assert ctx.name_normalized == 'sitekey'
+    assert ctx.name_parts == ['site', 'key']
+    assert ctx.name_spaced == 'site key'

@@ -98,10 +98,6 @@ class VariableEvaluator:
         naming_and_content_score = 0
         matched_rules = []
 
-        if len(context.value) <= 4:
-            matched_rules.append('SEM_INTRNL_VAL_LENGTH')
-            return EvaluationResult(total_score=-100, is_dangerous=False, matched_rules=matched_rules)
-
         for rule in self.rules:
             fired = rule.match_by_context(context)
             if fired:
@@ -126,7 +122,9 @@ class VariableEvaluator:
                 matched_rules=matched_rules,
             )
 
-        nonsense_value_score = self.calculate_nonsense_value_score(context.value_parts, context.value_normalized)
+        nonsense_value_score = (
+            1 - context.value_normalized_naturalness_score
+        )  # self.calculate_nonsense_value_score(context.value_parts, context.value_normalized)
         total_score = naming_and_content_score + entropy_score
 
         result = EvaluationResult(

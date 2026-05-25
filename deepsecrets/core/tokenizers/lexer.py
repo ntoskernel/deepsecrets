@@ -1,4 +1,4 @@
-from typing import List, Type, Union
+from typing import List, Set, Type, Union
 
 
 from deepsecrets.core.model.tokenized_region import TokenizedRegion
@@ -23,7 +23,7 @@ class LexerTokenizer(Tokenizer):
     token_stream: str
     lexer: Lexer
     language: Language = None
-    regions: List[TokenizedRegion] = []
+    regions: Set[TokenizedRegion] = None
 
     def _get_types_for_token(self, token: PygmentsToken) -> List[Type]:  # type: ignore
         types = []
@@ -63,6 +63,7 @@ class LexerTokenizer(Tokenizer):
         return lexer
 
     def tokenize(self, file: File, post_filter=True) -> List[Token]:
+        self.regions = set()
         self.token_stream = ''
         # TODO: don't trust the extension, use 'file' utility ?
 
@@ -86,10 +87,13 @@ class LexerTokenizer(Tokenizer):
             start = current_position
             end = start + len(content)
             current_position = end
-            if current_position >= file.length:
+            if current_position > file.length:
                 continue
 
             try:
+                if PygmentsToken.Error in types and len(types) == 1:
+                    continue
+
                 content = self.sanitize(content)
                 if not content:
                     continue
@@ -105,20 +109,22 @@ class LexerTokenizer(Tokenizer):
             except Exception as e:
                 str(e)
 
-            self.on_new_offset_processed(new_offset=offset / file.length)
+            self.on_new_offset_processed(new_offset=current_position / file.length)
 
-        self.regions: List[TokenizedRegion] = SubFileRegionsHelper(
+        self.regions: Set[TokenizedRegion] = SubFileRegionsHelper(
             file=file,
             language=self.language,
             tokens=self.tokens,
             stream=self.token_stream,
         ).find()
 
-        self.tokens = DeepAnalyzer(
+        deep_analyzer = DeepAnalyzer(
             regions=self.regions,
             deep_inspection=self.settings.deep_token_inspection,
             post_filter=post_filter,
-        ).get_final_tokens()
+        )
+        self.tokens = deep_analyzer.get_final_tokens()
+        self.silent_regions = deep_analyzer.silent_regions
         return self.tokens
 
     def add_to_token_stream(self, tokens: List[Token]) -> None:

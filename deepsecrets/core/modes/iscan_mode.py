@@ -1,3 +1,4 @@
+from deepsecrets.core.ui.progress_bar import DSApplicationProgess
 from deepsecrets.utils import setup_interrupts_for_subprocess
 
 setup_interrupts_for_subprocess()
@@ -64,7 +65,7 @@ class ScanMode:
     engines_enabled: Dict[Type, bool]
 
     active_task_reporter: DictProxy
-    progress_bar: ProgressBar
+    progress_bar: DSApplicationProgess
 
     file_results: List[AsyncResult]
     file_jobs: Dict[int, FileJob]

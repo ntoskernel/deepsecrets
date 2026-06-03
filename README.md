@@ -103,6 +103,8 @@ jobs:
 
 As of v1.3.0, potential secrets are automatically masked inside reports to protect your pipeline artifacts. Turn this off via the `--disable-masking` flag if necessary.
 
+Masking doesn't break the deduplication logic of downstream platforms (like Github), as the `partialFingerprints` section in the report is correctly populated based on the raw data.
+
 > [!Caution]  
 > If you integrate DeepSecrets into your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI logs and artifacts.
 
@@ -158,8 +160,7 @@ DeepSecrets was originally released in April 2023 — six months before Semgrep 
 
 ### DeepSecrets vs. Other Scanners
 
-Most traditional scanners look at code as flat text, leading to massive false positive rate and coverage issues.
-DeepSecrets acts differently.
+While other tools scan only what they know, DeepSecrets leverages lexers. This allows it to surface hidden, dangerous credentials in rare configuration formats and custom code blocks that benchmarks may not have datasets for.
 
 #### Tool comparison based on SecretBench Results
 
@@ -173,9 +174,6 @@ DeepSecrets acts differently.
 | **Context-Aware Entropy**| **Yes (Assigned values)** | No (Entire file text) | No (Entire file text) | Yes |
 | **Advanced SARIF Output**| **Yes (Dynamic Confidence)** | Basic | Basic | Yes |
 
-### Why this matters under the hood
-* **True Code Understanding:** Traditional tools will flag high-entropy strings inside a comment or a base64 asset. DeepSecrets understands the semantic role of a token (e.g., if it is an assigned variable name like `db_password`), ensuring that candidates are always semantically correct.
-* **Unmatched Discovery Width:** While other tools scan only what they know, DeepSecrets leverages 500+ lexers. This allows it to surface hidden, dangerous credentials in rare configuration formats and custom code blocks that benchmarks may not have datasets for.
 
 
 > Why don't you build true abstract syntax trees? It's academically more correct!

@@ -13,7 +13,7 @@ In our LLM-hype era, DeepSecrets still runs entirely on your machine — giving 
 Most existing scanners don't actually "understand" code. Instead, they just parse texts and have bad coverage.
 
 DeepSecrets bridges the gap between classic regex scanners and full-scale commercial SAST tools. It extends the classic regex-based scanning strategy by heavily relying on semantic code analysis, dangerous variable detection, and context-aware entropy analysis.
-This means secret candidates are always semantically correct. We achieve true code understanding across 500+ languages and formats using lexing and parsing techniques
+This means secret candidates are always semantically correct. We achieve true code understanding across 500+ languages and formats using lexing and parsing techniques.
 
 DeepSecrets also introduces a new way to find credentials: the HashedSecret Engine. Just provide the hashed values of your known production secrets, and the tool will find them exposed in plain text within your code.
 
@@ -99,22 +99,22 @@ jobs:
           sarif_file: report.sarif
 ```
 
-### Masking secrets inside a report
+### Masking Secrets in Reports
 
-As of version 1.3.0 all potential secrets inside reports are masked by default, but you can turn this feature off via the `--disable-masking` flag.
+As of v1.3.0, potential secrets are automatically masked inside reports to protect your pipeline artifacts. Turn this off via the `--disable-masking` flag if necessary.
 
 > [!Caution]  
-> If you decide to integrate DeepSecrets to your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI artifacts.
+> If you integrate DeepSecrets into your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI logs and artifacts.
 
-### SARIF reports and the "Confidence" Parameter
+### SARIF Reports & Dynamic Confidence
 
-Every finding gets a confidence score. However, different security platforms parse SARIF metrics differently. To ensure compatibility, DeepSecrets tool does the following:
+Every finding gets a confidence score. However, different security platforms parse SARIF metrics differently. To ensure compatibility across modern ASPM dashboards, DeepSecrets does the following:
 
-* **Virtual Subrules (`rules[]`)**: GitHub and DefectDojo parse security metrics primarily from the static rules array. To support this, DeepSecrets dynamically maps findings to "virtual" subrules (e.g., `S105-LOW`, `S105-MEDIUM`). Each subrule contains tailored `properties.precision` (strictly matching GitHub's allowed vocabulary) and a scaled `properties.security-severity` score (9.0–10.0), guaranteeing that **all** alerts are flagged as **Critical** in GitHub Security and DefectDojo, while preserving internal confidence variance.
+* **Virtual Subrules (`rules[]`)**: Dynamically generates rules like `S105-LOW` or `S105-CRITICAL`. This forces GitHub Security and DefectDojo to map semantic precision variance properly without breaking native parsers.
 
 * **Deterministic Result Level**: The tool always explicitly sets `level: error` in the `results[]` model. This acts as a universal fallback for CI/CD pipelines and older SAST parsers, ensuring that exposed secrets reliably break builds or block Pull Requests regardless of individual rule interpretations.
 
-* **Contextual Messages**: The raw numeric confidence score is injected directly into `result.message.text` (and saved under `result.properties.confidence`). This ensures that security analysts can instantly see the exact confidence level inside any UI dashboard, even if the platform ignores custom JSON parameters.
+* **Contextual Messages**: Injects the raw numeric confidence score natively into `result.message.text` so security analysts see it immediately on their UI dashboards.
 
 
 ## Building rulesets
@@ -123,7 +123,7 @@ Every finding gets a confidence score. However, different security platforms par
 
 The built-in ruleset for regex checks is located in `/deepsecrets/rules/regexes.json`. You're free to follow the format and create a custom ruleset.
 
-### HashedSecret
+### HashedSecret (Zero-Knowledge Scanning)
 
 Example ruleset for hashed checks is located in `/tests/fixtures/hashed_secrets.json`. You're free to follow the format and create a custom ruleset.
 
@@ -141,7 +141,7 @@ To look for known production secrets without exposing them in plaintext inside y
   }
 ]
 ```
-Run with `--hashed-values /path/to/hashes.json`. DeepSecrets will automatically hash token candidates during scanning and flag plain-text matches.
+Run with `--hashed-values /path/to/hashes.json`. DeepSecrets will automatically hash string candidates on the fly during its lexing stage to match them.
 
 ## Contacts
 
@@ -154,7 +154,7 @@ Yes and no. Of course, it uses regexes to find typed secrets like any other tool
 
 > But what about Semgrep Secrets? Looks like you're cloning their thing.
 
-DeepSecrets was released in April 2023 — half a year before the Semgrep Secrets release, and I'm very glad to be followed. We share similar ideas and principles under the hood, but DeepSecrets is free/open-source, and our code analysis is much wider, not limited to a specific subset of languages like Semgrep.
+DeepSecrets was originally released in April 2023 — six months before Semgrep Secrets launched. We share similar principles, but DeepSecrets is 100% free/open-source and leverages a significantly broader multi-language tracking surface.
 
 ### DeepSecrets vs. Other Scanners
 
@@ -184,7 +184,7 @@ In recent evaluations against the **SecretBench** benchmark, DeepSecrets demonst
 
 > Why don't you build true abstract syntax trees? It's academically more correct!
 
-DeepSecrets tries to keep a balance between complexity and effectiveness. Building a true AST across 500+ languages is incredibly complex and simply overkill for the specific task of finding secrets. The tool follows the generic SAST approach to code analysis but optimizes the AST stage for maximum speed and width.
+DeepSecrets tries to keep a balance between complexity and effectiveness. Building a true AST across 500+ languages is incredibly complex and simply overkill for the secrets detection. The tool follows the generic SAST approach to code analysis but optimizes the AST stage for maximum speed and width.
 
 > I'd like to build my own semantic rules. How do I do that?
 
@@ -192,11 +192,10 @@ Semantic rules are now effectively "variable evaluation rules". You can find the
 
 > I still have a question
 
-Feel free to communicate with the [maintainer (emails available in pyproject.toml)](https://github.com/ntoskernel/deepsecrets/blob/main/pyproject.toml#L6-L8)
+Feel free to contact the developer directly using the emails listed in [pyproject.toml](https://github.com/ntoskernel/deepsecrets/blob/main/pyproject.toml#L6-L8)
 
 
-
-## Contributing
+## Contributing & Core Concepts
 
 ### Under the hood
 There are several core concepts:
@@ -212,11 +211,13 @@ There are several core concepts:
 Just a pythonic representation of a file with all needed methods for management.
 
 ### Tokenizer
-A component able to break the content of a file into pieces - Tokens - by its logic. There are four types of tokenizers available:
+Breaks the content of a file into pieces - Tokens - by its logic. There are four types of tokenizers available:
 
 - `FullContentTokenizer`: treats all content as a single token. Useful for regex-based search.
 - `PerWordTokenizer`: breaks given content by words and line breaks.
 - `LexerTokenizer`: uses language-specific smarts to break code into semantically correct pieces with additional context for each token.
+- `CheapVarDetectorTokenizer`: uses tight regexes to cover limitations of semantic variable detection.
+
 
 ### Token
 A string with additional information about its semantic role, corresponding file, and location inside it.
@@ -248,6 +249,5 @@ The project is supposed to be developed using VSCode and 'Remote containers' fea
 Steps:
 1. Clone the repository
 2. Open the cloned folder with VSCode
-3. Agree with 'Reopen in container'
-4. Wait until the container is built and necessary extensions are installed
-5. You're ready
+3. Select "Reopen in Container" when prompted
+4. Wait for the automated environment build to complete. You are ready to develop.

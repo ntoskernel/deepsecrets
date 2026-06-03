@@ -1,6 +1,6 @@
 # DeepSecrets 2.0 - a better tool for secrets scanning
 
-![Tests Status](https://github.com/ntoskernel/deepsecrets/actions/workflows/python-package.yml/badge.svg)
+![Tests Status](https://github.com/ntoskernel/deepsecrets/actions/workflows/run-tests.yml/badge.svg)
 
 ## What is it? Another token-wasting CLI proxy to an AI API?
 

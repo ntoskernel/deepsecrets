@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 from jschema_to_python.to_json import to_json
 import pytest
 
@@ -30,11 +30,19 @@ def test_dojo_sarif(config: Config) -> None:
     mode = CliScanMode(config=config)
     mode.progress_bar = Mock()
     mode.progress_bar.add_task.return_value = 0
+    mode.progress_bar.task_ids = []
 
     findings = []
-    for file in mode.filepaths[:10]:
-        pfar = mode._per_file_analyzer(mode.analyzer_bundle(), file, task_reporter=MagicMock())
-        findings.extend(pfar.findings)
+
+    for file in mode.filepaths:
+        findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file, 0, {}).findings)
+
+    '''
+    # checking through the 'run' method
+    # false findings checked at the end
+    findings = []
+    findings = mode.run()
+    '''
 
     sarif_response = to_json(
         DojoSarifResponseBuilder()

@@ -126,7 +126,6 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
         )
         return self
 
-
     def _convert_rules(self, rules: Set[TierAwareSarifRuleMeta]) -> List[ReportingDescriptor]:
         return [
             ReportingDescriptor(
@@ -167,6 +166,9 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
                         )
                     )
                 ],
+                partial_fingerprints={
+                    'dsfpx/v1': finding.get_partial_fingerprint(),
+                },
             )
 
             self.report.runs[0].results.append(result)

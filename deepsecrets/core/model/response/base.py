@@ -50,6 +50,14 @@ class BaseResponseBuilder:
 
         return boundaries, line_partial
 
-    def _mask(self, snippet: str, detection: str):
-        masked_detection = '*' * len(detection)
+    def _mask(self, snippet: str, detection: str, symbol: str = '*'):
+        length = len(detection)
+        if length == 0:
+            return snippet
+
+        mask_len = (length + 1) // 2
+        start_len = (length - mask_len) // 2
+
+        masked_detection = detection[:start_len] + symbol * mask_len + detection[start_len + mask_len :]
+
         return snippet.replace(detection, masked_detection)

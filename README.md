@@ -15,17 +15,17 @@ Most existing scanners don't actually "understand" code. Instead, they just pars
 DeepSecrets bridges the gap between classic regex scanners and full-scale commercial SAST tools. It extends the classic regex-based scanning strategy by heavily relying on semantic code analysis, dangerous variable detection, and context-aware entropy analysis.
 This means secret candidates are always semantically correct. We achieve true code understanding across 500+ languages and formats using lexing and parsing techniques.
 
-DeepSecrets also introduces a new way to find credentials: the HashedSecret Engine. Just provide the hashed values of your known production secrets, and the tool will find them exposed in plain text within your code.
+DeepSecrets also introduces a new way to find credentials with zero knowledge: the HashedSecret Engine. Just provide the hashed values of your known production secrets, and the tool will find them exposed in plain text within your code.
 
 ### Performance & Benchmarks (SecretBench)
 
-DeepSecrets v2.0 was evaluated (May 2026) against the **SecretBench** benchmark outperforming traditional flat-text scanners:
+DeepSecrets v2.0 was evaluated (June 2026) against the **SecretBench** benchmark outperforming traditional flat-text scanners:
 
 * **93% Recall** 
 * **8% False Positive Rate** on SecretBench scope
-* **~9K Extra Findings** *outside* the benchmark scope due to deep semantic code parsing
+* **~9K Extra Findings** *outside* the SecretBench scope
 
-(You can read the full under-the-hood story and benchmark breakdown in my HackerNoon article here: Modernizing Secrets Scanning)
+*(You can read the full under-the-hood story and benchmark breakdown in my HackerNoon article [here]())*
 
 
 # Quick Start Guide
@@ -114,7 +114,7 @@ Every finding gets a confidence score. However, different security platforms par
 
 * **Deterministic Result Level**: The tool always explicitly sets `level: error` in the `results[]` model. This acts as a universal fallback for CI/CD pipelines and older SAST parsers, ensuring that exposed secrets reliably break builds or block Pull Requests regardless of individual rule interpretations.
 
-* **Contextual Messages**: Injects the raw numeric confidence score natively into `result.message.text` so security analysts see it immediately on their UI dashboards.
+* **Contextual Messages**: Injects the raw numeric confidence score natively into `result.message.text` so security analysts see it immediately on their dashboards.
 
 
 ## Building rulesets
@@ -158,14 +158,10 @@ DeepSecrets was originally released in April 2023 — six months before Semgrep 
 
 ### DeepSecrets vs. Other Scanners
 
-Most traditional scanners look at code as flat text, leading to massive alert fatigue (false positives) or missed leaked variables. DeepSecrets bridges the gap between classic regex scanners and full-scale commercial SAST tools.
+Most traditional scanners look at code as flat text, leading to massive false positive rate and coverage issues.
+DeepSecrets acts differently.
 
-#### Benchmark Results (SecretBench)
-In recent evaluations against the **SecretBench** benchmark, DeepSecrets demonstrated industry-leading accuracy:
-* **93% Recall (Sensitivity):** Caught almost all valid secrets within the benchmark.
-* **8% False Positive Rate:** Minimal noise compared to traditional entropy-based scanners.
-* **40,000+ Extra Findings:** Discovered tens of thousands of real, high-privilege credentials outside the baseline benchmark scope due to deep semantic code parsing.
-
+#### Tool comparison based on SecretBench Results
 
 | Feature / Capability | **DeepSecrets 2.0** | **Gitleaks** | **TruffleHog** | **Semgrep Secrets** |
 | :--- | :---: | :---: | :---: | :---: |

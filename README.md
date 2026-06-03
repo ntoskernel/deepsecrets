@@ -1,4 +1,4 @@
-# DeepSecrets 2.0 - a better tool for secret scanning
+# DeepSecrets 2.0 - a better tool for secrets scanning
 
 ![Tests Status](https://github.com/ntoskernel/deepsecrets/actions/workflows/python-package.yml/badge.svg)
 

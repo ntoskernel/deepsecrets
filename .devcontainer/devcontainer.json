@@ -2,9 +2,13 @@
 	"name": "DeepSecrets Devcontainer",
 	"build": {
 		"context": "..",
-		"dockerfile": "Dockerfile"
+		"dockerfile": "Dockerfile",
+		"options": ["--network=host"]
 	},
-
+	"mounts": [
+		"source=/home/khechumov,target=/secretbench,type=bind,consistency=cached"
+	],
+	
 	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=delegated",
 	"workspaceFolder": "/app",
 	"customizations": {
@@ -18,5 +22,9 @@
 			]
 		}
 	},
-	"postCreateCommand": "poetry install --no-root --with test,dev"
+	"postCreateCommand": "poetry install --no-root --with test,dev",
+	"shutdownAction": "none",
+	"runArgs": [
+    	"--network=host"
+	]
 }

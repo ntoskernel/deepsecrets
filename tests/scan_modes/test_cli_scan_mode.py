@@ -39,7 +39,7 @@ def test_cli_scan_mode(config: Config) -> None:
     for file in mode.filepaths:
         findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file, 0, {}).findings)
 
-    assert len(findings) == 6
+    assert len(findings) == 7
 
     # checking through the 'run' method
     # false findings checked at the end

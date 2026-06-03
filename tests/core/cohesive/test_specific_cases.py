@@ -11,7 +11,7 @@ from tests.case_helpers import regex_case, semantic_case, variable_detection_cas
 def test_inline_yaml_inside_yaml_inside_markdown(file: File):
 
     findings, tokens, variables = semantic_case(file)
-    assert len(variables) == 7
+    assert len(variables) == 9
     assert len(findings) == 1
 
 

@@ -63,6 +63,7 @@ class Context:
             .replace('/', ' ')
             .replace('@', ' ')
             .replace(',', '')
+            # .replace('$', '') # TODO: Uncomment in v2.1
         )
 
         parts = []

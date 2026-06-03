@@ -67,6 +67,10 @@ class Finding(BaseModel):
     def get_fingerprint(self) -> str:
         return sha256(self.detection.encode('utf-8')).hexdigest()[23:33]
 
+    def get_fingerprint_v2(self) -> str:
+        base = f'{self.file.path}{self.detection}{self.start_offset}{self.end_offset}'
+        return sha256(base.encode('utf-8')).hexdigest()
+
     def choose_final_rule(self) -> None:
         self.final_rule = sorted(self.rules, key=lambda r: r.confidence, reverse=True)[0]
 

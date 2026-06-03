@@ -52,7 +52,7 @@ def test_1_cli(args_1):
     assert config.max_file_size == 500
     assert config.output.path == './fdsafad.json'
     assert config.workdir_path == '/app/tests/fixtures/'
-    assert config.output.type == 'json'
+    assert config.output.type == 'sarif'  # Starting release 2.0
 
     return_code = tool.start()
     assert return_code != 0

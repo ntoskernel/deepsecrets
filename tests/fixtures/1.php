@@ -24,7 +24,7 @@ use Venturecraft\Revisionable\Revision;
 use Venturecraft\Revisionable\RevisionableTrait;
 
 
-$txt = "Hello world!";
+$api_secret_key = "fadskfjhbryewhjahfjnasklnjfbjladksfdsafdsaf!";
 $x = 5;
 $y = 10.5;
 

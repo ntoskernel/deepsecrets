@@ -28,8 +28,8 @@ def test_json_2(file: File):
     assert tokens[1].semantic.name == 'accessToken'
 
     assert len(findings) == 2
-    assert findings[0].rules[0].name == 'Entropy+Var naming'
-    assert findings[1].rules[0].name == 'Entropy+Var naming'
+    assert findings[0].rules[0].name == 'High Entropy and Variable Naming'
+    assert findings[1].rules[0].name == 'High Entropy and Variable Naming'
 
 
 @pytest.mark.fixture_file_path('1.toml')
@@ -41,8 +41,8 @@ def test_toml_1(file: File):
     assert tokens[50].semantic.name == 'MATTERMOST_BOT_TOKEN'
 
     assert len(findings) == 2
-    assert findings[0].rules[0].name == 'Entropy+Var naming'
-    assert findings[1].rules[0].name == 'Entropy+Var naming'
+    assert findings[0].rules[0].name == 'High Entropy and Variable Naming'
+    assert findings[1].rules[0].name == 'High Entropy and Variable Naming'
 
 
 @pytest.mark.fixture_file_path('2.toml')
@@ -98,7 +98,6 @@ def test_go_1(file: File):
 
 @pytest.mark.fixture_file_path('3.conf')
 def test_conf_3(file: File):
-    # TODO: HOCON
     findings, tokens, vars = semantic_case(file)
     assert len(findings) == 1
 
@@ -106,10 +105,16 @@ def test_conf_3(file: File):
 @pytest.mark.fixture_file_path('cheap_var_detector_cases.txt')
 def test_with_cheap_var_search(file: File):
     findings, tokens, vars = semantic_case_with_cheap_var_search(file)
-    assert len(findings) == 2
+    assert len(findings) == 11
 
 
 @pytest.mark.fixture_file_path('5.py')
 def test_5(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 3
+
+
+@pytest.mark.fixture_file_path('1.php')
+def test_6_php(file: File):
     findings, tokens, vars = semantic_case(file)
     assert len(findings) == 1

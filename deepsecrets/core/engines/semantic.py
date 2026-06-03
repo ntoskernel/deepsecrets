@@ -55,7 +55,7 @@ class SemanticEngine(IEngine):
                     detection=token.content,
                     start_offset=0,
                     end_offset=len(token.content),
-                    rules=[Rule(id='S107', name='Dangerous condition', confidence=9)],
+                    rules=[Rule(id='S107', name='Dangerous condition', confidence=10)],
                 )
             )
 
@@ -83,8 +83,9 @@ class SemanticEngine(IEngine):
                             rules=[
                                 Rule(
                                     id='S105',
-                                    name='Entropy+Var naming',
+                                    name='High Entropy and Variable Naming',
                                     confidence=evaluation_result.export_confidence,
+                                    is_dynamic_confidence=True,
                                 )
                             ],
                             internal_score={'var': token.semantic.name} | evaluation_result.summary(),
@@ -99,8 +100,9 @@ class SemanticEngine(IEngine):
                             rules=[
                                 Rule(
                                     id='S106',
-                                    name='Var naming',
+                                    name='Variable Naming',
                                     confidence=evaluation_result.export_confidence,
+                                    is_dynamic_confidence=True,
                                 )
                             ],
                             internal_score={'var': token.semantic.name} | evaluation_result.summary(),

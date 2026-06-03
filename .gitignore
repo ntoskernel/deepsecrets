@@ -56,3 +56,7 @@ playground/
 .mypy*
 *.db
 pytest*
+
+/benchmarker/
+/tests/fixtures/problem_files/
+/*.json

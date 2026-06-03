@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 from jschema_to_python.to_json import to_json
 import pytest
 

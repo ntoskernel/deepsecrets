@@ -3,7 +3,6 @@ from typing import Callable, List
 
 from pygments.token import Token as PygmentsToken
 
-from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
 from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, RegionDetector
@@ -18,6 +17,7 @@ class SingleTokenImprover:
         self.language = lang
         self.acc = {
             Language.SHELL: [self._curl_argstring_breakdown],
+            # Language.PHP: [self._php_variable_dollar_sign_breakdown], # TODO: Uncomment in v2.1
         }
 
     def improve(self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token) -> List[Token]:
@@ -32,6 +32,38 @@ class SingleTokenImprover:
             return [current_token]
 
         return tokens
+
+    def _php_variable_dollar_sign_breakdown(
+        self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token
+    ) -> List[Token]:
+        target_token_type = PygmentsToken.Name.Variable
+        if target_token_type not in current_token.type:
+            return [current_token]
+
+        if not current_token.content.startswith('$'):
+            return [current_token]
+
+        first_part = current_token.content[0]
+        second_part = current_token.content[1:]
+
+        final = []
+        fp_token = Token(
+            file=current_token.file,
+            content=first_part,
+            span=current_token.file.get_span_for_string(first_part, between=current_token.span),
+        )
+        fp_token.set_type([PygmentsToken.Operator])
+        final.append(fp_token)
+
+        sp_token = Token(
+            file=current_token.file,
+            content=second_part,
+            span=current_token.file.get_span_for_string(first_part, between=current_token.span),
+        )
+        sp_token.set_type([PygmentsToken.Name.Variable])
+        final.append(sp_token)
+
+        return [fp_token, sp_token]
 
     def _curl_argstring_breakdown(
         self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token

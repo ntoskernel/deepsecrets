@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import List, Set
+
 from sarif_om import (
     SarifLog,
     Run,
@@ -13,20 +16,84 @@ from sarif_om import (
     Region,
 )
 from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
-from typing import List
 
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.base import BaseResponseBuilder
 from deepsecrets.core.model.rules.rule import Rule
 from deepsecrets.core.modes.iscan_mode import ScanMode
 
-
 SRC_PATH_BASE_ID = 'SRCROOT'
+
+
+@dataclass
+class TierAwareSarifRuleMeta:
+    id: str
+    payload: dict
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, value: 'object') -> bool:
+        if not isinstance(value, TierAwareSarifRuleMeta):
+            return False
+
+        if value.id != self.id:
+            return False
+
+        return True
 
 
 class DojoSarifResponseBuilder(BaseResponseBuilder):
 
     report: SarifLog
+
+    def _get_tier(self, confidence: int):
+        confidence_tiers = {
+            (9, float('inf')): {
+                'suffix': '-VERY-HIGH',
+                'precision': 'very-high',
+                'severity': '10.00',
+                'label': 'Very High',
+            },
+            (6, 9): {
+                'suffix': '-HIGH',
+                'precision': 'high',
+                'severity': '9.70',
+                'label': 'High',
+            },
+            (3, 6): {
+                'suffix': '-MEDIUM',
+                'precision': 'medium',
+                'severity': '9.40',
+                'label': 'Medium',
+            },
+            (float('-inf'), 3): {
+                'suffix': '-LOW',
+                'precision': 'low',
+                'severity': '9.10',
+                'label': 'Low',
+            },
+        }
+
+        for (start, end), value in confidence_tiers.items():
+            if start <= confidence < end:
+                return value
+
+    def _sarif_rule_meta_from_rule(self, rule: Rule) -> TierAwareSarifRuleMeta:
+
+        base_rule_id = rule.id
+        base_description = rule.name
+
+        tier = self._get_tier(rule.confidence)
+        suffix = tier.get('suffix') if rule.is_dynamic_confidence is True else ''
+
+        return TierAwareSarifRuleMeta(
+            id=f'{base_rule_id}{suffix}',
+            payload={
+                'shortDescription': {'text': f'{base_description} ({tier.get('label')} Confidence)'},
+                'properties': {'precision': tier.get('precision'), 'security-severity': tier.get('severity')},
+            },
+        )
 
     def __init__(self) -> None:
         super().__init__()
@@ -59,70 +126,38 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
         )
         return self
 
-    def _get_levels(self, rule: Rule):
-        precision = 'very-high'
-        security_severity = 'High'
-        level = 'error'
 
-        if rule.confidence >= 9:
-            precision = 'very-high'
-            security_severity = 'High'
-            level = 'error'
-        elif 9 > rule.confidence >= 6:
-            precision = 'high'
-            security_severity = 'High'
-            level = 'error'
-        elif 6 > rule.confidence >= 3:
-            precision = 'medium'
-            security_severity = 'High'
-            level = 'error'
-        elif 3 > rule.confidence >= 0:
-            precision = 'low'
-            security_severity = 'High'
-            level = 'error'
-
-        return {
-            'precision': precision,
-            'security_severity': security_severity,
-            'level': level,
-        }
-
-    def _get_list_of_all_rules(self) -> List[ReportingDescriptor]:
-        sarif_rules = []
-        for _, ruleset in self.mode.rulesets.items():
-            for rule in ruleset:
-                sarif_rules.append(self._get_rule(rule))
-
-        return sarif_rules
-
-    def _get_rule(self, rule: Rule) -> ReportingDescriptor:
-        levels = self._get_levels(rule)
-        return ReportingDescriptor(
-            id=rule.id,
-            short_description={'text': rule.name},
-            full_description={'text': rule.name},
-            help={'text': rule.name},
-            properties={
-                'security-severity': levels.get('security_severity'),
-                'precision': levels.get('precision'),
-            },
-            default_configuration={'level': levels.get('level')},
-        )
+    def _convert_rules(self, rules: Set[TierAwareSarifRuleMeta]) -> List[ReportingDescriptor]:
+        return [
+            ReportingDescriptor(
+                id=rule_meta.id,
+                short_description=rule_meta.payload.get('shortDescription'),
+                properties=rule_meta.payload.get('properties'),
+            )
+            for rule_meta in rules
+        ]
 
     def build(self) -> SarifLog:  # type: ignore
 
-        rules: set[Rule] = set()  # self._get_list_of_rules()
+        rules: List[Rule] = list()
 
         for finding in self.findings:
             finding.choose_final_rule()
             region = self.get_region(finding=finding, masking=self.masking_enabled)
             context_region = self.get_context_region(finding=finding, masking=self.masking_enabled)
 
-            rules.add(finding.final_rule)
+            rules.append(finding.final_rule)
+            rule_meta = self._sarif_rule_meta_from_rule(finding.final_rule)
 
             result = Result(
-                rule_id=finding.final_rule.id,
-                message=Message(text=f'Secret in code: ({finding.final_rule.name})'),
+                rule_id=rule_meta.id,
+                level='error',
+                properties={
+                    'confidence': finding.final_rule.confidence,
+                },
+                message=Message(
+                    text=f'[Confidence {finding.final_rule.confidence}/10] Secret in code: {finding.final_rule.name}'
+                ),
                 locations=[
                     Location(
                         physical_location=PhysicalLocation(
@@ -136,7 +171,8 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
             self.report.runs[0].results.append(result)
 
-        self.report.runs[0].tool.driver.rules = [self._get_rule(rule) for rule in rules]
+        sarif_rules = self._convert_rules(set([self._sarif_rule_meta_from_rule(rule) for rule in rules]))
+        self.report.runs[0].tool.driver.rules = sarif_rules
         return self.report
 
     def get_context_region(self, finding: Finding, masking: bool = True):
@@ -166,7 +202,7 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
         snippet = finding.detection
 
-        if masking:
+        if masking is True:
             snippet = self._mask(snippet=snippet, detection=finding.detection)
 
         return Region(

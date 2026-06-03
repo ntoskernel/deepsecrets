@@ -108,7 +108,7 @@ As of version 1.3.0 all potential secrets inside reports are masked by default, 
 
 ### SARIF reports and the "Confidence" Parameter
 
-DeepSecrets calculates and reports a granular confidence score for every discovered secret. Due to the constraints of the SARIF specification and variations in how different industry platforms parse it, DeepSecrets has the following features to ensure compatibility:
+Every finding gets a confidence score. However, different security platforms parse SARIF metrics differently. To ensure compatibility, DeepSecrets tool does the following:
 
 * **Virtual Subrules (`rules[]`)**: GitHub and DefectDojo parse security metrics primarily from the static rules array. To support this, DeepSecrets dynamically maps findings to "virtual" subrules (e.g., `S105-LOW`, `S105-MEDIUM`). Each subrule contains tailored `properties.precision` (strictly matching GitHub's allowed vocabulary) and a scaled `properties.security-severity` score (9.0–10.0), guaranteeing that **all** alerts are flagged as **Critical** in GitHub Security and DefectDojo, while preserving internal confidence variance.
 
@@ -179,7 +179,7 @@ In recent evaluations against the **SecretBench** benchmark, DeepSecrets demonst
 
 ### Why this matters under the hood
 * **True Code Understanding:** Traditional tools will flag high-entropy strings inside a comment or a base64 asset. DeepSecrets understands the semantic role of a token (e.g., if it is an assigned variable name like `db_password`), ensuring that candidates are always semantically correct.
-* **Unmatched Discovery Width:** While Semgrep relies on specific language parsers and standard tools scan only what they know, DeepSecrets leverages 500+ lexers. This allows it to surface hidden, dangerous credentials in rare configuration formats and custom code blocks that benchmarks don't even have datasets for.
+* **Unmatched Discovery Width:** While other tools scan only what they know, DeepSecrets leverages 500+ lexers. This allows it to surface hidden, dangerous credentials in rare configuration formats and custom code blocks that benchmarks may not have datasets for.
 
 
 > Why don't you build true abstract syntax trees? It's academically more correct!

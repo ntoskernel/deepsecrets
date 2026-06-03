@@ -171,8 +171,8 @@ In recent evaluations against the **SecretBench** benchmark, DeepSecrets demonst
 | :--- | :---: | :---: | :---: | :---: |
 | **SecretBench Accuracy** | **93% Recall<br>69% Precision** | 88% Recall<br>46% Precision | 52% Recall<br>6% Precision | *Not Evaluated* |
 | **Price & Licensing** | **Free / Open-Source** | Free / Open-Source | Free / Open-Source | Commercial / Paid |
-| **Analysis Type** | **Semantic Lexing & Parsing** | Flat-text Regex / Entropy | Flat-text Regex / Entropy | Semantic AST Parsing |
-| **Language Support** | **500+ (via Pygments Lexers)** | Context-agnostic (Text) | Context-agnostic (Text) | Limited subset |
+| **Analysis Type** | **Semantic / Regex** | Flat-text Regex / Entropy | Flat-text Regex / Entropy | Semantic |
+| **Language Support** | **500+** | Context-agnostic (Text) | Context-agnostic (Text) | Limited subset |
 | **Pre-hashed Validation** | **Yes (via Hashed Engine)** | No | No | No |
 | **Context-Aware Entropy**| **Yes (Assigned values)** | No (Entire file text) | No (Entire file text) | Yes |
 | **Advanced SARIF Output**| **Yes (Dynamic Confidence)** | Basic | Basic | Yes |

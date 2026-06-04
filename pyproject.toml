@@ -1,6 +1,6 @@
 [project]
 name = "deepsecrets"
-version = "1.4.0"
+version = "2.0.0"
 description = "A better tool for secrets search"
 license = { text = "MIT" }
 readme = "README.md"
@@ -15,7 +15,7 @@ maintainers = [
 
 keywords = ["security", "secrets", "credentials", "scanning", "appsec", "code", "search"]
 packages = [{include = "deepsecrets"}]
-requires-python = ">=3.9,<4.0.0"
+requires-python = ">=3.10,<4.0.0"
 
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -27,19 +27,20 @@ classifiers = [
 ]
 
 dependencies = [
-  "pydantic == 2.10.6",
-  "pyyaml == 6.0.2",
-  "pygments == 2.19.1",
-  "ordered-set == 4.1.0",
-  "dotwiz == 0.4.0",
-  "mmh3 == 5.1.0",
-  "regex == 2024.11.6",
+  "pydantic (==2.13.4)",
+  "pyyaml (==6.0.3)",
+  "pygments (==2.20.0)",
+  "ordered-set (==4.1.0)",
+  "dotwiz (==0.4.0)",
+  "mmh3 (==5.2.1)",
+  "regex (==2026.5.9)",
   "jsx-lexer == 2.0.1",
-  "aenum == 3.1.15",
+  "aenum (==3.1.17)",
   "puppetparser == 0.2.14",
-  "textual == 1.0.0",
   "sarif-om == 1.0.4",
   "jschema-to-python == 1.2.3",
+  "rich (==15.0.0)",
+  "nostril @ git+https://github.com/casics/nostril.git",
 ]
 
 [project.urls]
@@ -52,12 +53,12 @@ deepsecrets = "deepsecrets:__main__.runnable_entrypoint"
 
 
 [tool.poetry.group.test.dependencies]
-pytest = "^8.3.4"
-coverage = "^7.6.12"
-pytest-cov = "^6.0.0"
+pytest = "9.0.3"
+coverage = "7.14.0"
+pytest-cov = "7.1.0"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
+black = "^26.5.1"
 
 [build-system]
 requires = ["poetry-core"]

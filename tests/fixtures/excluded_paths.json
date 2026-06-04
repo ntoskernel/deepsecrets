@@ -126,5 +126,10 @@
     {
         "name": "Postman collection files",
         "pattern": ".*postman_collection\\.json$"
+    },
+    {
+        "name": "Deepsecrets Problem Files Fixtures Location",
+        "pattern":".*problem_files\/.*"
+        
     }
 ]

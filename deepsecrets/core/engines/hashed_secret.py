@@ -37,12 +37,13 @@ class HashedSecretEngine(IEngine):
             Finding(
                 rules=[rule],
                 detection=token.content,
-                start_pos=0,
-                end_pos=token.length,
+                start_offset=0,
+                end_offset=token.length,
                 file=None,  # filled higher
                 final_rule=None,  # filled higher,
                 full_line=None,  # filled higher
-                linum=None,  # filled higher
+                start_line_number=None,  # filled higher
+                end_line_number=None,  # filled higher
             )
         )
 

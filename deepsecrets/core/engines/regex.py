@@ -31,8 +31,8 @@ class RegexEngine(IEngine):
                 Finding(
                     rules=[rule],
                     detection=token.content[start:end],
-                    start_pos=start,
-                    end_pos=end,
+                    start_offset=start,
+                    end_offset=end,
                 )
             )
 

@@ -19,6 +19,10 @@ types_to_filter_before = [
     PygmentsToken.Name.Builtin.Pseudo,
 ]
 
+types_not_to_filter_before = [
+    PygmentsToken.Generic.Output,
+]
+
 
 types_to_filter_after = [
     PygmentsToken.Punctuation,
@@ -44,11 +48,13 @@ acc = {
     PygmentsToken.Literal: 'L',
     PygmentsToken.Literal.Scalar.Plain: 'L',
     PygmentsToken.Literal.String: 'L',
+    PygmentsToken.Literal.String.Symbol: 'L',
     PygmentsToken.String: 'L',
     PygmentsToken.String.Single: 'L',
     PygmentsToken.String.Double: 'L',
     PygmentsToken.Text: 'L',
-    PygmentsToken.Literal.String.Backtick: 'p',  # technically it's a punc
+    PygmentsToken.Literal.String.Backtick: 'b',  # technically it's a punc
+    PygmentsToken.Generic.Output: 'o',
 }
 
 
@@ -56,7 +62,7 @@ def token_to_typestream_item(token: Token) -> str:
     if token.content == '\n':
         return '\n'
 
-    if any(type in token.type for type in types_to_filter_before):  # type: ignore
+    if any(type in token.type for type in types_to_filter_before) and not any(type in token.type for type in types_not_to_filter_before):  # type: ignore
         return 'u'
 
     return acc.get(token.type[0], '?')  # type: ignore

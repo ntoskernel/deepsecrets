@@ -13,6 +13,8 @@ def args_1():
         '/app/tests/fixtures/false_findings.json',
         '--outfile',
         './fdsafad.json',
+        '--max-file-size',
+        '500',
         '--verbose',
         '--reflect-findings-in-return-code',
     ]
@@ -43,13 +45,14 @@ def test_1_cli(args_1):
     config = tool.get_current_config()
 
     assert config is not None
-    assert len(config.rulesets) == 2
+    assert len(config.rulesets) == 3
     assert len(config.engines) == 2
     assert len(config.global_exclusion_paths) == 1
 
+    assert config.max_file_size == 500
     assert config.output.path == './fdsafad.json'
     assert config.workdir_path == '/app/tests/fixtures/'
-    assert config.output.type == 'json'
+    assert config.output.type == 'sarif'  # Starting release 2.0
 
     return_code = tool.start()
     assert return_code != 0
@@ -63,4 +66,5 @@ def test_2_cli(args_2):
 
     assert config is not None
     assert len(config.global_exclusion_paths) == 2
+    assert config.max_file_size == 0
     assert config.output.type == 'dojo-sarif'

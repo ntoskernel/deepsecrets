@@ -5,9 +5,7 @@ from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.rules.rule import Rule
 from deepsecrets.core.model.token import Token
 
-TEST_TOKEN_CONTENTS = (
-    '"amqp://fake_user:TESTSECRET1234@rabbitmq-esp01.miami.example.com:5672/esp"'
-)
+TEST_TOKEN_CONTENTS = '"amqp://fake_user:TESTSECRET1234@rabbitmq-esp01.miami.example.com:5672/esp"'
 TOKEN_SPAN = (76, 151)
 
 FINDING_CONTENT = 'TESTSECRET1234'
@@ -15,17 +13,11 @@ FINDING_SPAN_INSIDE_TOKEN = (18, 32)
 
 
 @pytest.fixture(scope='module')
-def file() -> File:
-    path = 'tests/fixtures/4.go'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
 def rule() -> Rule:
     return Rule(id='test')
 
 
-@pytest.fixture(scope='module')
+@pytest.mark.fixture_file_path('4.go')
 def token(file: File) -> Token:
     return Token(
         file=file,
@@ -34,21 +26,21 @@ def token(file: File) -> Token:
     )
 
 
-def test_1_finding(file: File, token: Token, rule: Rule):
-    assert file.content[token.span[0] : token.span[1]] == TEST_TOKEN_CONTENTS
+@pytest.mark.fixture_file_path('4.go')
+def test_1_finding(file: File, rule: Rule):
+    _token = token(file)
+    assert file.content[_token.span[0] : _token.span[1]] == TEST_TOKEN_CONTENTS
 
     new_finding = Finding(
         file=file,
         rules=[rule],
-        start_pos=FINDING_SPAN_INSIDE_TOKEN[0],
-        end_pos=FINDING_SPAN_INSIDE_TOKEN[1],
-        detection=token.content[
-            FINDING_SPAN_INSIDE_TOKEN[0] : FINDING_SPAN_INSIDE_TOKEN[1]
-        ],
+        start_offset=FINDING_SPAN_INSIDE_TOKEN[0],
+        end_offset=FINDING_SPAN_INSIDE_TOKEN[1],
+        detection=_token.content[FINDING_SPAN_INSIDE_TOKEN[0] : FINDING_SPAN_INSIDE_TOKEN[1]],
     )
 
     assert new_finding.detection == FINDING_CONTENT
-    new_finding.map_on_file(relative_start=token.span[0])
+    new_finding.map_on_file(relative_start=_token.span[0])
 
-    assert new_finding.start_pos == TOKEN_SPAN[0] + FINDING_SPAN_INSIDE_TOKEN[0]
-    assert new_finding.end_pos == TOKEN_SPAN[0] + FINDING_SPAN_INSIDE_TOKEN[1]
+    assert new_finding.start_offset == TOKEN_SPAN[0] + FINDING_SPAN_INSIDE_TOKEN[0]
+    assert new_finding.end_offset == TOKEN_SPAN[0] + FINDING_SPAN_INSIDE_TOKEN[1]

@@ -10,12 +10,72 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
-                "PYTHONPATH": "/app/deepsecrets/"
+                "PYTHONPATH": "/app/"
             }
         },
         {
-            "name": "Python: Module",
+            "name": "Python: Benchmark",
             "type": "python",
+            "request": "launch",
+            "module": "deepsecrets",
+            "args": [
+                "--target-dir",
+                "/secretbench/bench/buckets/bucket_0",
+                "--outfile",
+                "./bucket_0.json",
+                "--max-file-size", "0",
+
+                "--disable-masking",
+                "--excluded-paths", "disable",
+                "--outformat", "sarif"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Python: Problems Benchmark",
+            "type": "python",
+            "request": "launch",
+            "module": "deepsecrets",
+            "args": [
+                "--outfile",
+                "test.json",
+                "--target-dir",
+                "/app/tests/fixtures/edge_cases",
+                "--outfile",
+                "./fdsafad.json",
+                "--outformat", "sarif",
+                "--process-count", "1",
+                "--max-file-size", "0",
+                "--disable-masking",
+                "--excluded-paths", "disable"
+            ],
+            "justMyCode": false
+        },
+
+        {
+            "name": "Python: Oneshot testing",
+            "type": "python",
+            "request": "launch",
+            "module": "deepsecrets",
+            "args": [
+                "--outfile",
+                "test.json",
+                "--oneshot",
+                "/secretbench/bench/Files/${fileBasename}",
+                "--target-dir", "",
+                "--outfile",
+                "./fdsafad.json",
+                "--outformat", "sarif",
+                "--process-count", "1",
+                "--max-file-size", "0",
+                "--disable-masking",
+                "--excluded-paths", "disable"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Python: Tests on Fixtures",
+            "type": "debugpy",
             "request": "launch",
             "module": "deepsecrets",
             "args": [
@@ -25,8 +85,34 @@
                 "./tests/fixtures",
                 "--outfile",
                 "./fdsafad.json",
+                "--outformat",
+                "sarif",
                 "--process-count", "1",
-                "--max-file-size", "5000",
+                "--max-file-size", "0",
+                "--disable-masking"
+            ],
+            "justMyCode": false
+        },
+
+        {
+            "name": "[PROF] Python: Tests on Fixtures",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "viztracer",
+            "args": [
+                "--log-multiprocessing",
+                "-m",
+                "deepsecrets",
+                "--outfile",
+                "test.json",
+                "--target-dir",
+                "./tests/fixtures",
+                "--outfile",
+                "./fdsafad.json",
+                "--outformat",
+                "json",
+                "--process-count", "1",
+                "--max-file-size", "0",
                 "--disable-masking"
             ],
             "justMyCode": false
@@ -37,6 +123,87 @@
             "request": "launch",
             "program": "${file}",
             "justMyCode": true
-        }
+        },
+        {
+            "name": "Verify Results",
+            "request": "launch",
+            "type": "python",
+            "program": "${workspaceFolder}/benchmarker/run.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/secretbench/secretbench.csv",
+                "/secretbench/bench/buckets/bucket_0",
+                "/secretbench/bucket_0.json",
+            ],
+            "env": {
+                "PYTHONPATH": "/app/"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "INCREMENTAL SCANNING",
+            "request": "launch",
+            "type": "python",
+            "program": "${workspaceFolder}/benchmarker/incremental.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/secretbench/secretbench.csv",
+                "/secretbench/bench/buckets",
+                "bucket_4",
+                "/secretbench/bench/verifications",
+            ],
+            "env": {
+                "PYTHONPATH": "/app/"
+            },
+            "justMyCode": false
+        },
+
+        {
+            "name": "PER_BUCKET SCANNING",
+            "request": "launch",
+            "type": "python",
+            "program": "${workspaceFolder}/benchmarker/per_bucket.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/secretbench/secretbench.csv",
+                "/secretbench/bench/buckets",
+                "bucket_87",
+                "/secretbench/bench/verifications",
+            ],
+            "env": {
+                "PYTHONPATH": "/app/"
+            },
+            "justMyCode": false
+        },
+
+        {
+            "name": "PROBLEM FILES RESCAN",
+            "request": "launch",
+            "type": "python",
+            "program": "${workspaceFolder}/benchmarker/per_bucket.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/secretbench/secretbench.csv",
+                "/app/tests/fixtures",
+                "problem_files"
+            ],
+            "env": {
+                "PYTHONPATH": "/app/"
+            },
+            "justMyCode": false
+        },
+
+
+        {
+            "name": "BIGRAMS",
+            "request": "launch",
+            "type": "python",
+            "program": "${workspaceFolder}/benchmarker/words_evaluator.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "/app/"
+            },
+            "justMyCode": false
+        },
     ]
 }

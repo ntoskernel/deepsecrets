@@ -694,5 +694,7 @@ func head(p string) (head string) {
 	if i <= 0 {
 		return p[1:]
 	}
+
+	csrfToken := "2hefe768g0090hd4368h42880f970e61865f326172d4d2343e645fi5g7i20992"
 	return p[1:i]
 }

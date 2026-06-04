@@ -38,7 +38,7 @@ class HashedSecretsRulesetBuilder(IRulesetBuilder):
                     hashed_val=secret['hash'],
                     algorithm=secret['algorithm'],
                     token_length=secret['length'],
-                    confidence=9,
+                    confidence=10,
                 )
             )
 

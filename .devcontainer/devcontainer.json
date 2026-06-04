@@ -4,7 +4,7 @@
 		"context": "..",
 		"dockerfile": "Dockerfile"
 	},
-
+	
 	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=delegated",
 	"workspaceFolder": "/app",
 	"customizations": {
@@ -18,5 +18,6 @@
 			]
 		}
 	},
-	"postCreateCommand": "poetry install --no-root --with test,dev"
+	"postCreateCommand": "poetry install --no-root --with test,dev",
+	"shutdownAction": "none"
 }

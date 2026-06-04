@@ -1,15 +1,15 @@
-from multiprocessing import RLock
-from multiprocessing.pool import Pool
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from deepsecrets.core.utils.lifecycle_hooks import FileLifecycleHooks
 from deepsecrets.core.utils.log import logger
 from deepsecrets.core.engines.iengine import IEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.itokenizer import Tokenizer
+from deepsecrets.core.utils.progress import FileProgress
 
 
 class EngineWithTokenizer(BaseModel):
@@ -19,146 +19,93 @@ class EngineWithTokenizer(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-class Progress:
-    started: bool
-    finished: bool
-    total_tokens: int
-    processed_count: int
-
-    findings: int
-
-    def __init__(self):
-        self.started = False
-        self.finished = False
-        self.total_tokens = 0
-        self.processed_count = 0
-        self.findings = 0
-
-    def on_tokenization_finished(self, token_count: int):
-        self.total_tokens += token_count
-
-    def on_token_processing_start(self):
-        self.started = True
-        self.processed_count += 1
-
-    def on_finish(self):
-        self.started = False
-        self.finished = True
-
-    def add_findings_count(self, count: int):
-        self.findings += count
-
-    def report(self):
-        return {
-            'started': self.started,
-            'finished': self.finished,
-            'total_tokens': self.total_tokens,
-            'processed': self.processed_count,
-            'findings': self.findings,
-        }
-
-
 class FileAnalyzer:
     file: File
     engine_tokenizers: List[EngineWithTokenizer]
-    tokens: Dict[Type, List[Token]]
-    pool_class: Type
-    progress: Progress
+    tokens: Dict[Tokenizer, List[Token]]
+    silent_regions: List
+    progress: FileProgress
     task_reporter: Any
-    task_id: str
+    task_id: Optional[int]
 
-    def __init__(self, file: File, pool_class: Optional[Type] = None):
-        if pool_class is not None:
-            self.pool_class = Pool
-        else:
-            self.pool_class = pool_class
-
+    def __init__(self, file: File):
         self.engine_tokenizers = []
         self.file = file
         self.tokens = {}
-        self.tokenizers_lock = RLock()
-        self.progress = Progress()
+        self.progress = FileProgress()
+        self.silent_regions = []
+        self.lifecycle = FileLifecycleHooks(reporter=None, task_id=None, progress=self.progress)
         self.task_reporter = None
         self.task_id = None
+        self.progress.set_file_size(self.file.length)
 
     def attach_global_task_reporter(self, task_reporter, task_id):
         self.task_reporter = task_reporter
         self.task_id = task_id
-        self.global_report()
-
-    def global_report(self):
-        if self.task_reporter is None:
-            return
-
-        self.task_reporter[self.task_id] = self.progress.report()
+        self.lifecycle.task_id = self.task_id
+        self.lifecycle.reporter = self.task_reporter
 
     def add_engine(self, engine: IEngine, tokenizers: List[Tokenizer]) -> None:
         for tokenizer in tokenizers:
             self.engine_tokenizers.append(EngineWithTokenizer(engine=engine, tokenizer=tokenizer))
+            self.progress.add_tokenizer(tokenizer.__class__.__name__)
 
-    def process(self, threaded: bool = False) -> List[Finding]:
+    def process(self) -> List[Finding]:
         results: List[Finding] = []
-
-        if threaded:  # pragma: nocover
-            with self.pool_class(2) as pool:
-                engine_results = pool.imap(self._run_engine, self.engine_tokenizers)
-                pool.close()
-                pool.join()
-
-            if engine_results is None:
-                return results
-
-            for er in engine_results:
-                if not er:
-                    continue
-                results.extend(er)
-
-        else:
+        self.lifecycle.on_start()
+        try:
             for et in self.engine_tokenizers:
                 results.extend(self._run_engine(et))
+        except Exception as e:
+            logger.exception(e)
+            self.lifecycle.on_failure()
+            return results
 
+        self.lifecycle.on_finish()
         return results
+
+    def _add_silent_regions(self, regions: List):
+        self.silent_regions.extend(regions)
 
     def _run_engine(self, et: EngineWithTokenizer) -> List[Finding]:
         results: List[Finding] = []
         processed_values: Dict[int, bool] = {}
 
-        with self.tokenizers_lock:
-            if et.tokenizer not in self.tokens:
-                self.tokens[et.tokenizer] = et.tokenizer.tokenize(self.file)
-                self.progress.on_tokenization_finished(len(self.tokens[et.tokenizer]))
+        if et.tokenizer not in self.tokens:
+            et.tokenizer.add_lifecycle_hooks(self.lifecycle)
+            self.tokens[et.tokenizer] = et.tokenizer.tokenize(self.file)
+            self._add_silent_regions(et.tokenizer.get_silent_regions())
+
+            self.lifecycle.on_tokenization_finished(
+                name=et.tokenizer.__class__.__name__,
+                token_count=len(
+                    self.tokens[et.tokenizer],
+                ),
+            )
 
         tokens: List[Token] = self.tokens[et.tokenizer]
 
         for token in tokens:
-            self.on_token_processing_start(token)
+            self.lifecycle.on_token_processing_start(
+                name=et.tokenizer.__class__.__name__,
+            )
 
             is_known_content = processed_values.get(token.val_hash())
             if is_known_content is not None and is_known_content is False:
                 continue
 
             processed_values[token.val_hash()] = False
+            findings: List[Finding] = et.engine.search(token)
 
             try:
-                findings: List[Finding] = et.engine.search(token)
                 for finding in findings:
                     finding.map_on_file(file=self.file, relative_start=token.span[0])
                     results.append(finding)
                     processed_values[token.val_hash()] = True
 
-                self.on_token_processing_end(len(findings))
-
             except Exception as e:
-                logger.exception('Unable to process token')
+                logger.exception(f'Unable to process token: {e}')
                 continue
 
-        self.progress.on_finish()
+            self.lifecycle.on_token_processing_end(len(findings))
         return results
-
-    def on_token_processing_start(self, token: Token):
-        self.progress.on_token_processing_start()
-        self.global_report()
-
-    def on_token_processing_end(self, findings_count: int):
-        self.progress.add_findings_count(findings_count)
-        self.global_report()

@@ -58,11 +58,39 @@ v/Ow5T0q5gIJAiEAyS4RaI9YG8EWx/2w0T67ZUVAw8eOMB6BIUg0Xcu+3okCIBOs
 -----END PGP PRIVATE KEY BLOCK-----
 
 # S19
-https://login:password@example.com
-ftp://login:password@example.com
+https://login:password@example.com                          # should not be found
+ftp://login:password@example.com                            # should not be found
 amqp://login:$password@example.com
 amqp://login:${password}@example.com
 amqp://login:%password%@example.com
 //	redis://<user>:<password>@<host>:<port>
 http://localhost:3001/@whatever/path/more
 http://user:sneakypass@localhost:3001/@whatever/path/more
+
+ftp://login:testpassword@example.com                            # should not be found
+
+ftp://login:changeme@example.com                            # should not be found
+
+
+on PLAINTEXT://localhost:9092 123456terrence@igloo /usr/local/kafka15:51:25 𝜆 diff config/server.pro
+http://user:*****@localhost:3001/@whatever/path/more
+
+
+eing prematurely saved to database\n  ([230e4a11](https://gitlab-ci-token:ridCNWnbTpavfVuJvWmS@git.sickrage.ca/SiCKRAGE/sickrage/commit/230e4a11b46145fc881186a3e
+
+
+5Nprr13Wue677z5uvvlmLrvsMizL4rbbbuOVr3wlhw4dItyh2t8f
+
+
+# not match
+pk_live_xxxxxxxxxxxxxxxxxxxxxxxx
+sk_live_xxxxxxxxxxxxxxxxxxxxxxxx
+sk_test_AAAAAAAAAAAAAAAAAAAAAAAA
+pk_live_YYYYYYYYYYYYYYYYYYYYYYYYYY
+
+# match
+pk_live_YYYYYYYYYYYYYfdsafdsafsd
+pk_live_sbI2q15f2zAg8Rfqiw8xmh9q
+sk_live_XCArxr2KBvWegUqwqgojiqK200qT465n
+pk_test_XCArxr2KBvWegUqwqgojiqK200qT465n
+sk_test_XCArxr2KBvWegUqwqgojiqK200qT465n

@@ -1,95 +1,46 @@
 import pytest
 
-from deepsecrets.core.model.file import File
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from tests.case_helpers import variable_detection_case
 
 
-@pytest.fixture(scope='module')
-def file_go_1():
-    path = 'tests/fixtures/1.go'
-    return File(path=path, relative_path=path)
+@pytest.mark.fixture_file_path('1.go')
+def test_1(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
+    assert len(variables) == 66
 
 
-@pytest.fixture(scope='module')
-def file_go_2():
-    path = 'tests/fixtures/2.go'
-    return File(path=path, relative_path=path)
+@pytest.mark.fixture_file_path('2.go')
+def test_2(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
+    assert len(variables) == 87
 
 
-@pytest.fixture(scope='module')
-def file_go_3():
-    path = 'tests/fixtures/3.go'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_go_4():
-    path = 'tests/fixtures/4.go'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_go_5():
-    path = 'tests/fixtures/5.go'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_go_6():
-    path = 'tests/fixtures/6.go'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_go_7():
-    path = 'tests/fixtures/7.go'
-    return File(path=path, relative_path=path)
-
-
-def test_1(file_go_1):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    tokens = lex.tokenize(file_go_1, post_filter=False)
-    variables = lex.get_variables(tokens)
-    assert len(variables) == 65
-
-
-def test_2(file_go_2):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_go_2, post_filter=False)
-    variables = lex.get_variables()
-    assert len(variables) == 86
-
-
-def test_3(file_go_3):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_go_3, post_filter=False)
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('3.go')
+def test_3(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 2
 
 
-def test_4(file_go_4):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_go_4, post_filter=False)
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('4.go')
+def test_4(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 2
 
 
-def test_5(file_go_5):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_go_5, post_filter=False)
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('5.go')
+def test_5(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 1
 
 
-def test_6(file_go_6):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_go_6, post_filter=False)
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('6.go')
+def test_6(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 4
 
 
-def test_7(file_go_7):
-    lex = LexerTokenizer(deep_token_inspection=True)
-    lex.tokenize(file_go_7, post_filter=False)
-    variables = lex.get_variables()
+@pytest.mark.fixture_file_path('7.go')
+def test_7(file, lexer_tokenizer: LexerTokenizer):
+    variables, _, _ = variable_detection_case(lexer_tokenizer, file)
     assert len(variables) == 1

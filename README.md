@@ -1,77 +1,123 @@
-# DeepSecrets - a better tool for secret scanning
+# DeepSecrets 2.0 - a better tool for secrets scanning
 
-## Yet another tool - why?
-Existing tools don't really "understand" code. Instead, they mostly parse texts.
+![Tests Status](https://github.com/ntoskernel/deepsecrets/actions/workflows/run-tests.yml/badge.svg)
 
-DeepSecrets expands classic regex-search approaches with semantic analysis, dangerous variable detection, and more efficient usage of entropy analysis. Code understanding supports 500+ languages and formats and is achieved by lexing and parsing - techniques commonly used in SAST tools.
+## What is it? Another token-wasting CLI proxy to an AI API?
 
-DeepSecrets also introduces a new way to find secrets: just use hashed values of your known secrets and get them found plain in your code.
+Absolutely not!
 
-Under the hood story is in articles here: https://hackernoon.com/modernizing-secrets-scanning-part-1-the-problem 
-
-### But what about Semgrep Secrets? Looks like you're cloning their thing.
-DeepSecrets was released in April 2023 — half a year before the Semgrep Secrets release and I'm very glad to be followed. We share the same ideas and principles under the hood but:
-- DeepSecrets is free, Semgrep is a commercial product
-- Code analysis in DeepSecrets is wider and not limited to a specific set of languages like in Semgrep
+In our LLM-hype era, DeepSecrets still runs entirely on your machine — giving you great results offline, securely, and for free.
 
 
-## Contacts
+## So why yet another tool?
+Most existing scanners don't actually "understand" code. Instead, they just parse texts and have bad coverage.
 
-- Nikolai Khechumov ([@ntoskernel](https://github.com/ntoskernel)) — creator and maintainer
+DeepSecrets bridges the gap between classic regex scanners and full-scale commercial SAST tools. It extends the classic regex-based scanning strategy by heavily relying on semantic code analysis, dangerous variable detection, and context-aware entropy analysis.
+This means secret candidates are always semantically correct. We achieve true code understanding across 500+ languages and formats using lexing and parsing techniques.
+
+DeepSecrets also introduces a new way to find credentials with zero knowledge: the HashedSecret Engine. Just provide the hashed values of your known production secrets, and the tool will find them exposed in plain text within your code.
+
+### Performance & Benchmarks (SecretBench)
+
+DeepSecrets v2.0 was evaluated (June 2026) against the **SecretBench** benchmark outperforming traditional flat-text scanners:
+
+* **93% Recall** 
+* **8% False Positive Rate** on SecretBench scope
+* **~9K Extra Findings** *outside* the SecretBench scope
+
+*(You can read the full under-the-hood story and benchmark breakdown in my HackerNoon article [here]())*
 
 
-## Mini-FAQ
-> Pff, is it still regex-based?
-
-Yes and no. Of course, it uses regexes and finds typed secrets like any other tool. But language understanding (the lexing stage) and variable detection also use regexes under the hood. So regexes is an instrument, not a problem.
-
-> Why don't you build true abstract syntax trees? It's academically more correct!
-
-DeepSecrets tries to keep a balance between complexity and effectiveness. Building a true AST is a pretty complex thing and simply an overkill for our specific task. So the tool still follows the generic SAST-way of code analysis but optimizes the AST part using a different approach.
-
-> I'd like to build my own semantic rules. How do I do that?
-
-Only through the code by the moment. Formalizing the rules and moving them into a flexible and user-controlled ruleset is in the plans.
-
-> I still have a question
-
-Feel free to communicate with the [maintainer](https://github.com/ntoskernel/deepsecrets/blob/main/pyproject.toml#L6-L8)
+# Quick Start Guide
 
 ## Installation
 
 From Github via pip
 
-`$ pip install git+https://github.com/ntoskernel/deepsecrets.git`
+```bash
+$ pip install git+https://github.com/ntoskernel/deepsecrets.git
+```
 
 From PyPi
 
-`$ pip install deepsecrets`
+```bash
+$ pip install deepsecrets
+```
 
 
 ## Scanning
-The easiest way:
+The easiest way to run a scan:
 
-`$ deepsecrets --target-dir /path/to/your/code --outformat dojo-sarif --outfile report.json`
+```bash
+$ deepsecrets --target-dir /path/to/your/code --outformat dojo-sarif --outfile report.json
+```
 
 This will run a scan against `/path/to/your/code` using the default configuration:
-- Regex checks by a small built-in ruleset
+- Regex using the built-in ruleset
 - Semantic checks (variable detection, entropy checks)
 
-Report in SARIF format (DefectDojo-compatible) will be saved to `report.json`. If you face any problem with SARIF format, you can fall back to internal format via `--outfile json`
+A report in SARIF format (compatible with DefectDojo and GitHub Security) will be saved to report.json.
 
-#### Masking secrets inside a report
+### Fine-Tuning
+The `--help` command is always ready to guide you, but here are the key flags you can use to tailor the scan to your environment:
+* `--regex-rules /path/to/rules.json`: Supply your own custom regex ruleset.
+* `--hashed-values /path/to/hashes.json`: Provide a list of pre-hashed known production secrets to search for them securely.
+* `--excluded-paths /path/to/exclusions.json`: Override or extend the default paths ignored during scanning.
+* `--disable-masking`: Keep potential secrets unmasked in the output report *(see caution below)*.
 
-As of version 1.3.0 all potential secrets inside reports are masked by default, but you can turn this feature off via the `--disable-masking` flag.
+
+### Github Actions Integration
+
+eq. `.github/workflows/deepsecrets.yml`
+
+```yaml
+name: DeepSecrets Scan
+on: [push, pull_request]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install DeepSecrets
+        run: pip install deepsecrets
+
+      - name: Run Scan
+        run: deepsecrets --target-dir . --outformat dojo-sarif --outfile report.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: report.sarif
+```
+
+### Masking Secrets in Reports
+
+As of v1.3.0, potential secrets are automatically masked inside reports to protect your pipeline artifacts. Turn this off via the `--disable-masking` flag if necessary.
+
+Masking doesn't break the deduplication logic of downstream platforms (like Github), as the `partialFingerprints` section in the report is correctly populated based on the raw data.
 
 > [!Caution]  
-> If you decide to integreate DeepSecrets to your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI artefacts.
+> If you integrate DeepSecrets into your CI pipeline with masking disabled, you will likely re-leak your secrets inside your CI logs and artifacts.
 
-### Fine-tuning
-Run `deepsecrets --help` for details.
+### SARIF Reports & Dynamic Confidence
 
-Basically, you can (and should) use your own regex-ruleset by specifying `--regex-rules`. Building rulesets is described in the next section.
+Every finding gets a confidence score. However, different security platforms parse SARIF metrics differently. To ensure compatibility across modern ASPM dashboards, DeepSecrets does the following:
 
-Paths to be excluded from scanning can be set via `--excluded-paths`. The default set of excluded paths is here: `/deepsecrets/rules/excluded_paths.json`, you can write your own following the format.
+* **Virtual Subrules (`rules[]`)**: Dynamically generates rules like `S105-LOW` or `S105-CRITICAL`. This forces GitHub Security and DefectDojo to map semantic precision variance properly without breaking native parsers.
+
+* **Deterministic Result Level**: The tool always explicitly sets `level: error` in the `results[]` model. This acts as a universal fallback for CI/CD pipelines and older SAST parsers, ensuring that exposed secrets reliably break builds or block Pull Requests regardless of individual rule interpretations.
+
+* **Contextual Messages**: Injects the raw numeric confidence score natively into `result.message.text` so security analysts see it immediately on their dashboards.
+
 
 ## Building rulesets
 
@@ -79,12 +125,71 @@ Paths to be excluded from scanning can be set via `--excluded-paths`. The defaul
 
 The built-in ruleset for regex checks is located in `/deepsecrets/rules/regexes.json`. You're free to follow the format and create a custom ruleset.
 
-### HashedSecret
+### HashedSecret (Zero-Knowledge Scanning)
 
 Example ruleset for hashed checks is located in `/tests/fixtures/hashed_secrets.json`. You're free to follow the format and create a custom ruleset.
 
+#### HashedSecret Ruleset Example
 
-## Contributing
+To look for known production secrets without exposing them in plaintext inside your repository, provide a JSON containing their hashes:
+
+```json
+[
+  {
+    "name": "KNOWN-PROD-DATABASE-PASSWORD",
+    "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "length": 12,
+    "algorithm": "sha1"
+  }
+]
+```
+Run with `--hashed-values /path/to/hashes.json`. DeepSecrets will automatically hash string candidates on the fly during its lexing stage to match them.
+
+## Contacts
+
+- Nikolai Khechumov ([@ntoskernel](https://github.com/ntoskernel)) — creator and maintainer
+
+## FAQ
+> Pff, is it still regex-based?
+
+Yes and no. Of course, it uses regexes to find typed secrets like any other tool. But language understanding (the lexing stage) and variable detection also use regexes under the hood. Regex is an instrument, not the problem. The problem is applying regex blindly without semantic context.
+
+> But what about Semgrep Secrets? Looks like you're cloning their thing.
+
+DeepSecrets was originally released in April 2023 — six months before Semgrep Secrets launched. We share similar principles, but DeepSecrets is 100% free/open-source and leverages a significantly broader multi-language tracking surface.
+
+### DeepSecrets vs. Other Scanners
+
+While other tools scan only what they know, DeepSecrets leverages lexers. This allows it to surface hidden, dangerous credentials in rare configuration formats and custom code blocks that benchmarks may not have datasets for.
+
+#### Tool comparison based on SecretBench Results
+
+| Feature / Capability | **DeepSecrets 2.0** | **Gitleaks** | **TruffleHog** | **Semgrep Secrets** |
+| :--- | :---: | :---: | :---: | :---: |
+| **SecretBench Accuracy** | **93% Recall<br>69% Precision** | 88% Recall<br>46% Precision | 52% Recall<br>6% Precision | *Not Evaluated* |
+| **Price & Licensing** | **Free / Open-Source** | Free / Open-Source | Free / Open-Source | Commercial / Paid |
+| **Analysis Type** | **Semantic / Regex** | Flat-text Regex / Entropy | Flat-text Regex / Entropy | Semantic |
+| **Language Support** | **500+** | Context-agnostic (Text) | Context-agnostic (Text) | Limited subset |
+| **Pre-hashed Validation** | **Yes (via Hashed Engine)** | No | No | No |
+| **Context-Aware Entropy**| **Yes (Assigned values)** | No (Entire file text) | No (Entire file text) | Yes |
+| **Advanced SARIF Output**| **Yes (Dynamic Confidence)** | Basic | Basic | Yes |
+
+
+
+> Why don't you build true abstract syntax trees? It's academically more correct!
+
+DeepSecrets tries to keep a balance between complexity and effectiveness. Building a true AST across 500+ languages is incredibly complex and simply overkill for the secrets detection. The tool follows the generic SAST approach to code analysis but optimizes the AST stage for maximum speed and width.
+
+> I'd like to build my own semantic rules. How do I do that?
+
+Semantic rules are now effectively "variable evaluation rules". You can find them [here](https://github.com/ntoskernel/deepsecrets/blob/main/deepsecrets/rules/variable_scoring_rules.json).
+
+> I still have a question
+
+Feel free to contact the developer directly using the emails listed in [pyproject.toml](https://github.com/ntoskernel/deepsecrets/blob/main/pyproject.toml#L6-L8)
+
+
+## Contributing & Core Concepts
 
 ### Under the hood
 There are several core concepts:
@@ -100,11 +205,13 @@ There are several core concepts:
 Just a pythonic representation of a file with all needed methods for management.
 
 ### Tokenizer
-A component able to break the content of a file into pieces - Tokens - by its logic. There are four types of tokenizers available:
+Breaks the content of a file into pieces - Tokens - by its logic. There are four types of tokenizers available:
 
 - `FullContentTokenizer`: treats all content as a single token. Useful for regex-based search.
 - `PerWordTokenizer`: breaks given content by words and line breaks.
 - `LexerTokenizer`: uses language-specific smarts to break code into semantically correct pieces with additional context for each token.
+- `CheapVarDetectorTokenizer`: uses tight regexes to cover limitations of semantic variable detection.
+
 
 ### Token
 A string with additional information about its semantic role, corresponding file, and location inside it.
@@ -136,6 +243,5 @@ The project is supposed to be developed using VSCode and 'Remote containers' fea
 Steps:
 1. Clone the repository
 2. Open the cloned folder with VSCode
-3. Agree with 'Reopen in container'
-4. Wait until the container is built and necessary extensions are installed
-5. You're ready
+3. Select "Reopen in Container" when prompted
+4. Wait for the automated environment build to complete. You are ready to develop.

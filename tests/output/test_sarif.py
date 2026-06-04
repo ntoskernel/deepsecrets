@@ -1,15 +1,17 @@
 from unittest.mock import Mock
+from jschema_to_python.to_json import to_json
 import pytest
 
 from deepsecrets.config import Config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
-from deepsecrets.core.model.finding import FindingResponse
+from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.scan_modes.cli import CliScanMode
 
 FP_TO_BE_EXCLUDED = '/app/tests/fixtures/service.postman_collection.json'
+
 
 @pytest.fixture()
 def config() -> Config:
@@ -28,13 +30,25 @@ def test_dojo_sarif(config: Config) -> None:
     mode = CliScanMode(config=config)
     mode.progress_bar = Mock()
     mode.progress_bar.add_task.return_value = 0
+    mode.progress_bar.task_ids = []
 
     findings = []
-    for file in mode.filepaths:
-        findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file))
 
+    for file in mode.filepaths:
+        findings.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file, 0, {}).findings)
+
+    '''
+    # checking through the 'run' method
+    # false findings checked at the end
     findings = []
     findings = mode.run()
+    '''
 
-    sarif_response = FindingResponse.dojo_sarif_from_list(findings)
+    sarif_response = to_json(
+        DojoSarifResponseBuilder()
+        .with_current_mode(mode)
+        .with_findings_list(findings)
+        .with_masking_enabled(not config.disable_masking)
+        .build()
+    )
     assert sarif_response is not None

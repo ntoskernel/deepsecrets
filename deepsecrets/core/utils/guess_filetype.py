@@ -9,21 +9,35 @@ from puppetparser.parser import parse
 class FileTypeGuesser:
 
     def __init__(self) -> None:
+
+        self.hot_swaps = {
+            'Rd': 'R',
+            'cshtml': 'html',
+            'xml': 'html',  # TODO: Check https://github.com/pygments/pygments/issues/1785
+        }
+
         self.probes = {
             'json': self._is_json,
             'toml': self._is_toml,
             'pp': self._is_puppet,
             'ini': self._is_ini,
             'yaml': self._is_yaml,
+            'rst': self._is_rst,
             # 'properties': self._dot_properties,
         }
 
-    def guess(self, content: str) -> Optional[str]:
+    def guess(self, name: str, content: str, extension: Optional[str]) -> Optional[str]:
+
+        swap = self.hot_swaps.get(extension)
+        if swap is not None:
+            return swap
+
         for ext, probe in self.probes.items():
             if probe(content):
                 return ext
-        
+
         # TODO: Guesslang
+        # TODO: HOCON parser
         '''
         ml_guesser = Guess()
         guess = ml_guesser.language_name(content)
@@ -35,13 +49,13 @@ class FileTypeGuesser:
                 return ext
         '''
         return None
-    
+
     def _is_json(self, content: str):
         try:
             json.loads(content)
         except Exception:
             return False
-        
+
         return True
 
     def _is_toml(self, content: str):
@@ -49,7 +63,7 @@ class FileTypeGuesser:
             tomllib.loads(content)
         except Exception:
             return False
-        
+
         return True
 
     def _is_yaml(self, content: str):
@@ -57,20 +71,26 @@ class FileTypeGuesser:
             _ = yaml.safe_load(content)
         except yaml.YAMLError:
             return False
-        
+
         return True
-    
+
     def _is_puppet(self, content: str):
         try:
             _, _ = parse(content)
         except Exception:
             return False
-        
+
         return True
 
     def _is_ini(self, content):
         try:
             _ = ConfigParser().read_string(content)
-        except Exception as e:
+        except Exception:
             return False
         return True
+
+    def _is_rst(self, content: str):
+        features = ['.. code-block::']
+        for feature in features:
+            if feature in content:
+                return True

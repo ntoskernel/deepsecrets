@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!-- <html lang="en-us" manifest="manifest.appcache"> -->
+<html lang="zh-Hans" manifest="manifest.appcache">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
+    <!-- SEO meta:-->
+    <meta name="author" content="xgqfrms">
+    <meta name="generator" content="Sublime Text 3">
+    <meta name="keywords" content="cdn,xgqfrms,xyz,github,free,CDN, cdn.xgqfrms.xyz,">
+    <meta name="description"
+        content="free CDN : CDN for everyone who want to speed his website freely! published on cdn.xgqfrms.xyz">
+    <meta name="application-name" content="free CDN: cdn.xgqfrms.xyz">
+    <link href="./logo/logo.png" rel="shortcut icon" type="image/png">
+    <!--     <link href="./logo/x-logo.png" rel="shortcut icon" type="image/png">
+    <link href="./logo/favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <link href="./logo/favicon.png" rel="shortcut icon" type="image/png"> -->
+
+    <!--     <link rel="icon" type="image/x-icon" href="http://example.com/favicon.ico" />
+<link rel="icon" type="image/png" href="http://example.com/favicon.png" />
+<link rel="icon" type="image/gif" href="http://example.com/favicon.gif" />
+<link rel="icon" type="image/jpeg" href="http://example.com/favicon.jpeg" />
+<link rel="icon" type="image/webp" href="http://example.com/favicon.webp" /> -->
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" href="stylesheets/style.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <!-- <link rel="stylesheet" type="text/css" href="stylesheets/media.css" media="all"> -->
+    <link rel="shortcut icon" href="https://raw.githubusercontent.com/xgqfrms/cdn/gh-pages/logo/logo.png"
+        type="image/png">
+    <title>free CDN by cdn.xgqfrms.xyz</title>
+    <link rel="author" type="text/plain" href="https://cdn.xgqfrms.xyz/humans.txt" />
+    <!-- preload & prefetch -->
+    <link rel="preload" href="./js-hacks/drc-drm.js" as="script">
+    <!-- <link rel="prefetch" href="https://cdn.xgqfrms.xyz/js-hacks/drc-drm.js" as="script"> -->
+    <!-- 不会执行,必须js 操作 -->
+    <script>
+        const usedLaterScript = document.createElement('script');
+        usedLaterScript.src = './js-hacks/drc-drm.js';
+        document.body.appendChild(usedLaterScript);
+    </script>
+    <style>
+        .data-anchor {
+            /* display: none; */
+            /* visibility: hidden; */
+            opacity: 0;
+        }
+
+        .data-anchor:hover {
+            /* display: inline-block; */
+            /* visibility: visible; */
+            opacity: 1;
+        }
+    </style>
+    <!--   Share   -->
+
+    <!-- 
+ 
+“summary”, “summary_large_image”, “app”, or “player”.
+
+https://twittercommunity.com/t/error-invalid-card-name-card-error/24763
+
+https://stackoverflow.com/questions/61509198/twitter-card-not-rendering-error-invalid-card-name-card-error
+
+https://cards-dev.twitter.com/validator
+
+-->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@https://cdn.xgqfrms.xyz">
+    <meta name="twitter:title" content="free CDN">
+    <meta name="twitter:description" content="free CDN for everyone who wants to speed his website!">
+    <meta name="twitter:creator" content="@xgqfrms">
+    <meta name="twitter:image" content="https://cdn.xgqfrms.xyz/logo/logo.png">
+    <meta name="twitter:domain" content="cdn.xgqfrms.xyz">
+    <script src="https://cdn.xgqfrms.xyz/sdk/share-twitter.js" defer></script>
+</head>
+
+<body>
+    <section class="page-header">
+        <h1 class="project-name">free CDN</h1>
+        <h2 class="project-tagline">free CDN for everyone who wants to speed his website!</h2>
+        <a href="https://github.com/xgqfrms/cdn" class="btn" target="_blank">View on GitHub</a>
+        <!-- <a href="https://xgqfrms.github.io/cdn/" class="btn">https://xgqfrms.github.io/cdn/</a> -->
+        <a href="https://cdn.xgqfrms.xyz/" class="btn" target="_blank">https://cdn.xgqfrms.xyz</a>
+        <!--
+      <a href="https://github.com/xgqfrms/cdn/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/xgqfrms/cdn/tarball/master" class="btn">Download .tar.gz</a>
+     -->
+    </section>
+
+    <script>
+        // Initialize the agent at application startup.
+        const fpPromise = import('https://fpcdn.io/v3/cI4jJMJsaqexXIcXPRN5').then(FingerprintJS => FingerprintJS.load({
+            // public key
+            apiKey: 'cI4jJMJsaqexXIcXPRN5',
+            region: 'ap'
+        }));
+
+        // Get the visitor identifier when you need it.
+        fpPromise
+            .then(fp => fp.get())
+            .then(result => {
+                // This is the visitor identifier:
+                const visitorId = result.visitorId;
+                console.log('visitorId =', visitorId);
+            });
+    </script>
+</body>
+
+</html>

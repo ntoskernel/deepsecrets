@@ -1,149 +1,120 @@
-from typing import List
 import pytest
 
-from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.file import File
-from deepsecrets.core.model.finding import Finding, FindingMerger
 from deepsecrets.core.model.token import SemanticType
-from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from tests.case_helpers import semantic_case, semantic_case_with_cheap_var_search
 
 
-@pytest.fixture(scope='module')
-def file() -> File:
-    path = 'tests/fixtures/4.py'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_json_2() -> File:
-    path = 'tests/fixtures/2.json'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_toml_1() -> File:
-    path = 'tests/fixtures/1.toml'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_toml_2() -> File:
-    path = 'tests/fixtures/2.toml'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_sh_2() -> File:
-    path = 'tests/fixtures/2.sh'
-    return File(path=path, relative_path=path)
-
-
-@pytest.fixture(scope='module')
-def file_html_1() -> File:
-    path = 'tests/fixtures/1.html'
-    return File(path=path, relative_path=path)
-
-
-def test_1_semantic_engine(file: File):
-    tokens = LexerTokenizer(deep_token_inspection=True).tokenize(file)
+@pytest.mark.fixture_file_path('4.py')
+def test_python_1(file: File):
+    findings, tokens, variables = semantic_case(file)
     assert len(tokens) == 13
 
-    assert tokens[3].semantic.type == SemanticType.VAR
+    assert tokens[3].semantic.type == SemanticType.VARIABLE
     assert tokens[3].semantic.name == 'pass'
 
-    engine = SemanticEngine(subengine=None)
-    findings = engine.search(tokens[3])
-    assert len(findings) == 1
-    assert findings[0].rules[0].name == 'Var naming'
+    assert len(findings) == 0
 
 
-def test_2_semantic_engine(file_json_2: File):
-    tokens = LexerTokenizer(deep_token_inspection=True).tokenize(file_json_2)
+@pytest.mark.fixture_file_path('2.json')
+def test_json_2(file: File):
+    findings, tokens, variables = semantic_case(file)
     assert len(tokens) == 6
 
-    assert tokens[0].semantic.type == SemanticType.VAR
+    assert tokens[0].semantic.type == SemanticType.VARIABLE
     assert tokens[0].semantic.name == 'access_Token'
 
-    assert tokens[1].semantic.type == SemanticType.VAR
+    assert tokens[1].semantic.type == SemanticType.VARIABLE
     assert tokens[1].semantic.name == 'accessToken'
 
-    engine = SemanticEngine(subengine=None)
-
-    findings = []
-    for token in tokens:
-        findings.extend(engine.search(token))
-
-    assert len(findings) == 3
-    assert findings[0].rules[0].name == 'Entropy+Var naming'
-    assert findings[1].rules[0].name == 'Entropy+Var naming'
-    assert findings[2].rules[0].name == 'Var naming'
+    assert len(findings) == 2
+    assert findings[0].rules[0].name == 'High Entropy and Variable Naming'
+    assert findings[1].rules[0].name == 'High Entropy and Variable Naming'
 
 
-def test_3_semantic_engine(file_toml_1: File):
-    tokens = LexerTokenizer(deep_token_inspection=True).tokenize(file_toml_1)
+@pytest.mark.fixture_file_path('1.toml')
+def test_toml_1(file: File):
+    findings, tokens, variables = semantic_case(file)
     assert len(tokens) == 51
 
-    assert tokens[50].semantic.type == SemanticType.VAR
+    assert tokens[50].semantic.type == SemanticType.VARIABLE
     assert tokens[50].semantic.name == 'MATTERMOST_BOT_TOKEN'
 
-    engine = SemanticEngine(subengine=None)
-
-    findings = []
-    for token in tokens:
-        findings.extend(engine.search(token))
-
     assert len(findings) == 2
-    assert findings[0].rules[0].name == 'Var naming'
-    assert findings[1].rules[0].name == 'Var naming'
+    assert findings[0].rules[0].name == 'High Entropy and Variable Naming'
+    assert findings[1].rules[0].name == 'High Entropy and Variable Naming'
 
 
-def test_4_semantic_engine(file_toml_2: File):
-    tokens = LexerTokenizer(deep_token_inspection=True).tokenize(file_toml_2)
+@pytest.mark.fixture_file_path('2.toml')
+def test_toml_2(file: File):
+    findings, tokens, _ = semantic_case(file)
     assert len(tokens) == 13
-
-    engine = SemanticEngine(subengine=None)
-
-    findings = []
-    findings.extend(engine.search(tokens[4]))
-    findings.extend(engine.search(tokens[10]))
-    findings.extend(engine.search(tokens[12]))
-
-    assert len(findings) == 1
-    assert findings[0].rules[0].name == 'Var naming'
+    assert len(findings) == 4
 
 
-def test_5_semantic_engine(file_sh_2: File):
-    tokens = LexerTokenizer(deep_token_inspection=True).tokenize(file_sh_2)
+@pytest.mark.fixture_file_path('2.sh')
+def test_sh_2(file: File):
+    findings, tokens, _ = semantic_case(file)
     assert len(tokens) == 16
-
-    engine = SemanticEngine(subengine=None)
-
-    findings: List[Finding] = []
-    for token in tokens:
-        findings.extend(engine.search(token))
-
-    for finding in findings:
-        finding.map_on_file(file=file_sh_2, relative_start=finding.start_pos)
-        finding.choose_final_rule()
-
-    findings = FindingMerger(findings).merge()
     assert len(findings) == 1
     assert findings[0].final_rule.name == 'Dangerous condition'
 
 
-def test_6_semantic_engine(file_html_1: File):
-    tokens = LexerTokenizer(deep_token_inspection=True).tokenize(file_html_1)
-    # assert len(tokens) == 16
-
-    engine = SemanticEngine(subengine=None)
-
-    findings: List[Finding] = []
-    for token in tokens:
-        findings.extend(engine.search(token))
-
-    for finding in findings:
-        finding.map_on_file(file=file_html_1, relative_start=finding.start_pos)
-        finding.choose_final_rule()
-
-    findings = FindingMerger(findings).merge()
+@pytest.mark.fixture_file_path('1.html')
+def test_html_1(file: File):
+    findings, _, _ = semantic_case(file)
     assert len(findings) == 0
+
+
+@pytest.mark.fixture_file_path('cases/tricky_secrets.min.js')
+def test_minjs_5_1(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 5
+
+
+@pytest.mark.fixture_file_path('3.html')
+def test_html_3(file: File):
+    findings, _, _ = semantic_case(file)
+    assert len(findings) == 1
+
+
+@pytest.mark.fixture_file_path('cases/code_in_markdown.md')
+def test_ec_code_in_markdown(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 1
+
+
+@pytest.mark.fixture_file_path('8.go')
+def test_go_8(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 1
+
+
+@pytest.mark.fixture_file_path('1.go')
+def test_go_1(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 1
+
+
+@pytest.mark.fixture_file_path('3.conf')
+def test_conf_3(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 1
+
+
+@pytest.mark.fixture_file_path('cheap_var_detector_cases.txt')
+def test_with_cheap_var_search(file: File):
+    findings, tokens, vars = semantic_case_with_cheap_var_search(file)
+    assert len(findings) == 11
+
+
+@pytest.mark.fixture_file_path('5.py')
+def test_5(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 3
+
+
+@pytest.mark.fixture_file_path('1.php')
+def test_6_php(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 1

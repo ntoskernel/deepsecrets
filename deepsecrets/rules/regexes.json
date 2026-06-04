@@ -2,91 +2,99 @@
     {
         "id": "S0",
         "name": "Slack Token",
-        "confidence": 9,
-        "pattern": "xox(?:a|b|p|o|s|r)-(?:\\d+-)+[a-z0-9]+"
+        "confidence": 10,
+        "pattern": "(?=.{20,256})\\bxox[abpors]-(?:[A-Za-z0-9]+-){1,3}[A-Za-z0-9]+\\b"
     },
     {
         "id": "S1",
         "name": "RSA private key",
-        "confidence": 9,
-        "pattern": "-----BEGIN RSA PRIVATE KEY-----[\\S\\s]{15,}?-----END RSA PRIVATE KEY-----"
+        "confidence": 10,
+        "pattern": "-BEGIN[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\s\\S]{0,10}RSA[\\s\\S]{0,10}PRIVATE[\\s\\S]{0,10}KEY-"
     },
     {
         "id": "S2",
         "name": "SSH (OPENSSH) private key",
-        "confidence": 9,
-        "pattern": "-----BEGIN OPENSSH PRIVATE KEY-----[\\S\\s]{15,}?-----END OPENSSH PRIVATE KEY-----"
+        "confidence": 10,
+        "pattern": "-BEGIN[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\S\\s]{0,10}OPENSSH[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S3",
         "name": "SSH (DSA) private key",
-        "confidence": 9,
-        "pattern": "-----BEGIN DSA PRIVATE KEY-----[\\S\\s]{15,}?-----END DSA PRIVATE KEY-----"
+        "confidence": 10,
+        "pattern": "-BEGIN[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\S\\s]{0,10}DSA[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S4",
         "name": "SSH (EC) private key",
-        "confidence": 9,
-        "pattern": "-----BEGIN EC PRIVATE KEY-----[\\S\\s]{15,}?-----END EC PRIVATE KEY-----"
+        "confidence": 10,
+        "pattern": "-BEGIN[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-----[\\s\\S]{50,15000}?-----END[\\S\\s]{0,10}EC[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY-"
     },
     {
         "id": "S5",
         "name": "PGP private key block",
-        "confidence": 9,
-        "pattern": "-----BEGIN PGP PRIVATE KEY BLOCK-----"
+        "confidence": 10,
+        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
+        "match_rules": {
+            "1": {
+                "pattern": ".*",
+                "negative_pattern": "{|}|<|>|(\\)\\))"
+            }
+        }
     },
     {
         "id": "S7",
         "name": "Facebook Oauth",
-        "confidence": 9,
-        "pattern": "facebook.*['|\"][0-9a-f]{32}['|\"]"
+        "confidence": 10,
+        "pattern": "facebook.{0,100}?['\"][0-9a-f]{32}['\"]",
+        "enabled": false
     },
     {
         "id": "S8",
         "name": "Twitter Oauth",
-        "confidence": 9,
-        "pattern": "twitter.*['|\"][0-9a-zA-Z]{35,44}['|\"]"
+        "confidence": 10,
+        "pattern": "twitter.{0,100}?['|\"][0-9a-zA-Z]{35,44}['|\"]"
     },
     {
         "id": "S10",
         "name": "Google Oauth",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "(\"client_secret\":\"[a-zA-Z0-9-_]{24}\")"
     },
     {
         "id": "S12",
         "name": "Heroku API Key",
-        "confidence": 9,
-        "pattern": "heroku.*[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}"
+        "confidence": 10,
+        "pattern": "(?i)heroku.*?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     },
     {
         "id": "S17",
         "name": "Slack Webhook",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "https://hooks.slack.com/services/T[a-zA-Z0-9_]+/B[a-zA-Z0-9_]+/[a-zA-Z0-9_]+"
     },
     {
         "id": "S18",
         "name": "Google (GCP) Service-account",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "\"type\": \"service_account\""
     },
     {
         "id": "S19",
         "name": "Password in URL",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "://([^.\"/@]+):([^.\"/@]+)@\\S+",
         "target_group": 2,
         "match_rules": {
             "2": {
-                "pattern": "^[^\\$|{|%|<].+[^\\$|}|%|>]$"
+                "pattern": "^[^\\${%<*][^ ]+[^}%>*]$",
+                "negative_pattern": "^(.*symb.*|.*mock.*|.*color.*|.*password.*|.*ctrl.*|.*help.*|.*numb.*|.*long.*|.*short.*|.*tip.*|.*down.*|.*head.*|.*info.*|.*last.*|.*next.*|.*title.*|.*label.*|.*error.*|.*view.*|.*center.*|.*date.*|.*paren.*|.*able.*|.*examp.*|.*servi.*|.*class.*|.*prope.*|.*reset.*|.*eract.*|.*rule.*|.*track.*|.*cloud.*|.*call.*|.*index.*|.*limit.*|.*acces.*|.*param.*|.*note.*|.*name.*|.*descr.*|.*value.*|.*polic.*|.*part.*|.*correc.*|.*conte.*|.*media.*|.*exten.*|.*defau.*|.*fill.*|.*unive.*|.*star.*|.*addit.*|.*stac.*|.*excep.*|.*messa.*|.*zone.*|.*total.*|.*type.*|.*valid.*|.*instan.*|.*seria.*|.*docum.*|.*base.*|.*addre.*|.*size.*|.*first.*|.*sourc.*|.*cover.*|.*gener.*|.*config.*|.*with.*|.*window.*|.*support.*|.*comment.*|.*batch.*|.*vault.*|.*secret.*|.*copy.*|.*filte.*|.*clear.*|.*status.*|.*private.*|.*password.*|.*invalid.*|.*link.*|.*test.*|.*expir.*|.*empty.*|.*token.*|null|bearer|foo|foobar|xyz|undefined|none|.*todo.*|.*change.*|.*restore.*|[^A-Za-z0-9]*|%.*%|\\[.*\\]|{.*})$"
             }
         }
     },
     {
         "id": "S20",
         "name": "BAuth",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "Basic @[a-zA-Z0-9+/]+={0,2}"
     },
     {
@@ -104,14 +112,20 @@
     {
         "id": "S25",
         "name": "Slack App Token",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "xapp-[0-9]+-[A-Za-z0-9_]+-[0-9]+-[a-f0-9]+"
     },
     {
         "id": "S26",
         "name": "Custom private key",
-        "confidence": 9,
-        "pattern": "-----BEGIN PRIVATE KEY-----[\\S\\s]{15,}?-----END PRIVATE KEY-----"
+        "confidence": 10,
+        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
+        "match_rules": {
+            "1": {
+                "pattern": ".*",
+                "negative_pattern": "{|}|<|>|(\\)\\))"
+            }
+        }
     },
     {
         "id": "S28",
@@ -120,7 +134,7 @@
         "confidence": 0,
         "match_rules": {
             "2": {
-                "pattern": "^\\s*(?:'|:|=)*\\s*$"
+                "pattern": "^\\s*(?:'|:|=)+\\s*$"
             }
         },
         "target_group": 3,
@@ -129,13 +143,13 @@
     {
         "id": "S29",
         "name": "Ansible vault",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "\\$ANSIBLE_VAULT;[0-9]\\.[0-9];AES256"
     },
     {
         "id": "S30",
         "name": "AWS MWS",
-        "confidence": 9,
+        "confidence": 10,
         "applicable_file_patterns": [
             ".*.txt$"
         ],
@@ -144,26 +158,80 @@
     {
         "id": "S31",
         "name": "Github App Token",
-        "confidence": 9,
-        "pattern": "\b((?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,255})\b"
+        "confidence": 10,
+        "pattern": "\\b((?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,255})\\b"
     },
     {
         "id": "S32",
         "name": "Github OAuth",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "gho_[0-9a-zA-Z]{36}"
     },
     {
         "id": "S33",
         "name": "Github Personal Access Token",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "ghp_[0-9a-zA-Z]{36}"
     },
 
     {
         "id": "S34",
         "name": "Gitlab Personal Access Token",
-        "confidence": 9,
+        "confidence": 10,
         "pattern": "glpat-[0-9a-zA-Z\\-\\_]{20}"
+    },
+    {
+        "id": "S35",
+        "name": "AWS Access Key ID",
+        "confidence": 10,
+        "pattern": "\\b(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16,17}\\b",
+        "case_sensitive": true
+    },
+    {
+        "id": "S36",
+        "description": "https://docs.stripe.com/keys",
+        "name": "Stripe Secret",
+        "confidence": 10,
+        "pattern": "\\b(?:pk|sk|rk)_(?:test|live)_([0-9a-zA-Z]{24,45})\\b",
+        "match_rules": {
+            "1": {
+                "pattern": ".*",
+                "negative_pattern": "^(.)\\1{10,}"
+            }
+        }
+    },
+    {
+        "id": "S37",
+        "name": "BitCoin WIF Private Key",
+        "confidence": 7,
+        "pattern": "\\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\\b",
+        "case_sensitive": true
+    },
+    {
+        "id": "S38",
+        "name": "Google API Key",
+        "confidence": 10,
+        "pattern": "\\bAIzaSy[A-Za-z0-9\\-_]{33}\\b"
+    },
+    {
+        "id": "S39",
+        "name": "Mailchimp API Key",
+        "confidence": 6,
+        "pattern": "\\b[0-9a-f]{32}-[a-z]{2}\\d{1,2}\\b"
+    },
+    {
+        "id": "S40",
+        "name": "LocationIQ Key",
+        "confidence": 10,
+        "pattern": "\\bpk\\.[a-zA-Z0-9]{30,32}\\b"
+    },
+    {
+        "id": "S41",
+        "name": "SQL Server Connection String",
+        "confidence": 10,
+        "pattern": "sqlserver://(?:.*?);.*?(?:password)=(.*?)(?:;|\\s|$)",
+        "target_group": 1
     }
-]
+    
+    
+] 

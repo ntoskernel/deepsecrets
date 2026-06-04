@@ -1,36 +1,33 @@
 import argparse
 from datetime import datetime
 import json
-import logging
 from argparse import RawTextHelpFormatter
-from typing import List
+from typing import Dict, List
 from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME, console
-from deepsecrets.config import Config, config, Output
+from deepsecrets.config import SCANNER_VERSION, SCANNER_VERSION_NUMERIC, Config, config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
-from deepsecrets.core.model.finding import Finding, FindingResponse
+from deepsecrets.core.model.finding import Finding
+from deepsecrets.core.model.response.builtin import BuiltinFormatResponseBuilder
+from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
+from deepsecrets.core.ui.progress_bar import DSApplicationProgess
+from deepsecrets.core.ui.time_remaining_column import SyncedTimeRemainingColumn
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger
 from deepsecrets.scan_modes.cli import CliScanMode
 
-from rich.progress import (
-    SpinnerColumn,
-    Progress,
-    TextColumn,
-    BarColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-)
-from rich.table import Table
+from rich.progress import SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.panel import Panel
+from rich.table import Table, Column
 from rich import box
 from rich.text import Text
 from rich.align import Align
-
 
 DISABLED = 'disabled'
 
@@ -41,17 +38,22 @@ class ReturnCodes:
     FINDINGS_DETECTED = 66
 
 
-progress_bar = Progress(
+overall_time_column = SyncedTimeRemainingColumn()
+progress_bar = DSApplicationProgess(
     SpinnerColumn(),
-    TextColumn("[progress.description]{task.description}"),
-    TextColumn("[bold red]{task.fields[findings]}", justify="left"),
+    TextColumn("[progress.description]{task.description}", table_column=Column(max_width=60, no_wrap=True)),
+    TextColumn("[bold blue]{task.fields[size]}"),
     BarColumn(bar_width=None),
-    TaskProgressColumn(),
-    TimeRemainingColumn(),
+    TaskProgressColumn('[progress.percentage]{task.percentage:>3.1f}%'),
+    overall_time_column,
+    TextColumn("[bold red]{task.fields[findings]}", justify="right"),
+    TextColumn("[bold red]{task.fields[errors]}", justify="right"),
     console=console,
-    refresh_per_second=10,
+    refresh_per_second=5,
     expand=True,
+    speed_estimate_period=90,
 )
+overall_time_column.progress_instance = progress_bar
 
 
 class DeepSecretsCliTool:
@@ -73,7 +75,7 @@ class DeepSecretsCliTool:
                     Text('____________________________________', style='reverse'),
                     padding=(0, 0),
                     title='A better tool for Secret Scanning ',
-                    subtitle='version 1.4.0',
+                    subtitle=f'version {SCANNER_VERSION}',
                 ),
                 align='center',
             )
@@ -101,7 +103,7 @@ class DeepSecretsCliTool:
             help='Paths to your Regex Rulesets.\n'
             "- Set 'disable' to turn off regex checks\n"
             '- Ignore this argument to use the built-in ruleset.\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to enable it\n"
+            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
             'eq. --regex-rules built-in /root/my_regex_rules.json\n',
             default=['built-in'],
         )
@@ -119,7 +121,19 @@ class DeepSecretsCliTool:
             type=str,
             help='Controls semantic checks (enabled by default)\n'
             "- Set 'disable' to turn off semantic checks (not recommended)\n"
-            'eq. --semantic-analysis disable',
+            'eq. --semantic-analysis disable\n'
+            'Uses "--variable-scoring-rules" under the hood',
+            default=['built-in'],
+        )
+
+        parser.add_argument(
+            '--variable-scoring-rules',
+            nargs='*',
+            type=str,
+            help='Controls rules for assessing variables as dangerous based on names, values, langs and filenames\n'
+            '- Ignore this argument to use the built-in (mature and robust) ruleset\n'
+            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
+            'eq. --variable-scoring-rules built-in /root/my_var_scoring_rules.json\n',
             default=['built-in'],
         )
 
@@ -182,24 +196,29 @@ class DeepSecretsCliTool:
             type=str,
             default='spawn',
             choices=['fork', 'spawn', 'forkserver'],
-            help='Experimental: control the multiprocessing context\n',
+            help='Control the multiprocessing context\n',
         )
 
         parser.add_argument('--outfile', required=True, type=str)
         parser.add_argument(
             '--outformat',
-            default='json',
+            default='sarif',
             type=str,
-            choices=['json', 'dojo-sarif'],
-            help='"json": internal format (default)\n' '"dojo-sarif": SARIF format compatible with DefectDojo\n',
+            choices=['json', 'sarif', 'dojo-sarif'],
+            help='"sarif": SARIF format (specification accurate, default)\n'
+            '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n'
+            '"json": old internal format (deprecated and will be removed soon)',
         )
 
         parser.add_argument(
             '--disable-masking',
             action='store_true',
-            help='Secrets are rendered masked inside reports by default.\n'
-            'Use this flag if you want to render found secrets in plaintext.',
+            help='Secrets are rendered MASKED inside the report by default.\n'
+            'Use this flag if you want to render found secrets in plaintext but be extremely careful.',
         )
+
+        parser.add_argument('--benchmarking-mode', help=argparse.SUPPRESS, action='store_true')
+        parser.add_argument('--oneshot', help=argparse.SUPPRESS, type=str, default=None)
 
         self.argparser = parser
 
@@ -207,17 +226,23 @@ class DeepSecretsCliTool:
 
         user_args = self.argparser.parse_args(args=self.args[1:])
         if user_args.verbose:
-            config.set_logging_level(logging.DEBUG)
+            pass
+            # config.set_logging_level(logging.DEBUG)
 
         if user_args.disable_masking:
             config.set_disable_masking(True)
 
+        if user_args.benchmarking_mode:
+            config._set_benchmarking_mode(True)
+
         self.say_hello()
 
         config.set_workdir(user_args.target_dir)
+        config.set_oneshot_path(user_args.oneshot)
         config.set_max_file_size(user_args.max_file_size)
         config.set_process_count(user_args.process_count)
         config.set_mp_context(user_args.multiprocessing_context)
+        config.set_verbose(user_args.verbose)
         config.output = Output(type=user_args.outformat, path=user_args.outfile)
 
         if user_args.reflect_findings_in_return_code:
@@ -240,6 +265,13 @@ class DeepSecretsCliTool:
         if conf_semantic_analysis is not None and conf_semantic_analysis != DISABLED:
             config.engines.append(SemanticEngine)
 
+            VARIABLE_SCORING_RULESET = get_path_inside_package('rules/variable_scoring_rules.json')
+            if user_args.variable_scoring_rules is not None:
+                rules = [
+                    rule.replace('built-in', VARIABLE_SCORING_RULESET) for rule in user_args.variable_scoring_rules
+                ]
+                config.add_ruleset(VariableScoringRulesetBuilder, rules)
+
         conf_hashed_ruleset = user_args.hashed_values
         if conf_hashed_ruleset is not None and conf_hashed_ruleset != DISABLED:
             config.engines.append(RegexEngine)
@@ -252,6 +284,9 @@ class DeepSecretsCliTool:
     def get_current_config(self) -> Config:
         return config
 
+    def _add_ignorefiles(self, files: List[str]):
+        config.set_global_exclusion_paths(files)
+
     def start(self) -> int:  # pragma: nocover
         startup_time = datetime.now()
         try:
@@ -260,6 +295,51 @@ class DeepSecretsCliTool:
             logger.exception(e)
             return ReturnCodes.ERROR
 
+        if config.output.type == 'json':
+            console.print('\n')
+            if SCANNER_VERSION_NUMERIC[0] == 2 and SCANNER_VERSION_NUMERIC[1] < 1:
+                console.print(
+                    Align(
+                        Panel(
+                            "The internal JSON report format is now DEPRECATED and will be removed in release 2.1.0\n\nConsider switching now.",
+                            padding=(1, 2),
+                            title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
+                            highlight=True,
+                            subtitle=Text(' --outformat sarif ', style='reverse'),
+                            title_align='center',
+                            width=90,
+                            subtitle_align='center',
+                            box=box.HEAVY,
+                            style='black on orange_red1',
+                            expand=False,
+                        ),
+                        align='center',
+                    )
+                )
+
+            else:
+                console.print(
+                    Align(
+                        Panel(
+                            f"The internal JSON report format was DEPRECATED since the release 2.0.0.\nNow ({SCANNER_VERSION}) it is REMOVED. Switch to SARIF\n.",
+                            padding=(1, 2),
+                            title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
+                            highlight=True,
+                            subtitle=Text(' --outformat sarif ', style='reverse'),
+                            title_align='center',
+                            width=90,
+                            subtitle_align='center',
+                            box=box.HEAVY,
+                            style='black on orange_red1',
+                            expand=False,
+                        ),
+                        align='center',
+                    )
+                )
+                return ReturnCodes.ERROR
+
+            console.print('\n\n')
+
         console.rule(
             f'Planning a scan against {config.workdir_path} using {config.process_count} process(es)', characters='='
         )
@@ -267,6 +347,11 @@ class DeepSecretsCliTool:
         if config.disable_masking is True:
             console.print(
                 '[bold red]:warning: SECRETS MASKING IS DISABLED. REPORT WILL CONTAIN SECRETS IN PLAINTEXT. BE CAREFUL!\n',
+                justify='center',
+            )
+        else:
+            console.print(
+                '[bold green]:warning: SECRETS MASKING IS ENABLED. FINGERPRINTS ARE UNAFFECTED\n(downstream ASPM deduplication will work normally)\n',
                 justify='center',
             )
 
@@ -278,13 +363,25 @@ class DeepSecretsCliTool:
         mode = CliScanMode(config=config)
 
         console.line()
-        console.rule('Starting analysis', characters='—')
-        console.line()
-        mode.set_progress_bar(progress_bar)
 
-        progress_bar.start()
-        findings: List[Finding] = mode.run()
-        progress_bar.stop()
+        mode.set_progress_bar(progress_bar)
+        mode.progress_bar.set_start_time(startup_time)
+        mode.progress_bar.start()
+
+        findings: List[Finding]
+        errors: Dict[str, List[str]]
+        timings: Dict[str, int]
+
+        findings, errors, timings = mode.run()
+
+        '''
+        for finding in findings:
+            if finding._mapped_on_file is False:
+                continue
+            finding.file = None
+        '''
+
+        mode.progress_bar.stop()
         finish_time = datetime.now()
         report_path = get_abspath(config.output.path)
 
@@ -292,31 +389,63 @@ class DeepSecretsCliTool:
         console.print('[bold green]Scanning finished successfully', justify='center')
         console.line()
 
-        console.rule('REPORT', characters='=')
+        console.rule('', characters='=')
         console.line()
-        table = Table(box=box.HORIZONTALS, show_header=False, row_styles=['blink'], style='dim', width=80)
+        table = Table(
+            title=Text('REPORT SUMMARY'),
+            box=box.HORIZONTALS,
+            show_header=False,
+            row_styles=['blink'],
+            style='dim',
+            width=80,
+        )
         table.add_column()
         table.add_column(justify='right')
         table.add_row(
-            Align('Files (Tokens) Processed', vertical='middle'),
-            f'{str(len(mode.filepaths))} ({mode.get_total_tokens_processed()})',
+            Align('Processed Files (Tokens)', vertical='middle'),
+            f'{str(len(mode.filepaths))} ({mode.stats.tokens_processed})',
         )
         table.add_row(Align('Elapsed', vertical='middle'), f'{(finish_time-startup_time).total_seconds():.1f}s')
+        errors_line_color = '[bold red]' if len(errors.keys()) > 0 else '[bold green]'
+        table.add_row(
+            Align(f'{errors_line_color}File Errors', vertical='middle'),
+            f'{errors_line_color}{mode.stats.failed_files}',
+        )
+        table.add_row()
+
         findings_line_color = '[bold red]' if len(findings) > 0 else '[bold green]'
         table.add_row(
             Align(f'{findings_line_color}Potential Findings', vertical='middle'),
             f'{findings_line_color}{str(len(findings))}',
         )
-        table.add_row(Align('Report Location', vertical='middle'), report_path)
+        table.add_row(Align(f'Report Location ({config.output.type})', vertical='middle'), report_path)
         console.print(Align(table, align='center'))
+
+        if config._benchmarking_mode is True:
+            return findings, errors, timings, mode._oneshot_file
 
         with open(report_path, 'w+') as f:
 
             if config.output.type == 'json':
-                json.dump(FindingResponse.from_list(findings, config.disable_masking), f)
+                json.dump(
+                    BuiltinFormatResponseBuilder()
+                    .with_current_mode(mode)
+                    .with_findings_list(findings)
+                    .with_masking_enabled(not config.disable_masking)
+                    .build(),
+                    f,
+                )
 
-            if config.output.type == 'dojo-sarif':
-                f.write(to_json(FindingResponse.dojo_sarif_from_list(findings, config.disable_masking)))
+            if config.output.type in ['sarif', 'dojo-sarif']:
+                f.write(
+                    to_json(
+                        DojoSarifResponseBuilder()
+                        .with_current_mode(mode)
+                        .with_findings_list(findings)
+                        .with_masking_enabled(not config.disable_masking)
+                        .build()
+                    )
+                )
 
         if len(findings) > 0 and config.disable_masking:
             console.print(

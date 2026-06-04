@@ -1,5 +1,5 @@
 import regex as re
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from deepsecrets.core.utils.log import logger
 from deepsecrets.core.utils.fs import get_abspath
@@ -10,8 +10,8 @@ class File:
     path: str
     content: str = ''
     length: int
-    line_offsets: Dict[int, Tuple[int, int]] = {}
-    line_contents_cache: Dict[int, str] = {}
+    line_offsets: Dict[int, Tuple[int, int]]
+    line_contents_cache: Dict[int, str]
     empty: bool
     name: str
     extension: Optional[str]
@@ -22,9 +22,11 @@ class File:
         relative_path: Optional[str] = None,
         content: Optional[str] = None,
         offsets: Optional[Dict] = None,
+        extension: Optional[str] = None,
     ) -> None:
         self.line_offsets = {}
         self.line_contents_cache = {}
+        self.path = None
 
         if path is not None:
             self.path = get_abspath(path)
@@ -38,11 +40,12 @@ class File:
                 self.content = self._get_contents()
             except Exception as e:
                 logger.error(f'Error during fetching file contents: {e}')
+                raise
 
         self.length = len(self.content)
 
-        self.name = self._get_name()
-        self.extension = self._get_extension()
+        self.name = self._get_name() if self.path is not None else 'ephemeral'
+        self.extension = extension if extension is not None else self._get_extension()
         self.empty = True if self.length == 0 else False
 
         if offsets is not None:
@@ -56,6 +59,9 @@ class File:
         return by_slash[-1].split('.')[0]
 
     def _get_extension(self) -> Optional[str]:
+        if self.path is None:
+            return None
+
         by_dot = self.path.split('.')
         if len(by_dot) == 1:
             return None
@@ -71,8 +77,12 @@ class File:
         if len(self.line_offsets) == 0 and self.length > 0:
             self.line_offsets[1] = (0, self.length)
 
+        last_line_number = len(self.line_offsets)
+        if self.line_offsets[last_line_number][1] != self.length - 1:
+            self.line_offsets[last_line_number + 1] = (self.line_offsets[last_line_number][1], self.length - 1)
+
     def _get_contents(self) -> str:
-        with open(self.path) as f:
+        with open(self.path, errors='replace') as f:
             raw = f.read()
             if raw[-1] != '\n':
                 raw += '\n'
@@ -109,6 +119,12 @@ class File:
         if between is None:
             between = (0, self.length)
 
+        if between[0] < 0:
+            between[0] = 0
+
+        if between[1] > self.length:
+            between[1] = self.length
+
         search_window = self.content[between[0] : between[1]]
 
         pattern = re.escape(str)
@@ -121,7 +137,29 @@ class File:
 
     def get_column_number(self, position: int) -> int:
         line_number = self.get_line_number(position=position)
-        return position - self.line_offsets[line_number][0]
+        return position - self.line_offsets[line_number][0] + 1
+
+    def is_one_liner(self) -> bool:
+        return len(self.line_offsets) == 1
+
+    def get_line_length(self, line_number: int) -> int:
+        offsets = self.line_offsets.get(line_number)
+        return offsets[1] - offsets[0]
+
+    def get_line_start_offset(self, line_number: int) -> int:
+        return self.line_offsets.get(line_number)[0]
+
+    def get_offset(self, line: int, column: int) -> int:
+        return self.get_line_start_offset(line) + column
+
+    def check_boundaries(self, boundaries: List[int]):
+        if boundaries[0] < 0:
+            boundaries[0] = 0
+
+        if boundaries[1] >= self.length:
+            boundaries[1] = self.length - 1
+
+        return boundaries
 
     def __repr__(self) -> str:  # pragma: no cover
         return self.path

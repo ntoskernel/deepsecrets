@@ -3,9 +3,6 @@ from typing import List, Union
 from deepsecrets.core.helpers.entropy import EntropyHelper
 from deepsecrets.core.model.rules.variable_scoring import VariableScoringRule
 from deepsecrets.core.model.semantic import Context, Variable
-from nostril import nonsense
-
-# func = generate_nonsense_detector(min_score=8.1)
 
 
 @dataclass
@@ -56,41 +53,6 @@ class VariableEvaluator:
             return (entropy - 3) * 35
 
         return 40
-
-    def _is_nonsense(self, token: str) -> float:
-        if len(token) <= 6:
-            return 0
-
-        is_nonsense = True
-        try:
-            is_nonsense = nonsense(token)
-        except ValueError:
-            pass
-
-        return 1 if is_nonsense is True else 0
-
-    def calculate_nonsense_value_score(self, parts: List[str], normalized: str) -> float:
-        if len(normalized) > 300:
-            return 1  # obviously
-
-        len_checks = 0
-        applicable_parts = [t for t in parts if len(t) > 6]
-        scores = 0
-
-        for part in applicable_parts:
-            try:
-                scores += self._is_nonsense(part)
-                len_checks += 1
-            except Exception:
-                pass
-
-        normalized_string_score = 0
-        if len(normalized) > 6:
-            normalized_string_score = self._is_nonsense(normalized)
-
-        if len_checks == 0:
-            return 0
-        return ((scores / len_checks) + normalized_string_score) / 2
 
     def evaluate(self, variable: Union[Variable | Context]) -> EvaluationResult:
         context = variable.context if isinstance(variable, Variable) else variable

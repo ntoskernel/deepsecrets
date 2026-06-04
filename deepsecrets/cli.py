@@ -349,6 +349,11 @@ class DeepSecretsCliTool:
                 '[bold red]:warning: SECRETS MASKING IS DISABLED. REPORT WILL CONTAIN SECRETS IN PLAINTEXT. BE CAREFUL!\n',
                 justify='center',
             )
+        else:
+            console.print(
+                '[bold green]:warning: SECRETS MASKING IS ENABLED. FINGERPRINTS ARE UNAFFECTED\n(downstream ASPM deduplication will work normally)\n',
+                justify='center',
+            )
 
         if config.return_code_if_findings is True:
             console.print(

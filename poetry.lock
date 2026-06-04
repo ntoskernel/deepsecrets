@@ -111,12 +111,12 @@ version = "0.4.6"
 description = "Cross-platform colored terminal text."
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
-groups = ["main", "dev", "test"]
+groups = ["dev", "test"]
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
-markers = {main = "sys_platform == \"win32\"", dev = "platform_system == \"Windows\"", test = "sys_platform == \"win32\""}
+markers = {dev = "platform_system == \"Windows\"", test = "sys_platform == \"win32\""}
 
 [[package]]
 name = "coverage"
@@ -261,7 +261,7 @@ version = "1.3.1"
 description = "Backport of PEP 654 (exception groups)"
 optional = false
 python-versions = ">=3.7"
-groups = ["main", "test"]
+groups = ["test"]
 markers = "python_version == \"3.10\""
 files = [
     {file = "exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598"},
@@ -275,27 +275,12 @@ typing-extensions = {version = ">=4.6.0", markers = "python_version < \"3.13\""}
 test = ["pytest (>=6)"]
 
 [[package]]
-name = "humanize"
-version = "4.15.0"
-description = "Python humanize utilities"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "humanize-4.15.0-py3-none-any.whl", hash = "sha256:b1186eb9f5a9749cd9cb8565aee77919dd7c8d076161cf44d70e59e3301e1769"},
-    {file = "humanize-4.15.0.tar.gz", hash = "sha256:1dd098483eb1c7ee8e32eb2e99ad1910baefa4b75c3aff3a82f4d78688993b10"},
-]
-
-[package.extras]
-tests = ["freezegun", "pytest", "pytest-cov"]
-
-[[package]]
 name = "iniconfig"
 version = "2.3.0"
 description = "brain-dead simple config-ini parsing"
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "test"]
+groups = ["test"]
 files = [
     {file = "iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"},
     {file = "iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730"},
@@ -526,28 +511,6 @@ files = [
 ]
 
 [[package]]
-name = "nostril"
-version = "1.2.0"
-description = "Nonsense String Evaluator"
-optional = false
-python-versions = ">=3"
-groups = ["main"]
-files = []
-develop = false
-
-[package.dependencies]
-humanize = ">=0.5.1"
-plac = ">=0.9.1"
-pytest = ">=3.0.5"
-tabulate = ">=0.7.7"
-
-[package.source]
-type = "git"
-url = "https://github.com/casics/nostril.git"
-reference = "HEAD"
-resolved_reference = "fbc0c91249283a9fbc9036206391ce1138826fd3"
-
-[[package]]
 name = "ordered-set"
 version = "4.1.0"
 description = "An OrderedSet is a custom MutableSet that remembers its order, so that every"
@@ -568,7 +531,7 @@ version = "26.2"
 description = "Core utilities for Python packages"
 optional = false
 python-versions = ">=3.8"
-groups = ["main", "dev", "test"]
+groups = ["dev", "test"]
 files = [
     {file = "packaging-26.2-py3-none-any.whl", hash = "sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e"},
     {file = "packaging-26.2.tar.gz", hash = "sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661"},
@@ -607,18 +570,6 @@ files = [
 setuptools = "*"
 
 [[package]]
-name = "plac"
-version = "1.4.5"
-description = "The smartest command line arguments parser in the world"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "plac-1.4.5-py2.py3-none-any.whl", hash = "sha256:87187786b4e446688b1cf5112e18fed8a23ab3b316c25fe91266a10bd1736b16"},
-    {file = "plac-1.4.5.tar.gz", hash = "sha256:5f05bf85235c017fcd76c73c8101d4ff8e96beb3dc58b9a37de49cac7de82d14"},
-]
-
-[[package]]
 name = "platformdirs"
 version = "4.9.6"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
@@ -636,7 +587,7 @@ version = "1.6.0"
 description = "plugin and hook calling mechanisms for python"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "test"]
+groups = ["test"]
 files = [
     {file = "pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746"},
     {file = "pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3"},
@@ -875,7 +826,7 @@ version = "9.0.3"
 description = "pytest: simple powerful testing with Python"
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "test"]
+groups = ["test"]
 files = [
     {file = "pytest-9.0.3-py3-none-any.whl", hash = "sha256:2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9"},
     {file = "pytest-9.0.3.tar.gz", hash = "sha256:b86ada508af81d19edeb213c681b1d48246c1a91d304c6c81a427674c17eb91c"},
@@ -1232,27 +1183,12 @@ test = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "ini2toml[lite] (>=
 type = ["importlib_metadata (>=7.0.2) ; python_version < \"3.10\"", "jaraco.develop (>=7.21) ; sys_platform != \"cygwin\"", "mypy (==1.18.*)", "pytest-mypy"]
 
 [[package]]
-name = "tabulate"
-version = "0.10.0"
-description = "Pretty-print tabular data"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3"},
-    {file = "tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d"},
-]
-
-[package.extras]
-widechars = ["wcwidth"]
-
-[[package]]
 name = "tomli"
 version = "2.4.1"
 description = "A lil' TOML parser"
 optional = false
 python-versions = ">=3.8"
-groups = ["main", "dev", "test"]
+groups = ["dev", "test"]
 files = [
     {file = "tomli-2.4.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:f8f0fc26ec2cc2b965b7a3b87cd19c5c6b8c5e5f436b984e85f486d652285c30"},
     {file = "tomli-2.4.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:4ab97e64ccda8756376892c53a72bd1f964e519c77236368527f758fbc36a53a"},
@@ -1302,7 +1238,7 @@ files = [
     {file = "tomli-2.4.1-py3-none-any.whl", hash = "sha256:0d85819802132122da43cb86656f8d1f8c6587d54ae7dcaf30e90533028b49fe"},
     {file = "tomli-2.4.1.tar.gz", hash = "sha256:7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f"},
 ]
-markers = {main = "python_version == \"3.10\"", dev = "python_version == \"3.10\"", test = "python_full_version <= \"3.11.0a6\""}
+markers = {dev = "python_version == \"3.10\"", test = "python_full_version <= \"3.11.0a6\""}
 
 [[package]]
 name = "typing-extensions"
@@ -1335,4 +1271,4 @@ typing-extensions = ">=4.12.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0.0"
-content-hash = "5002680d75a020a106d69a8032dd310c2080f37dea756eecf064f28c37083c55"
+content-hash = "4200fed60d13e83cb551c0f9683b444b86670dba3e21ccafe90a72c4e4beb962"

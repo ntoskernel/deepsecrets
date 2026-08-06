@@ -1,7 +1,7 @@
 [project]
 name = "deepsecrets"
-version = "2.0.0"
-description = "A better tool for secrets search"
+version = "2.0.1"
+description = "A better tool for secrets scanning"
 license = { text = "MIT" }
 readme = "README.md"
 authors = [

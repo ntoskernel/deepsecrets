@@ -90,8 +90,8 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
         return TierAwareSarifRuleMeta(
             id=f'{base_rule_id}{suffix}',
             payload={
-                'shortDescription': {'text': f'{base_description} ({tier.get('label')} Confidence)'},
-                'properties': {'precision': tier.get('precision'), 'security-severity': tier.get('severity')},
+                'shortDescription': {'text': f'{base_description} ({tier.get("label")} Confidence)'},
+                'properties': {'precision': tier.get("precision"), 'security-severity': tier.get("severity")},
             },
         )
 

@@ -117,13 +117,11 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
     def with_current_mode(self, mode: ScanMode):
         super().with_current_mode(mode)
-        self.report.runs[0].original_uri_base_ids = (
-            {
-                SRC_PATH_BASE_ID: {
-                    'uri': self.mode.config.workdir_path,
-                },
+        self.report.runs[0].original_uri_base_ids = {
+            SRC_PATH_BASE_ID: {
+                'uri': self.mode.config.workdir_path,
             },
-        )
+        }
         return self
 
     def _convert_rules(self, rules: Set[TierAwareSarifRuleMeta]) -> List[ReportingDescriptor]:

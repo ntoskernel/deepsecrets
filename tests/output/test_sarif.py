@@ -44,11 +44,16 @@ def test_dojo_sarif(config: Config) -> None:
     findings = mode.run()
     '''
 
-    sarif_response = to_json(
+    sarif_data = (
         DojoSarifResponseBuilder()
         .with_current_mode(mode)
         .with_findings_list(findings)
         .with_masking_enabled(not config.disable_masking)
         .build()
     )
+
+    sarif_response = to_json(sarif_data)
+    assert sarif_data is not None
     assert sarif_response is not None
+
+    assert type(sarif_data.runs[0].original_uri_base_ids) is dict

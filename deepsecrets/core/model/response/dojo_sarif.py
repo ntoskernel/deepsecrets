@@ -90,8 +90,8 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
         return TierAwareSarifRuleMeta(
             id=f'{base_rule_id}{suffix}',
             payload={
-                'shortDescription': {'text': f'{base_description} ({tier.get('label')} Confidence)'},
-                'properties': {'precision': tier.get('precision'), 'security-severity': tier.get('severity')},
+                'shortDescription': {'text': f'{base_description} ({tier.get("label")} Confidence)'},
+                'properties': {'precision': tier.get("precision"), 'security-severity': tier.get("severity")},
             },
         )
 
@@ -117,13 +117,11 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
     def with_current_mode(self, mode: ScanMode):
         super().with_current_mode(mode)
-        self.report.runs[0].original_uri_base_ids = (
-            {
-                SRC_PATH_BASE_ID: {
-                    'uri': self.mode.config.workdir_path,
-                },
+        self.report.runs[0].original_uri_base_ids = {
+            SRC_PATH_BASE_ID: {
+                'uri': self.mode.config.workdir_path,
             },
-        )
+        }
         return self
 
     def _convert_rules(self, rules: Set[TierAwareSarifRuleMeta]) -> List[ReportingDescriptor]:

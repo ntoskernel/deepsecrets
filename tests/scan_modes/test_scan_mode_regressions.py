@@ -1,14 +1,17 @@
+import pickle
 import shutil
 import threading
+from dataclasses import FrozenInstanceError, fields
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from unittest.mock import Mock
 
-from dotwiz import DotWiz
+import pytest
 
 from deepsecrets.config import Config, Output
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
+from deepsecrets.core.model.internal.processing import AnalyzerBundle
 from deepsecrets.core.model.rules.hashed_secret import HashedSecretRule
 from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
@@ -67,7 +70,7 @@ def test_worker_relative_path_with_repeated_workdir(tmp_path: Path):
     target = nested / 'app.py'
     target.write_text('password = "hunter2hunter2"\n')
 
-    bundle = DotWiz(
+    bundle = AnalyzerBundle(
         workdir=str(workdir),
         benchmarking_mode=False,
         engines={'regex': True},
@@ -81,7 +84,7 @@ def test_worker_relative_path_with_repeated_workdir(tmp_path: Path):
 
 def test_worker_runs_hashed_engine():
     builder = HashedSecretsRulesetBuilder().with_rules_from_file('tests/fixtures/hashed_secrets.json')
-    bundle = DotWiz(
+    bundle = AnalyzerBundle(
         workdir='/app/tests/fixtures',
         benchmarking_mode=False,
         engines={'hashed': True},
@@ -124,6 +127,24 @@ def test_run_terminates_when_a_worker_raises():
         mode.dispose()
 
 
+def test_analyzer_bundle_carries_what_workers_read():
+    config = _config('tests/fixtures/extless')
+    mode = CliScanMode(config=config)
+    try:
+        bundle = mode.analyzer_bundle()
+
+        assert {f.name for f in fields(bundle)} == {'workdir', 'engines', 'rulesets', 'benchmarking_mode'}
+        assert bundle.workdir == '/app/tests/fixtures/extless'
+        assert bundle.engines == {'regex': True}
+        assert list(bundle.rulesets) == ['regex']
+        assert bundle.benchmarking_mode is False
+        with pytest.raises(FrozenInstanceError):
+            setattr(bundle, 'workdir', '/elsewhere')
+        assert pickle.loads(pickle.dumps(bundle)) == bundle
+    finally:
+        mode.dispose()
+
+
 class RecordingPool(ThreadPool):
     """A thread pool that records what the scan sends to it."""
 
@@ -154,11 +175,11 @@ def test_bundle_reaches_workers_once_not_per_task():
         pool = RecordingPool.last
 
         bundle, reporter = pool.init_kwargs['initargs']
-        assert isinstance(bundle, DotWiz)
+        assert isinstance(bundle, AnalyzerBundle)
         assert reporter is mode.active_task_reporter
         assert len(pool.task_args) == len(mode.filepaths)
         for args in pool.task_args:
-            assert not any(isinstance(arg, DotWiz) for arg in args)
+            assert not any(isinstance(arg, AnalyzerBundle) for arg in args)
             assert reporter not in args
         assert sorted(f.detection for f in findings) == sorted(f.detection for f in expected)
         assert mode.stats.failed_files == 0

@@ -16,13 +16,11 @@ import os
 from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-from dotwiz import DotWiz
-
 from deepsecrets import PROFILER_ON, console
 from deepsecrets.config import Config
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
-from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
+from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
 from deepsecrets.core.model.rules.exlcuded_path import ExcludePathRule
 from deepsecrets.core.rulesets.excluded_paths import ExcludedPathsBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
@@ -65,7 +63,7 @@ class ScanMode:
     file_analyzer: FileAnalyzer
     pool_engine: Type
     rulesets: Dict[str, List]
-    engines_enabled: Dict[Type, bool]
+    engines_enabled: Dict[str, bool]
 
     active_task_reporter: DictProxy
     progress_bar: DSApplicationProgess
@@ -389,18 +387,15 @@ class ScanMode:
     def prepare_for_scan(self) -> None:
         pass
 
-    def analyzer_bundle(self) -> DotWiz:
-        return DotWiz(
-            logging_level=self.config.logging_level,
-            max_file_size=self.config.max_file_size,
+    def analyzer_bundle(self) -> AnalyzerBundle:
+        return AnalyzerBundle(
             workdir=self.config.workdir_path,
-            path_exclusion_rules=self.path_exclusion_rules,
-            engines={},
+            benchmarking_mode=self.config._benchmarking_mode,
         )
 
     @staticmethod
     @abstractmethod
-    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
+    def _per_file_analyzer(bundle: AnalyzerBundle, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
         pass
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
@@ -423,11 +418,11 @@ class ScanMode:
         return final
 
 
-_worker_bundle: Optional[DotWiz] = None
+_worker_bundle: Optional[AnalyzerBundle] = None
 _worker_task_reporter: Optional[DictProxy] = None
 
 
-def init_worker(bundle: DotWiz, task_reporter: DictProxy) -> None:  # pragma: nocover
+def init_worker(bundle: AnalyzerBundle, task_reporter: DictProxy) -> None:  # pragma: nocover
     # Pool initializer: runs once per worker. Pickling the bundle (compiled rules) and the proxy
     # with every task cost more than analysing a typical small file.
     global _worker_bundle, _worker_task_reporter

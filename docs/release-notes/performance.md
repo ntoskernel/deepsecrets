@@ -30,3 +30,4 @@ One 64-core container. Your absolute numbers will differ, but the ratios should 
 - **No change to findings, confidence, rule ids, SARIF layout or fingerprints.** One case can still look like a difference: when a finding is matched by two rules of equal confidence, which rule is reported depends on Python's per-process string hashing. That was already true in earlier releases.
 - **Per-file progress bars update at most five times a second.** Files that finish in under 0.2 s may never show a bar of their own. The overall bar is unaffected.
 - **Only for code that embeds DeepSecrets and passes its own `pool_engine`:** the pool is now created with `initializer=` and `initargs=`, as `multiprocessing.Pool` and `multiprocessing.pool.ThreadPool` accept.
+- **One dependency fewer.** `dotwiz` is no longer required, and neither is its compiled dependency `pyheck`. The data sent to workers is now a plain standard-library dataclass that carries only what workers use.

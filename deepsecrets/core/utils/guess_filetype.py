@@ -2,8 +2,12 @@ from configparser import ConfigParser
 import json
 import tomllib
 import yaml
+import regex as re
 from typing import Optional
 from puppetparser.parser import parse
+
+INI_KEY_VALUE_LINE = re.compile(r'^\s*[A-Za-z_][\w.\-]*\s*=.*$')
+INI_SKIPPABLE_LINE = re.compile(r'^\s*(?:[#;].*)?$')
 
 
 class FileTypeGuesser:
@@ -16,11 +20,12 @@ class FileTypeGuesser:
             'xml': 'html',  # TODO: Check https://github.com/pygments/pygments/issues/1785
         }
 
+        # Order matters: the puppet and yaml parsers accept plain NAME=VALUE lines
         self.probes = {
             'json': self._is_json,
             'toml': self._is_toml,
-            'pp': self._is_puppet,
             'ini': self._is_ini,
+            'pp': self._is_puppet,
             'yaml': self._is_yaml,
             'rst': self._is_rst,
             # 'properties': self._dot_properties,
@@ -83,6 +88,14 @@ class FileTypeGuesser:
         return True
 
     def _is_ini(self, content):
+        return self._is_sectionless_ini(content) or self._is_sectioned_ini(content)
+
+    def _is_sectionless_ini(self, content: str):
+        # ConfigParser requires a [section] header, so NAME=VALUE-only files are checked line by line
+        lines = [line for line in content.splitlines() if not INI_SKIPPABLE_LINE.match(line)]
+        return len(lines) > 0 and all(INI_KEY_VALUE_LINE.match(line) for line in lines)
+
+    def _is_sectioned_ini(self, content: str):
         try:
             _ = ConfigParser().read_string(content)
         except Exception:

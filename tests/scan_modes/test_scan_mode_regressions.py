@@ -124,6 +124,48 @@ def test_run_terminates_when_a_worker_raises():
         mode.dispose()
 
 
+class RecordingPool(ThreadPool):
+    """A thread pool that records what the scan sends to it."""
+
+    last = None
+
+    def __init__(self, *args, **kwargs):
+        self.init_kwargs = kwargs
+        self.task_args = []
+        super().__init__(*args, **kwargs)
+        RecordingPool.last = self
+
+    def apply_async(self, func, args=(), kwds={}, callback=None, error_callback=None):
+        self.task_args.append(args)
+        return super().apply_async(func, args, kwds, callback, error_callback)
+
+
+def test_bundle_reaches_workers_once_not_per_task():
+    # pickling the bundle (compiled rules) with every file cost more than analysing a small file
+    config = _config('tests/fixtures/extless')
+    mode = CliScanMode(config=config, pool_engine=RecordingPool)
+    _mock_progress_bar(mode)
+    try:
+        expected = []
+        for file in mode.filepaths:
+            expected.extend(mode._per_file_analyzer(mode.analyzer_bundle(), file, 0, {}).findings)
+
+        findings, errors, _ = _run_with_timeout(mode)
+        pool = RecordingPool.last
+
+        bundle, reporter = pool.init_kwargs['initargs']
+        assert isinstance(bundle, DotWiz)
+        assert reporter is mode.active_task_reporter
+        assert len(pool.task_args) == len(mode.filepaths)
+        for args in pool.task_args:
+            assert not any(isinstance(arg, DotWiz) for arg in args)
+            assert reporter not in args
+        assert sorted(f.detection for f in findings) == sorted(f.detection for f in expected)
+        assert mode.stats.failed_files == 0
+    finally:
+        mode.dispose()
+
+
 def test_hashed_scan_through_process_pool(tmp_path: Path):
     # the combination that used to hang: HashedSecretEngine registered, run in a real spawn pool
     shutil.copy('tests/fixtures/1.py', tmp_path / '1.py')

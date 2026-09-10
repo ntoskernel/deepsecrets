@@ -38,7 +38,9 @@ class Progress:
         return merged
 
 
-REPORT_THROTTLING_PERIOD_SECONDS = 1
+# Minimum interval between per-token progress reports of one file. Every report is a round trip
+# to the single Manager process, which serialises all workers; start/finish/failure always report.
+REPORT_THROTTLING_PERIOD_SECONDS = 0.2
 
 
 class FileProgress(Progress):

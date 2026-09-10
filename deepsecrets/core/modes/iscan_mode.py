@@ -253,13 +253,18 @@ class ScanMode:
                 )
         else:
             try:
-                with self.pool_engine(processes=proc_count) as pool:
+                # the bundle and the reporter proxy reach each worker once, not with every file
+                with self.pool_engine(
+                    processes=proc_count,
+                    initializer=init_worker,
+                    initargs=(bundle, self.active_task_reporter),
+                ) as pool:
                     tid = 0
                     for file in self.filepaths:
                         tid += 1
                         result = pool.apply_async(
                             pool_wrapper,
-                            (bundle, self._per_file_analyzer, tid, self.active_task_reporter, file),
+                            (self._per_file_analyzer, tid, file),
                             error_callback=partial(self._on_job_error, tid),
                         )
                         self.file_results.append(result)
@@ -418,9 +423,18 @@ class ScanMode:
         return final
 
 
-def pool_wrapper(
-    bundle: DotWiz, runner: Callable, task_id: Optional[int], task_reporter: DictProxy, file: str
-) -> PerFileAnalysisResult:  # pragma: nocover
+_worker_bundle: Optional[DotWiz] = None
+_worker_task_reporter: Optional[DictProxy] = None
 
-    result = runner(bundle, file, task_id, task_reporter)
+
+def init_worker(bundle: DotWiz, task_reporter: DictProxy) -> None:  # pragma: nocover
+    # Pool initializer: runs once per worker. Pickling the bundle (compiled rules) and the proxy
+    # with every task cost more than analysing a typical small file.
+    global _worker_bundle, _worker_task_reporter
+    _worker_bundle = bundle
+    _worker_task_reporter = task_reporter
+
+
+def pool_wrapper(runner: Callable, task_id: Optional[int], file: str) -> PerFileAnalysisResult:  # pragma: nocover
+    result = runner(_worker_bundle, file, task_id, _worker_task_reporter)
     return result

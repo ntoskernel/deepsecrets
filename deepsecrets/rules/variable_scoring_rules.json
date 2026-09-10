@@ -11,7 +11,7 @@
     {
         "id": "SEM_VAR_FALSE_STARTING_SEQ",
         "name": "Ignore variable values with specific starting",
-        "pattern": "^(\\$\\{|%env|true|false|#|\\(|<|-|_)",
+        "pattern": "^(\\$\\{|%env|true|false|#|\\(|<)",
         "target": "VALUE",
         "score": -1000
     },
@@ -19,7 +19,7 @@
         "id": "SEM_VAR_DUMMY_VALUES",
         "name": "Ignore variable values with specific flags in values. Approach must be revised.",
         "description": "For me in future: The last part of the regex matches only special symbols",
-        "pattern": "^(.*${.*|.*custom.*|.*deadbeef.*|.*langua.*|.*right.*|.*debug.*|.*left.*|.*egmen.*|.*auto.*|.*exampl.*|add.*|use.*|.*launc.*|.*mode.*|.*conne.*|.*sume.*|.*prod.*|.*ward.*|.*serv.*|.*elem.*|.*contain.*|sav.*|.*attac.*|.*fail.*|.*displ.*|.*fake.*|meta.*|.*text.*|.*scop.*|.*tach.*|.*vigat.*|.*ploy.*|.*reat.*|.*your.*|access.*|.*project.*|.*process.*|get.*|set.*|is.*|has.*|.*obje.*|.*beaut.*|.*file.*|.*runn.*|.*confir.*|.*click.*|.*wast.*|.*liste.*|.*hand.*|.*json.*|.*cance.*|.*reduc.*|.*delet.*|.*move.*|.*compa.*|.*forma.*|.*item.*|.*focus.*|.*west.*|.*east.*|.*build.*|.*toggl.*|.*dispos.*|.*componen.*|.*prop.*|.*destr.*|.*string.*|.*receiv.*|.*rende.*|.*featu.*|.*close.*|.*open.*|.*subscr.*|.*coord.*|.*space.*|.*dimen.*|.*menu.*|.*purcha.*|.*order.*|.*report.*|.*identifi.*|.*time.*|.*simpl.*|.*offse.*|.*state.*|.*quantit.*|.*categ.*|.*identit.*|.*devic.*|.*memor.*|.*settin.*|.*locat.*|.*option.*|.*stor.*|record.*|.*versi.*|.*origi.*|.*year.*|.*day.*|.*week.*|.*detai.*|.*gatew.*|.*packa.*|.*prefer.*|.*chain.*|.*provid.*|.*phon.*|.*email.*|.*convers.*|.*perso.*|.*recomm.*|.*referen.*|.*master.*|.*impor.*|.*encrypt.*|.*sched.*|.*contac.*|.*verla.*|.*mediu.*|.*extern.*|.*intern.*|.*progr.*|.*contr.*|.*positi.*|.*facebook.*|.*scale.*|.*button.*|.*untime.*|.*modif.*|.*service.*|.*volum.*|.*length.*|.*guest.*|.*point.*|.*speci.*|.*networ.*|.*mount.*|.*instruc.*|.*kuberne.*|.*layer.*|.*notifi.*|.*submi.*|.*success.*|.*operat.*|.*percen.*|.*persona.*|.*direct.*|.*prefix.*|.*print.*|.*previ.*|.*price.*|.*protoco.*|.*reaso.*|.*count.*|.*reques.*|.*return.*|.*event.*|.*desig.*|.*place.*|.*select.*|.*search.*|.*share.*|.*shape.*|.*show.*|.*stora.*|.*width.*|.*plan.*|.*suggest.*|.*style.*|.*syste.*|.*targe.*|.*export.*|.*amou.*|.*actio.*|.*encod.*|.*decod.*|.*trans.*|.*page.*|.*local.*|.*symb.*|.*userid.*|.*useragent.*|.*mock.*|.*color.*|.*password.*|.*ctrl.*|.*help.*|.*numb.*|.*long.*|.*short.*|.*tip.*|.*down.*|.*head.*|.*foote.*|.*info.*|.*last.*|.*next.*|.*title.*|.*label.*|.*error.*|.*view.*|.*center.*|.*date.*|.*paren.*|.*able.*|.*examp.*|.*servi.*|.*class.*|.*prope.*|.*reset.*|.*eract.*|.*rule.*|.*track.*|.*cloud.*|.*call.*|.*index.*|.*limit.*|.*acce.*|.*param.*|.*note.*|.*name.*|.*descr.*|.*value.*|.*polic.*|.*part.*|.*correc.*|.*conte.*|.*media.*|.*exten.*|.*defau.*|.*fill.*|.*unive.*|.*star.*|.*addit.*|.*stac.*|.*excep.*|.*messa.*|.*zone.*|.*total.*|.*type.*|.*valid.*|.*instan.*|.*seria.*|.*docum.*|.*base.*|.*addre.*|.*size.*|.*first.*|.*sourc.*|.*cover.*|.*gener.*|.*config.*|.*with.*|.*window.*|.*support.*|.*comment.*|.*batch.*|.*vault.*|.*secret.*|.*copy.*|.*filte.*|.*clear.*|.*status.*|.*private.*|.*password.*|.*invalid.*|.*link.*|.*test.*|.*expir.*|.*empty.*|.*token.*|null|bearer|foo|foobar|xyz|undefined|none|.*todo.*|.*change.*|.*restore.*|[^A-Za-z0-9]*|%.*%|\\[.*\\]|{.*})$",
+        "pattern": "^(.*${.*|.*custom.*|.*deadbeef.*|.*langua.*|.*right.*|.*debug.*|.*left.*|.*egmen.*|.*auto.*|.*exampl.*|add.*|use.*|.*launc.*|.*mode.*|.*conne.*|.*sume.*|.*prod.*|.*ward.*|.*serv.*|.*elem.*|.*contain.*|sav.*|.*attac.*|.*fail.*|.*displ.*|.*fake.*|meta.*|.*text.*|.*scop.*|.*tach.*|.*vigat.*|.*ploy.*|.*reat.*|.*your.*|access.*|.*project.*|.*process.*|get.*|set.*|is.*|has.*|.*obje.*|.*beaut.*|.*file.*|.*runn.*|.*confir.*|.*click.*|.*wast.*|.*liste.*|.*hand.*|.*json.*|.*cance.*|.*reduc.*|.*delet.*|.*move.*|.*compa.*|.*forma.*|.*item.*|.*focus.*|.*west.*|.*east.*|.*build.*|.*toggl.*|.*dispos.*|.*componen.*|.*prop.*|.*destr.*|.*string.*|.*receiv.*|.*rende.*|.*featu.*|.*close.*|.*open.*|.*subscr.*|.*coord.*|.*space.*|.*dimen.*|.*menu.*|.*purcha.*|.*order.*|.*report.*|.*identifi.*|.*time.*|.*simpl.*|.*offse.*|.*state.*|.*quantit.*|.*categ.*|.*identit.*|.*devic.*|.*memor.*|.*settin.*|.*locat.*|.*option.*|.*stor.*|record.*|.*versi.*|.*origi.*|.*year.*|.*week.*|.*detai.*|.*gatew.*|.*packa.*|.*prefer.*|.*chain.*|.*provid.*|.*phon.*|.*email.*|.*convers.*|.*perso.*|.*recomm.*|.*referen.*|.*master.*|.*impor.*|.*encrypt.*|.*sched.*|.*contac.*|.*verla.*|.*mediu.*|.*extern.*|.*intern.*|.*progr.*|.*contr.*|.*positi.*|.*facebook.*|.*scale.*|.*button.*|.*untime.*|.*modif.*|.*service.*|.*volum.*|.*length.*|.*guest.*|.*point.*|.*speci.*|.*networ.*|.*mount.*|.*instruc.*|.*kuberne.*|.*layer.*|.*notifi.*|.*submi.*|.*success.*|.*operat.*|.*percen.*|.*persona.*|.*direct.*|.*prefix.*|.*print.*|.*previ.*|.*price.*|.*protoco.*|.*reaso.*|.*count.*|.*reques.*|.*return.*|.*event.*|.*desig.*|.*place.*|.*select.*|.*search.*|.*share.*|.*shape.*|.*show.*|.*stora.*|.*width.*|.*plan.*|.*suggest.*|.*style.*|.*syste.*|.*targe.*|.*export.*|.*amou.*|.*actio.*|.*encod.*|.*decod.*|.*trans.*|.*page.*|.*local.*|.*symb.*|.*userid.*|.*useragent.*|.*mock.*|.*color.*|.*password.*|.*ctrl.*|.*help.*|.*numb.*|.*long.*|.*short.*|.*tip.*|.*down.*|.*head.*|.*foote.*|.*info.*|.*last.*|.*next.*|.*title.*|.*label.*|.*error.*|.*view.*|.*center.*|.*date.*|.*paren.*|.*able.*|.*examp.*|.*servi.*|.*class.*|.*prope.*|.*reset.*|.*eract.*|.*rule.*|.*track.*|.*cloud.*|.*call.*|.*index.*|.*limit.*|.*acce.*|.*param.*|.*note.*|.*name.*|.*descr.*|.*value.*|.*polic.*|.*part.*|.*correc.*|.*conte.*|.*media.*|.*exten.*|.*defau.*|.*fill.*|.*unive.*|.*star.*|.*addit.*|.*stac.*|.*excep.*|.*messa.*|.*zone.*|.*total.*|.*type.*|.*valid.*|.*instan.*|.*seria.*|.*docum.*|.*base.*|.*addre.*|.*size.*|.*first.*|.*sourc.*|.*cover.*|.*gener.*|.*config.*|.*with.*|.*window.*|.*support.*|.*comment.*|.*batch.*|.*vault.*|.*secret.*|.*copy.*|.*filte.*|.*clear.*|.*status.*|.*private.*|.*password.*|.*invalid.*|.*link.*|.*test.*|.*expir.*|.*empty.*|.*token.*|null|bearer|foo|foobar|xyz|undefined|none|.*todo.*|.*change.*|.*restore.*|[^A-Za-z0-9]*|%.*%|\\[.*\\]|{.*})$",
         "target": "VALUE_NORMALIZED",
         "score": -50
     },
@@ -30,7 +30,19 @@
         "target": "VALUE_NORMALIZED_NATURALNESS_SCORE",
         "threshold": 0.6,
         "method": ">=",
-        "score": -50
+        "score": -50,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
+    },
+    {
+        "id": "SEM_VAR_NATURAL_LANGUAGE_PASSWORD_VALUES",
+        "name": "Report natural-language values of password variables at low confidence",
+        "description": "Weak and default passwords are dictionary words. -24 leaves a password name (+30) at +6: reported with confidence 1 (LOW tier), and still above 0 in test paths (-5)",
+        "pattern": ".*",
+        "target": "VALUE_NORMALIZED_NATURALNESS_SCORE",
+        "threshold": 0.6,
+        "method": ">=",
+        "score": -24,
+        "when": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
     },
     {
         "id": "SEM_VAR_FILE_PATHS",
@@ -44,19 +56,28 @@
         "id": "SEM_VAR_NAME_SLICE_REDFLAGS",
         "description": "Reduce score for common non-secret words inside the variable name PARTS",
         "target": "NAME_SPACED",
-        "pattern": "\\b(.*agram.*|.*expira.*|.*contin.*|pubkey|public|hashed|storage|operation|contains|last|buy|sell|used|button|meta|method|convert|title|region|label|saving|state|list|extra|group|list|time|id|base|row|status|item|limit|result|window|open|public|str|path|location|field|cache|prefix|threshold|name|algo|algorithm|mock|fake|dummy|output|uri|type|example|template|address)\\b",
+        "pattern": "\\b(.*agram.*|.*expira.*|.*contin.*|pubkey|public|hashed|operation|contains|buy|sell|used|button|meta|method|convert|title|region|label|saving|state|list|extra|group|list|time|id|base|row|status|item|limit|result|window|public|path|location|field|cache|prefix|threshold|name|algo|algorithm|mock|fake|dummy|output|type|example|template|address)\\b",
         "score": -20
     },
     {
         "id": "SEM_VAR_FULLNAME_REDFLAGS",
         "description": "Reduce score for common non-secret words inside the variable name",
         "target": "NAME_NORMALIZED",
-        "pattern": "(.*method.*|.*equali.*|.*pubkey.*|.*button.*|.*extra.*|.*ternal.*|.*parti.*|.*entry.*|.*time.*|.*status.*|.*expira.*|.*expect.*|.*lastuse.*|.*urlkey.*|.*signs.*|.*signal.*|item|meta|signature|limit|result|public|path|location|input|field|data|cache|prefix|threshold|name|algo|algorithm|mock|fake|dummy|output|uri|type|example|template|address)",
+        "pattern": "(.*method.*|.*equali.*|.*pubkey.*|.*hashed.*|.*button.*|.*extra.*|.*ternal.*|.*parti.*|.*entry.*|.*time.*|.*status.*|.*expira.*|.*expect.*|.*lastuse.*|.*urlkey.*|.*signs.*|.*signal.*|item|meta|signature|limit|result|public|path|location|input|field|data|cache|prefix|threshold|name|algorithm|mock|fake|dummy|output|type|example|template|address)",
         "score": -15
     },
     {
+        "id": "SEM_VAR_NONSECRET_LAST_SLICE",
+        "description": "The last word of a name says what the variable holds: password_length, oauth_client_id and secret_arn are a length, an id and an ARN. -30 cancels one secret concept (+30). AWS access key ids are exempt: SecretBench labels them as secrets",
+        "target": "NAME_SPACED",
+        "pattern": "\\b(id|ids|uuid|guid|arn|path|paths|dir|directory|folder|file|filename|files|uri|url|urls|endpoint|host|hostname|name|names|hint|length|len|size|count|type|types|format|field|label|prefix|suffix|policy|header|param|params|mode|enabled|required|expiry|expiration|expires|ttl|timeout|regex|pattern|rule|rules|hash|digest)$",
+        "score": -30,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "accesskeyid$"}]
+    },
+    {
         "id": "SEM_VAR_HIGH_CONFIDENCE_SLICES_1",
-        "description": "Critical confidence: api key, auth token, etc",
+        "enabled": false,
+        "description": "Disabled: double-counted SEM_VAR_HIGH_CONFIDENCE_FULLNAME_1, which now carries the whole weight",
         "target": "NAME_SPACED",
         "pattern": "\\b(csrf|api|access|refresh|meta|auth|oauth|site|app|priv)\\s+(key|token|secret)\\b",
         "score": 25
@@ -65,12 +86,13 @@
         "id": "SEM_VAR_HIGH_CONFIDENCE_FULLNAME_1",
         "description": "Critical confidence: api key, auth token, etc",
         "target": "NAME_NORMALIZED",
-        "pattern": "(csrf|site|api|access|refresh|auth|oauth|site|app|sign)(key|token|secret)",
-        "score": 20
+        "pattern": "(csrf|site|api|access|refresh|auth|oauth|site|app|sign(ing)?)(key|token|secret)",
+        "score": 40
     },
     {
         "id": "SEM_VAR_HIGH_CONFIDENCE_SLICES_2",
-        "description": "Critical confidence: password, pwd, private key",
+        "enabled": false,
+        "description": "Disabled: double-counted SEM_VAR_HIGH_CONFIDENCE_FULLNAME_2, which now carries the whole weight",
         "target": "NAME_SPACED",
         "pattern": "(oauth|sitekey|passw|pwd|secret|\\bsign)|private\\s+key\\b",
         "score": 15
@@ -79,8 +101,8 @@
         "id": "SEM_VAR_HIGH_CONFIDENCE_FULLNAME_2",
         "description": "Critical confidence: password, pwd, private key",
         "target": "NAME_NORMALIZED",
-        "pattern": "(authke|oauth|passw|pwd|secret|privke|rivateke|cesstoke)",
-        "score": 10
+        "pattern": "(authke|oauth|passw|pwd|secret|privke|rivateke|cesstoke|pass$)",
+        "score": 30
     },
     {
         "id": "SEM_VAR_TOKEN_AS_PART_OF_NAME",
@@ -91,7 +113,8 @@
     },
     {
         "id": "SEM_VAR_DB_AS_PART_OF_NAME",
-        "description": "Key as last slice",
+        "enabled": false,
+        "description": "Disabled: fires more often on non-secrets (database URLs) than on secrets",
         "target": "NAME_NORMALIZED",
         "pattern": "^(db.*|database.*)$",
         "score": 6

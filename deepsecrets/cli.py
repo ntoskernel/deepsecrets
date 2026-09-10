@@ -7,6 +7,7 @@ from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME, console
 from deepsecrets.config import SCANNER_VERSION, SCANNER_VERSION_NUMERIC, Config, config, Output
+from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding
@@ -274,7 +275,7 @@ class DeepSecretsCliTool:
 
         conf_hashed_ruleset = user_args.hashed_values
         if conf_hashed_ruleset is not None and conf_hashed_ruleset != DISABLED:
-            config.engines.append(RegexEngine)
+            config.engines.append(HashedSecretEngine)
             config.add_ruleset(HashedSecretsRulesetBuilder, conf_hashed_ruleset)
 
         conf_false_findings_ruleset = user_args.false_findings

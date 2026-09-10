@@ -104,3 +104,21 @@ def test_2_span_for_string(file: File):
     looking_for = 'rabbitmq-esp01'
     span = file.get_span_for_string(looking_for, between=(130, 150))
     assert span is None
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        # a dot in a parent directory is not an extension
+        ('/Users/john.doe/proj/credentials', None),
+        ('/home/user.name/README', None),
+        ('/builds/my.project/Dockerfile', None),
+        ('/tmp/a.b/c.py', 'py'),
+        ('/tmp/a.b/c.tar.gz', 'gz'),
+        ('/tmp/a.b/.env', 'env'),
+        ('/tmp/plain/credentials', None),
+    ],
+)
+def test_extension_ignores_dotted_directories(path, expected):
+    file = File(path=path, content='x = 1\n')
+    assert file.extension == expected

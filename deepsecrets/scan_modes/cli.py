@@ -20,6 +20,7 @@ from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from deepsecrets.core.utils.lifecycle_hooks import JobLifecycleHooks
 from deepsecrets.core.utils.log import get_error_list, logger
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
+from deepsecrets.core.utils.fs import get_relative_path
 from deepsecrets.core.utils.progress import Progress
 
 
@@ -81,7 +82,7 @@ class CliScanMode(ScanMode):
             raise Exception('Filepath as str expected')
 
         try:
-            file = File(path=file, relative_path=file.replace(f'{bundle.workdir}/', ''))
+            file = File(path=file, relative_path=get_relative_path(file, bundle.workdir))
         except Exception as e:
             logger.error(f'Unable to open the file: {e}')
             lifecycle.on_failure(task_reporter[task_id])
@@ -111,7 +112,7 @@ class CliScanMode(ScanMode):
 
             if eng == HashedSecretEngine.name:
                 hashed_secret_engine = HashedSecretEngine(
-                    ruleset=bundle.ruleset.get(HashedSecretsRulesetBuilder.ruleset_name, [])
+                    ruleset=bundle.rulesets.get(HashedSecretsRulesetBuilder.ruleset_name, [])
                 )
                 file_analyzer.add_engine(hashed_secret_engine, [lex])
 

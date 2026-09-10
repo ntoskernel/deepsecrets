@@ -5,7 +5,9 @@ setup_interrupts_for_subprocess()
 import time
 
 from dataclasses import dataclass, field
+from functools import partial
 from multiprocessing.pool import AsyncResult
+from queue import SimpleQueue
 import regex as re
 
 from multiprocessing import Manager, get_context
@@ -26,7 +28,8 @@ from deepsecrets.core.rulesets.excluded_paths import ExcludedPathsBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.finding_merger import FindingMerger
-from deepsecrets.core.utils.fs import get_abspath
+from deepsecrets.core.utils.fs import get_abspath, get_relative_path
+from deepsecrets.core.utils.log import logger
 
 from rich.progress import Progress as ProgressBar
 from rich.live import Live
@@ -90,6 +93,7 @@ class ScanMode:
         self.config = config
         self.file_results = []
         self.file_jobs = {}
+        self.failed_jobs = SimpleQueue()
         self.stats = Stats()
 
         self.filepaths = self._get_files_list()
@@ -127,6 +131,12 @@ class ScanMode:
         for internal_task_id, current_state in self.active_task_reporter.items():
             if current_state is None:
                 continue
+
+            if internal_task_id in self.stats.finished_ids:
+                # a late write for a job that is already accounted for
+                tasks_to_remove.add(internal_task_id)
+                continue
+
             job = self.file_jobs.get(internal_task_id)
             if job is None:
                 raise Exception()
@@ -181,6 +191,28 @@ class ScanMode:
             self.active_task_reporter.pop(to_remove)
             self.stats.new_finished(to_remove)
 
+    def _on_job_error(self, task_id: int, error: BaseException) -> None:
+        # Called by the pool's result handler thread when a job raised
+        self.failed_jobs.put(task_id)
+
+    def reap_failed_jobs(self) -> None:
+        # A job that raised never reports 'finished', so without this run() would poll forever
+        while not self.failed_jobs.empty():
+            task_id = self.failed_jobs.get()
+            if task_id in self.stats.finished_ids:
+                continue
+
+            self.stats.failed_files += 1
+            self.stats.new_finished(task_id)
+            self.active_task_reporter.pop(task_id, None)
+
+            job = self.file_jobs.get(task_id)
+            if job is not None and job.pb_task_id is not None:
+                try:
+                    self.progress_bar.remove_task(job.pb_task_id)
+                except Exception:
+                    pass
+
     def refresh_overall_progress_bar(self, pb_task_id):
         if pb_task_id is None:
             return
@@ -228,6 +260,7 @@ class ScanMode:
                         result = pool.apply_async(
                             pool_wrapper,
                             (bundle, self._per_file_analyzer, tid, self.active_task_reporter, file),
+                            error_callback=partial(self._on_job_error, tid),
                         )
                         self.file_results.append(result)
                         self.file_jobs[tid] = FileJob(name=file, internal_id=tid, pb_task_id=None, result_holder=result)
@@ -236,6 +269,7 @@ class ScanMode:
                     self.stats.total_files = len(self.file_jobs.keys())
                     while self.stats.finished < self.stats.total_files:
                         self.refresh_jobs_progress_bars()
+                        self.reap_failed_jobs()
                         self.refresh_overall_progress_bar(overall_progress_task)
                         time.sleep(0.1)
                         # self.refresh_overall_debug_progress_bar(overall_debug)
@@ -260,11 +294,16 @@ class ScanMode:
 
                 raise
 
-            for job_result in self.file_results:
-                analysis_result: PerFileAnalysisResult = job_result.get(timeout=1000)
-                self._oneshot_file = analysis_result._file
+            for job in self.file_jobs.values():
+                try:
+                    analysis_result: PerFileAnalysisResult = job.result_holder.get(timeout=1000)
+                except Exception as e:
+                    # reported as a failed file, like a file that cannot be opened
+                    logger.error(f'Analysis of {job.name} failed: {type(e).__name__}: {e}')
+                    errors[job.name] = [f'{type(e).__name__}: {e}']
+                    continue
 
-                job = self.file_jobs.get(analysis_result.internal_task_id)
+                self._oneshot_file = analysis_result._file
                 errors[job.name] = analysis_result.errors
                 timings[job.name] = analysis_result.processing_time_seconds
 
@@ -306,7 +345,7 @@ class ScanMode:
                     total_files += 1
                     live.update(Text(text=f'Found {total_files} files, {skipped} will be skipped'))
                     full_path = os.path.join(fpath, filename)
-                    rel_path = full_path.replace(f'{self.config.workdir_path}/', '')
+                    rel_path = get_relative_path(full_path, self.config.workdir_path)
                     if not self._path_included(rel_path):
                         skipped += 1
                         continue

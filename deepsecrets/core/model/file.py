@@ -62,7 +62,8 @@ class File:
         if self.path is None:
             return None
 
-        by_dot = self.path.split('.')
+        # split the file name only: a dot in a parent directory is not an extension
+        by_dot = self.path.split('/')[-1].split('.')
         if len(by_dot) == 1:
             return None
 

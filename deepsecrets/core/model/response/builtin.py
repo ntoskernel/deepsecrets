@@ -51,7 +51,16 @@ class BuiltinFormatResponseBuilder(BaseResponseBuilder):
 
             if self.masking_enabled:
                 if resp_finding.line is not None:
-                    resp_finding.line = resp_finding.line.replace(resp_finding.string, '*' * len(resp_finding.string))
+                    if resp_finding.string in resp_finding.line:
+                        resp_finding.line = resp_finding.line.replace(
+                            resp_finding.string, '*' * len(resp_finding.string)
+                        )
+                    else:
+                        resp_finding.line = self._mask_by_offsets(
+                            snippet=resp_finding.line,
+                            snippet_start=finding.file.get_line_start_offset(finding.start_line_number),
+                            finding=finding,
+                        )
 
                 resp_finding.string = '*' * len(resp_finding.string)
 

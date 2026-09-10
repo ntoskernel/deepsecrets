@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import Any, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.hashing import HashingAlgorithm
@@ -34,7 +34,7 @@ class Token:
     file: 'File'
     type: List[Type]
     length: int
-    hashed_value: Optional[str]
+    hashed_values: Dict[HashingAlgorithm, str]
     semantic: Optional[Semantic]
     previous: Optional['Token']
     next: Optional['Token']
@@ -44,7 +44,7 @@ class Token:
         self.content = content
         self.span = span
         self.length = len(content) if self.content else 0
-        self.hashed_value = None
+        self.hashed_values = {}
         self.previous = None
         self.next = None
         self.type: List[Type] = []  # type: ignore
@@ -57,11 +57,12 @@ class Token:
     def val_hash(self) -> int:
         return hash(self.content)
 
-    def calculate_hashed_value(self, algorithm: HashingAlgorithm) -> None:
-        if self.hashed_value:
-            return
+    def calculate_hashed_value(self, algorithm: HashingAlgorithm) -> str:
+        # cached per algorithm: rules for the same token length may use different algorithms
+        if algorithm not in self.hashed_values:
+            self.hashed_values[algorithm] = get_hash(payload=self.content, algorithm=algorithm)
 
-        self.hashed_value = get_hash(payload=self.content, algorithm=algorithm)
+        return self.hashed_values[algorithm]
 
     def __repr__(self) -> str:  # pragma: no cover
         if self.semantic is None and self.type is not None:

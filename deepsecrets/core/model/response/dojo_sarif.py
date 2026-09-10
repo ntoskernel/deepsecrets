@@ -182,10 +182,14 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
         boundaries, _ = self._get_context_boundaries(finding, start_column, end_column)
         base_offset = finding.file.get_line_start_offset(finding.start_line_number)
-        snippet = finding.file.content[base_offset + boundaries[0] : base_offset + boundaries[1]]
+        snippet_start = base_offset + boundaries[0]
+        snippet = finding.file.content[snippet_start : base_offset + boundaries[1]]
 
         if masking:
-            snippet = self._mask(snippet=snippet, detection=finding.detection)
+            if finding.detection in snippet:
+                snippet = self._mask(snippet=snippet, detection=finding.detection)
+            else:
+                snippet = self._mask_by_offsets(snippet=snippet, snippet_start=snippet_start, finding=finding)
 
         return Region(
             start_line=finding.start_line_number,

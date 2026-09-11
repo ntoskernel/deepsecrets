@@ -61,3 +61,14 @@ class BaseResponseBuilder:
         masked_detection = detection[:start_len] + symbol * mask_len + detection[start_len + mask_len :]
 
         return snippet.replace(detection, masked_detection)
+
+    def _mask_by_offsets(self, snippet: str, snippet_start: int, finding: Finding, symbol: str = '*') -> str:
+        # For a detection that is not wholly inside the snippet (a multi-line secret
+        # seen through a single-line context), text matching cannot find it,
+        # so the part of the finding's span that falls inside the snippet is masked.
+        lo = max(finding.start_offset - snippet_start, 0)
+        hi = min(finding.end_offset - snippet_start, len(snippet))
+        if hi <= lo:
+            return snippet
+
+        return snippet[:lo] + symbol * (hi - lo) + snippet[hi:]

@@ -1,8 +1,7 @@
 import logging
 import os
-from typing import Any, Dict, Type, Optional
-
-from dotwiz import DotWiz
+from dataclasses import replace
+from typing import Any, Dict, Optional
 
 from deepsecrets import PROFILER_ON, console
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
@@ -10,7 +9,7 @@ from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.modes.iscan_mode import ScanMode
-from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
+from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
@@ -20,13 +19,14 @@ from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from deepsecrets.core.utils.lifecycle_hooks import JobLifecycleHooks
 from deepsecrets.core.utils.log import get_error_list, logger
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
+from deepsecrets.core.utils.fs import get_relative_path
 from deepsecrets.core.utils.progress import Progress
 
 
 class CliScanMode(ScanMode):
 
     def prepare_for_scan(self) -> None:
-        self.engines_enabled: Dict[Type, bool] = {}
+        self.engines_enabled: Dict[str, bool] = {}
         self.rulesets = {}
 
         console.line()
@@ -43,18 +43,11 @@ class CliScanMode(ScanMode):
                 builder.with_rules_from_file(os.path.abspath(path))
             self.rulesets[builder.ruleset_name] = builder.rules
 
-    def analyzer_bundle(self) -> DotWiz:
-        bundle = super().analyzer_bundle()
-        bundle.update(
-            workdir=self.config.workdir_path,
-            benchmarking_mode=self.config._benchmarking_mode,
-            engines=self.engines_enabled,
-            rulesets=self.rulesets,
-        )
-        return bundle
+    def analyzer_bundle(self) -> AnalyzerBundle:
+        return replace(super().analyzer_bundle(), engines=self.engines_enabled, rulesets=self.rulesets)
 
     @staticmethod
-    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
+    def _per_file_analyzer(bundle: AnalyzerBundle, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
 
         def __finalize(result: PerFileAnalysisResult):
             if bundle.benchmarking_mode is True:
@@ -81,7 +74,7 @@ class CliScanMode(ScanMode):
             raise Exception('Filepath as str expected')
 
         try:
-            file = File(path=file, relative_path=file.replace(f'{bundle.workdir}/', ''))
+            file = File(path=file, relative_path=get_relative_path(file, bundle.workdir))
         except Exception as e:
             logger.error(f'Unable to open the file: {e}')
             lifecycle.on_failure(task_reporter[task_id])
@@ -111,7 +104,7 @@ class CliScanMode(ScanMode):
 
             if eng == HashedSecretEngine.name:
                 hashed_secret_engine = HashedSecretEngine(
-                    ruleset=bundle.ruleset.get(HashedSecretsRulesetBuilder.ruleset_name, [])
+                    ruleset=bundle.rulesets.get(HashedSecretsRulesetBuilder.ruleset_name, [])
                 )
                 file_analyzer.add_engine(hashed_secret_engine, [lex])
 

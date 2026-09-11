@@ -2,6 +2,8 @@ import pytest
 
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.model.file import File
+from deepsecrets.core.model.rules.regex import RegexRule
+from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from tests.case_helpers import regex_case
 
@@ -62,3 +64,23 @@ def test_private_keys(file: File, regex_engine: RegexEngine):
     )
 
     assert len(findings) == 2
+
+
+def _token(content: str) -> Token:
+    return Token(file=File(path=None, content=content + '\n'), content=content, span=[0, len(content)])
+
+
+def test_rule_match_honours_negative_pattern_and_case():
+    rule = RegexRule(id='T1', name='test', pattern='secret_[a-z]+', negative_pattern='example')
+
+    assert rule.match(_token('SECRET_abc and secret_def')) == [(0, 10), (15, 25)]
+    assert rule.match(_token('secret_abc example')) == []
+
+
+def test_rule_match_reports_decoded_content_as_whole_token():
+    rule = RegexRule(id='T1', name='test', pattern='secret_[a-z]+', case_sensitive=True)
+    token = _token('c2VjcmV0X2FiYw==')
+    token.uncovered_content.append('secret_abc')
+
+    assert rule.match(token) == [(0, len(token.content))]
+    assert rule.match('SECRET_abc') == []

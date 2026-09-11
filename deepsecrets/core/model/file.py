@@ -1,3 +1,4 @@
+import bisect
 import regex as re
 from typing import Dict, List, Optional, Tuple
 
@@ -15,6 +16,9 @@ class File:
     empty: bool
     name: str
     extension: Optional[str]
+
+    # (line_offsets it was built from, line numbers, running maximum of line ends); rebuilt on demand
+    _line_index: Optional[Tuple[Dict, List[int], List[int]]] = None
 
     def __init__(
         self,
@@ -62,7 +66,8 @@ class File:
         if self.path is None:
             return None
 
-        by_dot = self.path.split('.')
+        # split the file name only: a dot in a parent directory is not an extension
+        by_dot = self.path.split('/')[-1].split('.')
         if len(by_dot) == 1:
             return None
 
@@ -92,11 +97,30 @@ class File:
         return self._get_line_number_for_position(position=position)
 
     def _get_line_number_for_position(self, position: int) -> Optional[int]:
-        for linum, offsets in self.line_offsets.items():
-            if offsets[1] < position:
-                continue
-            return linum
-        return None
+        # The first line (in line_offsets order) whose end is at or after the position. Bisecting a running
+        # maximum of the line ends finds exactly that line, even where the ends are not ascending (KI-DM-03).
+        line_numbers, max_ends = self._get_line_index()
+        index = bisect.bisect_left(max_ends, position)
+        if index == len(max_ends):
+            return None
+        return line_numbers[index]
+
+    def _get_line_index(self) -> Tuple[List[int], List[int]]:
+        index = self._line_index
+        if index is None or index[0] is not self.line_offsets or len(index[1]) != len(self.line_offsets):
+            line_numbers = list(self.line_offsets.keys())
+            max_ends: List[int] = []
+            for linum in line_numbers:
+                end = self.line_offsets[linum][1]
+                max_ends.append(end if not max_ends or end > max_ends[-1] else max_ends[-1])
+            self._line_index = (self.line_offsets, line_numbers, max_ends)
+        return self._line_index[1], self._line_index[2]
+
+    def __getstate__(self) -> Dict:
+        # Files travel back from workers with every finding; the index is cheap to rebuild
+        state = self.__dict__.copy()
+        state.pop('_line_index', None)
+        return state
 
     def get_line_contents(self, line_number: int) -> Optional[str]:
         if line_number is None:
@@ -125,15 +149,15 @@ class File:
         if between[1] > self.length:
             between[1] = self.length
 
-        search_window = self.content[between[0] : between[1]]
+        # The needle is a literal, so a substring search returns the same first occurrence inside the window
+        # as the escaped regex this replaced, without compiling one pattern per token.
+        if not str:
+            return (between[0], between[0])
 
-        pattern = re.escape(str)
-        pattern = pattern.replace('\\\n', '\n').replace('\\\t', '\t')
-        detects = re.finditer(pattern, search_window)
-        for detect in detects:
-            span = detect.span()
-            return (between[0] + span[0], between[0] + span[1])
-        return None
+        start = self.content.find(str, between[0], between[1])
+        if start == -1:
+            return None
+        return (start, start + len(str))
 
     def get_column_number(self, position: int) -> int:
         line_number = self.get_line_number(position=position)

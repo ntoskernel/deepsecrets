@@ -1,0 +1,2 @@
+token=12312312345645456
+password=adminadmin

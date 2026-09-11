@@ -46,7 +46,7 @@ class Match(BaseModel):
 
         for token in tokens:
             for pattern in self.values:
-                if re.match(pattern, token.content) is not None:
+                if pattern.match(token.content) is not None:
                     return True
         return False
 
@@ -56,7 +56,7 @@ class Match(BaseModel):
 
         for token in tokens:
             for pattern in self.not_values:
-                if re.match(pattern, token.content) is not None:
+                if pattern.match(token.content) is not None:
                     return True
         return False
 

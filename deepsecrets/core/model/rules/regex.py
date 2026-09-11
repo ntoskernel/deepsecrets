@@ -73,14 +73,13 @@ class RegexRule(Rule):  # type: ignore
         contents.append(token.content if isinstance(token, Token) else token)
         contents.extend(token.uncovered_content if isinstance(token, Token) else [])
 
+        # Call the compiled patterns directly: the module-level regex functions re-enter the pattern
+        # cache on every call, which costs several times the match itself on short tokens.
         for i, content in enumerate(contents):
-            if (
-                self.negative_pattern is not None
-                and re.search(pattern=self.negative_pattern, string=content) is not None
-            ):
+            if self.negative_pattern is not None and self.negative_pattern.search(content) is not None:
                 continue
 
-            matches = re.finditer(self.pattern, content)
+            matches = self.pattern.finditer(content)
 
             for match in matches:
                 if not self._verify(match):

@@ -1,4 +1,8 @@
+import pickle
+import random
+
 import pytest
+import regex as re
 
 from deepsecrets.core.model.file import File
 
@@ -104,3 +108,122 @@ def test_2_span_for_string(file: File):
     looking_for = 'rabbitmq-esp01'
     span = file.get_span_for_string(looking_for, between=(130, 150))
     assert span is None
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        # a dot in a parent directory is not an extension
+        ('/Users/john.doe/proj/credentials', None),
+        ('/home/user.name/README', None),
+        ('/builds/my.project/Dockerfile', None),
+        ('/tmp/a.b/c.py', 'py'),
+        ('/tmp/a.b/c.tar.gz', 'gz'),
+        ('/tmp/a.b/.env', 'env'),
+        ('/tmp/plain/credentials', None),
+    ],
+)
+def test_extension_ignores_dotted_directories(path, expected):
+    file = File(path=path, content='x = 1\n')
+    assert file.extension == expected
+
+
+def _regex_span_reference(file: File, needle: str, between):
+    # the escaped-regex implementation get_span_for_string used before it became a substring search
+    if between is None:
+        between = (0, file.length)
+    between = [max(between[0], 0), min(between[1], file.length)]
+    pattern = re.escape(needle).replace('\\\n', '\n').replace('\\\t', '\t')
+    for detect in re.finditer(pattern, file.content[between[0] : between[1]]):
+        return (between[0] + detect.span()[0], between[0] + detect.span()[1])
+    return None
+
+
+SPAN_CONTENT = 'a = "x.y*z"\n\tb = \'(a|b)\' # [] {1,2} ^$ \\d+\na = "x.y*z"\n\n'
+
+
+@pytest.mark.parametrize(
+    "needle, between",
+    [
+        ('"x.y*z"', None),
+        ('"x.y*z"', [5, 70]),  # second occurrence only
+        ('(a|b)', None),
+        ('\tb', None),  # tab un-escaping
+        ('z"\n\tb', None),  # newline inside the needle
+        ('[] {1,2} ^$ \\d+', None),
+        ('\n\n', None),
+        ('missing', None),
+        ('a', [3, 3]),  # empty window
+        ('', [4, 9]),  # empty needle
+        ('a =', [-5, 500]),  # clamped window
+    ],
+)
+def test_span_for_string_matches_regex_reference(needle, between):
+    file = File(path=None, content=SPAN_CONTENT)
+    expected = _regex_span_reference(file, needle, list(between) if between else None)
+    assert file.get_span_for_string(needle, between=list(between) if between else None) == expected
+
+
+def test_span_for_string_randomized_against_regex_reference():
+    rnd = random.Random(5)
+    alphabet = 'ab.*()[]\\\n\t "\''
+    content = ''.join(rnd.choice(alphabet) for _ in range(400))
+    file = File(path=None, content=content)
+    for _ in range(2000):
+        start = rnd.randrange(0, len(content))
+        needle = content[start : start + rnd.randrange(1, 6)]
+        lo = rnd.randrange(-3, len(content))
+        between = [lo, lo + rnd.randrange(0, 60)]
+        assert file.get_span_for_string(needle, between=list(between)) == _regex_span_reference(file, needle, between)
+
+
+def test_span_for_string_still_clamps_list_windows_in_place():
+    # callers rely on this side effect staying as it was (KI-DM-04)
+    file = File(path=None, content='abc\n')
+    between = [-2, 99]
+    assert file.get_span_for_string('bc', between=between) == (1, 3)
+    assert between == [0, 4]
+
+
+def _linear_line_reference(file: File, position: int):
+    for linum, offsets in file.line_offsets.items():
+        if offsets[1] < position:
+            continue
+        return linum
+    return None
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        'one\ntwo\n\nfour\n',
+        'no trailing newline\nsecond',
+        'abc',  # single line without newline: non-ascending line ends (KI-DM-03)
+        '\n\n\n',
+    ],
+)
+def test_line_lookup_matches_linear_reference(content):
+    file = File(path=None, content=content)
+    for position in range(-1, file.length + 3):
+        assert file.get_line_number(position) == _linear_line_reference(file, position)
+
+
+@pytest.mark.fixture_file_path('4.go')
+def test_line_lookup_matches_linear_reference_on_fixture(file: File):
+    for position in range(0, file.length + 2):
+        assert file.get_line_number(position) == _linear_line_reference(file, position)
+
+
+def test_line_lookup_with_supplied_offsets():
+    file = File(path=None, content='ab\ncd\n', offsets={1: (0, 2), 2: (3, 5)})
+    assert [file.get_line_number(p) for p in range(0, 7)] == [1, 1, 1, 2, 2, 2, None]
+
+
+def test_line_index_is_not_pickled_and_is_rebuilt():
+    file = File(path=None, content='one\ntwo\n')
+    assert file.get_line_number(5) == 2
+    assert file._line_index is not None
+
+    clone = pickle.loads(pickle.dumps(file))
+    assert '_line_index' not in clone.__dict__
+    assert clone.get_line_number(5) == 2

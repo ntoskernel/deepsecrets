@@ -387,6 +387,11 @@ class ScanMode:
                         self._skip(full_path, f'excluded_path:{exclusion}')
                         continue
 
+                    if os.path.islink(full_path) and not os.path.exists(full_path):
+                        # a dangling symlink cannot be opened or stat'ed: os.path.getsize would raise below
+                        self._skip(full_path, 'broken_symlink')
+                        continue
+
                     if not self._size_check(full_path):
                         self._skip(full_path, 'max_file_size')
                         '''
@@ -430,7 +435,11 @@ class ScanMode:
         if self.config.max_file_size == 0:
             return True
 
-        size = os.path.getsize(path)
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            # e.g. a path that vanished or a dangling symlink raced away between discovery and here
+            return False
         if size > self.config.max_file_size:
             return False
         return True

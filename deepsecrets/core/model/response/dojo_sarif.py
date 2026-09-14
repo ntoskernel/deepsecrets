@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import List, Set
 
@@ -11,11 +12,15 @@ from sarif_om import (
     Message,
     Location,
     PhysicalLocation,
+    Artifact,
     ArtifactLocation,
     ArtifactContent,
+    Invocation,
+    Notification,
     Region,
 )
 from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
+from deepsecrets.core.utils.fs import get_relative_path
 
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.base import BaseResponseBuilder
@@ -173,7 +178,55 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
         sarif_rules = self._convert_rules(set([self._sarif_rule_meta_from_rule(rule) for rule in rules]))
         self.report.runs[0].tool.driver.rules = sarif_rules
+
+        mode = getattr(self, 'mode', None)
+        if mode is not None and getattr(mode.config, 'report_diagnostics', False):
+            self._add_diagnostics(self.report.runs[0])
         return self.report
+
+    def _add_diagnostics(self, run: Run) -> None:
+        """Every file found under the target dir as an artifact, and per-file errors as notifications."""
+        workdir = self.mode.config.workdir_path
+        outcomes = getattr(self.mode, 'files', {})
+
+        artifacts = []
+        notifications = []
+        for path, outcome in sorted(outcomes.items()):
+            uri = get_relative_path(path, workdir) if workdir else path
+            # a file that was scheduled but never came back has no result of its own
+            properties = {'status': 'error' if outcome.status == 'scheduled' else outcome.status}
+            if outcome.collected:
+                properties['scanTimeMs'] = outcome.time_ms
+            if outcome.skip_reason:
+                properties['skipReason'] = outcome.skip_reason
+            try:
+                length = os.path.getsize(path)
+            except OSError:
+                length = -1
+            artifacts.append(
+                Artifact(
+                    location=ArtifactLocation(uri=uri, uri_base_id='%SRCROOT%'),
+                    length=length,
+                    properties=properties,
+                )
+            )
+            for error in outcome.errors:
+                notifications.append(
+                    Notification(
+                        level='error',
+                        message=Message(text=error),
+                        locations=[
+                            Location(
+                                physical_location=PhysicalLocation(
+                                    artifact_location=ArtifactLocation(uri=uri, uri_base_id='%SRCROOT%')
+                                )
+                            )
+                        ],
+                    )
+                )
+
+        run.artifacts = artifacts
+        run.invocations = [Invocation(execution_successful=True, tool_execution_notifications=notifications)]
 
     def get_context_region(self, finding: Finding, masking: bool = True):
 
@@ -182,10 +235,14 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
         boundaries, _ = self._get_context_boundaries(finding, start_column, end_column)
         base_offset = finding.file.get_line_start_offset(finding.start_line_number)
-        snippet = finding.file.content[base_offset + boundaries[0] : base_offset + boundaries[1]]
+        snippet_start = base_offset + boundaries[0]
+        snippet = finding.file.content[snippet_start : base_offset + boundaries[1]]
 
         if masking:
-            snippet = self._mask(snippet=snippet, detection=finding.detection)
+            if finding.detection in snippet:
+                snippet = self._mask(snippet=snippet, detection=finding.detection)
+            else:
+                snippet = self._mask_by_offsets(snippet=snippet, snippet_start=snippet_start, finding=finding)
 
         return Region(
             start_line=finding.start_line_number,

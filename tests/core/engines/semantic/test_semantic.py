@@ -105,7 +105,7 @@ def test_conf_3(file: File):
 @pytest.mark.fixture_file_path('cheap_var_detector_cases.txt')
 def test_with_cheap_var_search(file: File):
     findings, tokens, vars = semantic_case_with_cheap_var_search(file)
-    assert len(findings) == 11
+    assert len(findings) == 12
 
 
 @pytest.mark.fixture_file_path('5.py')
@@ -116,5 +116,11 @@ def test_5(file: File):
 
 @pytest.mark.fixture_file_path('1.php')
 def test_6_php(file: File):
+    findings, tokens, vars = semantic_case(file)
+    assert len(findings) == 2
+
+
+@pytest.mark.fixture_file_path('1.txt')
+def test_ini_in_txt(file: File):
     findings, tokens, vars = semantic_case(file)
     assert len(findings) == 1

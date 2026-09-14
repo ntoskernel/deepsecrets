@@ -1,4 +1,5 @@
-from typing import List, Sequence, Set
+import bisect
+from typing import Callable, List, Sequence, Set
 
 from ordered_set import OrderedSet
 
@@ -67,9 +68,10 @@ class DeepAnalyzer:
 
         suppression_regions = self._collapse_suppression_regions(suppression_regions)
         self.silent_regions.append(suppression_regions)
+        is_suppressed = self._suppression_index(suppression_regions)
 
         for var in true_var_detections:
-            suppressed = self._if_suppressed(var, suppression_regions)
+            suppressed = is_suppressed(var)
             if suppressed:
                 exclude_after.update([var.name_token, var.value_token])
                 continue
@@ -91,6 +93,22 @@ class DeepAnalyzer:
             if var.span[0] >= reg[0] and var.span[1] <= reg[1]:
                 return True
         return False
+
+    def _suppression_index(self, regions) -> Callable[[Variable], bool]:
+        # Same answer as _if_suppressed ("some region contains the variable's span") in O(log regions):
+        # among regions starting at or before the variable, the one reaching furthest decides.
+        # A scan per variable was O(variables x regions), which dominated large flat JSON files.
+        ordered = sorted(regions, key=lambda reg: reg[0])
+        starts = [reg[0] for reg in ordered]
+        furthest_ends: List[int] = []
+        for reg in ordered:
+            furthest_ends.append(reg[1] if not furthest_ends or reg[1] > furthest_ends[-1] else furthest_ends[-1])
+
+        def is_suppressed(var: Variable) -> bool:
+            index = bisect.bisect_right(starts, var.span[0]) - 1
+            return index >= 0 and furthest_ends[index] >= var.span[1]
+
+        return is_suppressed
 
     def _collapse_suppression_regions(self, suppression_regions):
         regions = []

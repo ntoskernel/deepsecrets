@@ -1,6 +1,7 @@
+import time
 from datetime import datetime
 from typing import Optional
-from deepsecrets.core.utils.progress import FileProgress, Progress
+from deepsecrets.core.utils.progress import REPORT_THROTTLING_PERIOD_SECONDS, FileProgress, Progress
 from multiprocessing.managers import DictProxy
 
 
@@ -11,11 +12,13 @@ class LifecycleHooks:
     progress: Progress
     reporter: DictProxy
     task_id: int
+    last_report_ts: float
 
     def __init__(self, task_id: int, progress: Progress, reporter: DictProxy) -> None:
         self.task_id = task_id
         self.progress = progress
         self.reporter = reporter
+        self.last_report_ts = 0.0
 
     def on_start(self):
         self.start_ts = datetime.now()
@@ -36,7 +39,16 @@ class LifecycleHooks:
         if self.reporter is None:
             return
 
+        self.last_report_ts = time.monotonic()
         self.reporter[self.task_id] = self.progress.report(child_report)
+
+    def _report_throttled(self):
+        # For high-frequency progress (per token). Lifecycle transitions must keep using _report:
+        # the scan loop waits for the 'finished' write (KI-CLI-05).
+        if time.monotonic() - self.last_report_ts < REPORT_THROTTLING_PERIOD_SECONDS:
+            return
+
+        self._report()
 
 
 class JobLifecycleHooks(LifecycleHooks):
@@ -52,15 +64,15 @@ class FileLifecycleHooks(LifecycleHooks):
 
     def on_token_processing_start(self, name: str):
         self.progress.on_token_processing_start(name=name)
-        self._report()
+        self._report_throttled()
 
     def on_tokenization_finished(self, name: str, token_count: int):
         self.progress.on_tokenization_finished(name=name, token_count=token_count)
 
     def on_token_processing_end(self, findings_count: int):
         self.progress.add_findings_count(findings_count)
-        self._report()
+        self._report_throttled()
 
     def on_tokenization_progress(self, name: str, new_offset: int):
         self.progress.on_tokenization_progress(name, new_offset)
-        self._report()
+        self._report_throttled()

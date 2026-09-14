@@ -5,28 +5,31 @@ setup_interrupts_for_subprocess()
 import time
 
 from dataclasses import dataclass, field
+from functools import partial
 from multiprocessing.pool import AsyncResult
+from queue import SimpleQueue
 import regex as re
 
 from multiprocessing import Manager, get_context
 from multiprocessing.managers import DictProxy
 import os
+import pickle
+import tempfile
 from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
-
-from dotwiz import DotWiz
 
 from deepsecrets import PROFILER_ON, console
 from deepsecrets.config import Config
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
-from deepsecrets.core.model.internal.processing import PerFileAnalysisResult
+from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
 from deepsecrets.core.model.rules.exlcuded_path import ExcludePathRule
 from deepsecrets.core.rulesets.excluded_paths import ExcludedPathsBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.finding_merger import FindingMerger
-from deepsecrets.core.utils.fs import get_abspath
+from deepsecrets.core.utils.fs import get_abspath, get_relative_path
+from deepsecrets.core.utils.log import logger
 
 from rich.progress import Progress as ProgressBar
 from rich.live import Live
@@ -42,8 +45,27 @@ class FileJob:
 
 
 @dataclass
+class FileOutcome:
+    """What happened to one file, scanned or skipped. `FileJob` tracks a job while it runs; this is what is left
+    when it is done, and it is what `--report-diagnostics` turns into SARIF artifacts."""
+
+    path: str
+    # scheduled -> ok | empty | unreadable | error, or skipped for a file the scan never opened
+    status: str = 'scheduled'
+    skip_reason: Optional[str] = None
+    time_ms: float = 0.0
+    collected: bool = False
+    errors: List[str] = field(default_factory=list)
+
+    @property
+    def time_seconds(self) -> int:
+        return int(self.time_ms / 1000)
+
+
+@dataclass
 class Stats:
     total_files: int = 0
+    skipped_files: int = 0
     finished: int = 0
     failed_files: int = 0
     tokens_processed: int = 0
@@ -62,13 +84,15 @@ class ScanMode:
     file_analyzer: FileAnalyzer
     pool_engine: Type
     rulesets: Dict[str, List]
-    engines_enabled: Dict[Type, bool]
+    engines_enabled: Dict[str, bool]
 
     active_task_reporter: DictProxy
     progress_bar: DSApplicationProgess
 
     file_results: List[AsyncResult]
     file_jobs: Dict[int, FileJob]
+    # path -> outcome, for every file found under the target dir
+    files: Dict[str, FileOutcome]
 
     _mp_manager = None
 
@@ -90,7 +114,9 @@ class ScanMode:
         self.config = config
         self.file_results = []
         self.file_jobs = {}
+        self.failed_jobs = SimpleQueue()
         self.stats = Stats()
+        self.files = {}
 
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
@@ -127,6 +153,12 @@ class ScanMode:
         for internal_task_id, current_state in self.active_task_reporter.items():
             if current_state is None:
                 continue
+
+            if internal_task_id in self.stats.finished_ids:
+                # a late write for a job that is already accounted for
+                tasks_to_remove.add(internal_task_id)
+                continue
+
             job = self.file_jobs.get(internal_task_id)
             if job is None:
                 raise Exception()
@@ -181,6 +213,28 @@ class ScanMode:
             self.active_task_reporter.pop(to_remove)
             self.stats.new_finished(to_remove)
 
+    def _on_job_error(self, task_id: int, error: BaseException) -> None:
+        # Called by the pool's result handler thread when a job raised
+        self.failed_jobs.put(task_id)
+
+    def reap_failed_jobs(self) -> None:
+        # A job that raised never reports 'finished', so without this run() would poll forever
+        while not self.failed_jobs.empty():
+            task_id = self.failed_jobs.get()
+            if task_id in self.stats.finished_ids:
+                continue
+
+            self.stats.failed_files += 1
+            self.stats.new_finished(task_id)
+            self.active_task_reporter.pop(task_id, None)
+
+            job = self.file_jobs.get(task_id)
+            if job is not None and job.pb_task_id is not None:
+                try:
+                    self.progress_bar.remove_task(job.pb_task_id)
+                except Exception:
+                    pass
+
     def refresh_overall_progress_bar(self, pb_task_id):
         if pb_task_id is None:
             return
@@ -196,13 +250,11 @@ class ScanMode:
 
     def run(self) -> Tuple[List[Finding], Dict[str, List[str]], Dict[str, int]]:
         final: List[Finding] = []
-        errors: Dict[str, List[str]] = dict()
-        timings: Dict[str, int] = dict()
 
         bundle = self.analyzer_bundle()
         proc_count = self._get_process_count_for_runner()
         if proc_count == 0:
-            return final, errors, timings
+            return final, self.per_file_errors(), self.per_file_timings()
 
         overall_progress_task = self.progress_bar.add_task(
             "[green bold]OVERALL\nPROGRESS\n",
@@ -221,13 +273,23 @@ class ScanMode:
                 )
         else:
             try:
-                with self.pool_engine(processes=proc_count) as pool:
+                # the bundle and the reporter proxy reach each worker once, not with every file; the bundle as a
+                # path, because in initargs it would make spawned workers start one at a time (KI-CLI-32)
+                with (
+                    tempfile.TemporaryDirectory(prefix='deepsecrets-') as staging,
+                    self.pool_engine(
+                        processes=proc_count,
+                        initializer=init_worker,
+                        initargs=(stage_bundle(bundle, staging), self.active_task_reporter),
+                    ) as pool,
+                ):
                     tid = 0
                     for file in self.filepaths:
                         tid += 1
                         result = pool.apply_async(
                             pool_wrapper,
-                            (bundle, self._per_file_analyzer, tid, self.active_task_reporter, file),
+                            (self._per_file_analyzer, tid, file),
+                            error_callback=partial(self._on_job_error, tid),
                         )
                         self.file_results.append(result)
                         self.file_jobs[tid] = FileJob(name=file, internal_id=tid, pb_task_id=None, result_holder=result)
@@ -236,6 +298,7 @@ class ScanMode:
                     self.stats.total_files = len(self.file_jobs.keys())
                     while self.stats.finished < self.stats.total_files:
                         self.refresh_jobs_progress_bars()
+                        self.reap_failed_jobs()
                         self.refresh_overall_progress_bar(overall_progress_task)
                         time.sleep(0.1)
                         # self.refresh_overall_debug_progress_bar(overall_debug)
@@ -260,13 +323,24 @@ class ScanMode:
 
                 raise
 
-            for job_result in self.file_results:
-                analysis_result: PerFileAnalysisResult = job_result.get(timeout=1000)
-                self._oneshot_file = analysis_result._file
+            for job in self.file_jobs.values():
+                outcome = self.files.setdefault(job.name, FileOutcome(path=job.name))
+                try:
+                    analysis_result: PerFileAnalysisResult = job.result_holder.get(timeout=1000)
+                except Exception as e:
+                    # reported as a failed file, like a file that cannot be opened
+                    logger.error(f'Analysis of {job.name} failed: {type(e).__name__}: {e}')
+                    outcome.status = 'error'
+                    outcome.errors = [f'{type(e).__name__}: {e}']
+                    continue
 
-                job = self.file_jobs.get(analysis_result.internal_task_id)
-                errors[job.name] = analysis_result.errors
-                timings[job.name] = analysis_result.processing_time_seconds
+                self._oneshot_file = analysis_result._file
+                outcome.collected = True
+                outcome.time_ms = analysis_result.processing_time_ms
+                outcome.errors = analysis_result.errors
+                # a file that logged an error is reported as failed even when the analysis returned
+                status = analysis_result.status
+                outcome.status = 'error' if status == 'ok' and analysis_result.errors else status
 
                 if analysis_result.findings is None or len(analysis_result.findings) == 0:
                     continue
@@ -278,7 +352,7 @@ class ScanMode:
 
         console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
-        return fin, errors, timings
+        return fin, self.per_file_errors(), self.per_file_timings()
 
     def dispose(self):
         self.task_reporter = None
@@ -295,24 +369,26 @@ class ScanMode:
             self.path_exclusion_rules = excl_paths_builder.rules
 
         if self.config.oneshot_path is not None:
-            flist.append(get_abspath(self.config.oneshot_path))
+            path = get_abspath(self.config.oneshot_path)
+            self.files[path] = FileOutcome(path=path)
+            flist.append(path)
             return flist
 
         with Live(console=console, refresh_per_second=5) as live:
             total_files = 0
-            skipped = 0
             for fpath, _, files in os.walk(get_abspath(self.config.workdir_path)):
                 for filename in files:
                     total_files += 1
-                    live.update(Text(text=f'Found {total_files} files, {skipped} will be skipped'))
+                    live.update(Text(text=f'Found {total_files} files, {self.stats.skipped_files} will be skipped'))
                     full_path = os.path.join(fpath, filename)
-                    rel_path = full_path.replace(f'{self.config.workdir_path}/', '')
-                    if not self._path_included(rel_path):
-                        skipped += 1
+                    rel_path = get_relative_path(full_path, self.config.workdir_path)
+                    exclusion = self._matching_exclusion(rel_path)
+                    if exclusion is not None:
+                        self._skip(full_path, f'excluded_path:{exclusion}')
                         continue
 
                     if not self._size_check(full_path):
-                        skipped += 1
+                        self._skip(full_path, 'max_file_size')
                         '''
                         console.print(
                             f'[bold yellow]:warning: {rel_path}[/bold yellow]: File size exceeds [magenta]--max-file-path[/magenta] of {self.config.max_file_size} bytes and will be [bold]skipped[/bold]'
@@ -320,17 +396,35 @@ class ScanMode:
                         '''
                         continue
 
+                    self.files[full_path] = FileOutcome(path=full_path)
                     flist.append(full_path)
 
         return flist
 
-    def _path_included(self, path: str) -> bool:
-        if self.path_exclusion_rules is None or len(self.path_exclusion_rules) == 0:
-            return True
+    def _skip(self, path: str, reason: str) -> None:
+        self.files[path] = FileOutcome(path=path, status='skipped', skip_reason=reason)
+        self.stats.skipped_files += 1
 
-        if any(excl_rule.match(path) for excl_rule in self.path_exclusion_rules):
-            return False
-        return True
+    def per_file_errors(self) -> Dict[str, List[str]]:
+        """Error lists for every file the scan tried to analyse, skipped ones excluded."""
+        return {path: o.errors for path, o in self.files.items() if o.status not in ('skipped', 'scheduled')}
+
+    def per_file_timings(self) -> Dict[str, int]:
+        """Whole seconds per analysed file: the shape benchmarking mode has always returned."""
+        return {path: o.time_seconds for path, o in self.files.items() if o.collected}
+
+    def _path_included(self, path: str) -> bool:
+        return self._matching_exclusion(path) is None
+
+    def _matching_exclusion(self, path: str) -> Optional[str]:
+        """The pattern of the first exclusion rule that matches `path`, or None."""
+        if self.path_exclusion_rules is None or len(self.path_exclusion_rules) == 0:
+            return None
+
+        for excl_rule in self.path_exclusion_rules:
+            if excl_rule.match(path):
+                return excl_rule.pattern.pattern
+        return None
 
     def _size_check(self, path: str):
         if self.config.max_file_size == 0:
@@ -345,18 +439,15 @@ class ScanMode:
     def prepare_for_scan(self) -> None:
         pass
 
-    def analyzer_bundle(self) -> DotWiz:
-        return DotWiz(
-            logging_level=self.config.logging_level,
-            max_file_size=self.config.max_file_size,
+    def analyzer_bundle(self) -> AnalyzerBundle:
+        return AnalyzerBundle(
             workdir=self.config.workdir_path,
-            path_exclusion_rules=self.path_exclusion_rules,
-            engines={},
+            benchmarking_mode=self.config._benchmarking_mode,
         )
 
     @staticmethod
     @abstractmethod
-    def _per_file_analyzer(bundle: Any, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
+    def _per_file_analyzer(bundle: AnalyzerBundle, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
         pass
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
@@ -379,9 +470,34 @@ class ScanMode:
         return final
 
 
-def pool_wrapper(
-    bundle: DotWiz, runner: Callable, task_id: Optional[int], task_reporter: DictProxy, file: str
-) -> PerFileAnalysisResult:  # pragma: nocover
+_worker_bundle: Optional[AnalyzerBundle] = None
+_worker_task_reporter: Optional[DictProxy] = None
 
-    result = runner(bundle, file, task_id, task_reporter)
+
+def stage_bundle(bundle: AnalyzerBundle, directory: str) -> str:
+    """Write the bundle once, for every worker's initializer to load.
+
+    Passing the bundle itself in `initargs` puts it in the payload the spawn launcher writes to each child's pipe in a
+    single call. When that payload is larger than the pipe buffer (8 KB on some hosts; the rules alone are about
+    33 KB) the parent blocks until the child has re-imported the package, so workers start one at a time: 64 of them
+    took 55 s. A path is a few bytes, however many rules there are (KI-CLI-32).
+    """
+    path = os.path.join(directory, 'bundle.pickle')
+    with open(path, 'wb') as f:
+        pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)
+    return path
+
+
+def init_worker(bundle_path: str, task_reporter: DictProxy) -> None:  # pragma: nocover
+    # Pool initializer: runs once per worker. Pickling the bundle (compiled rules) and the proxy
+    # with every task cost more than analysing a typical small file.
+    global _worker_bundle, _worker_task_reporter
+    # written by this scan into a private temporary directory (mkdtemp creates it 0700)
+    with open(bundle_path, 'rb') as f:
+        _worker_bundle = pickle.load(f)
+    _worker_task_reporter = task_reporter
+
+
+def pool_wrapper(runner: Callable, task_id: Optional[int], file: str) -> PerFileAnalysisResult:  # pragma: nocover
+    result = runner(_worker_bundle, file, task_id, _worker_task_reporter)
     return result

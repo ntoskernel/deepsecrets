@@ -7,6 +7,7 @@ from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME, console
 from deepsecrets.config import SCANNER_VERSION, SCANNER_VERSION_NUMERIC, Config, config, Output
+from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding
@@ -217,6 +218,13 @@ class DeepSecretsCliTool:
             'Use this flag if you want to render found secrets in plaintext but be extremely careful.',
         )
 
+        parser.add_argument(
+            '--report-diagnostics',
+            action='store_true',
+            help='Add scan diagnostics to a SARIF report: every file found under the target directory in\n'
+            'run.artifacts (scan time in ms, status, skip reason) and per-file errors in run.invocations.\n',
+        )
+
         parser.add_argument('--benchmarking-mode', help=argparse.SUPPRESS, action='store_true')
         parser.add_argument('--oneshot', help=argparse.SUPPRESS, type=str, default=None)
 
@@ -231,6 +239,9 @@ class DeepSecretsCliTool:
 
         if user_args.disable_masking:
             config.set_disable_masking(True)
+
+        # set on every parse: the config singleton outlives one run
+        config.set_report_diagnostics(user_args.report_diagnostics)
 
         if user_args.benchmarking_mode:
             config._set_benchmarking_mode(True)
@@ -274,7 +285,7 @@ class DeepSecretsCliTool:
 
         conf_hashed_ruleset = user_args.hashed_values
         if conf_hashed_ruleset is not None and conf_hashed_ruleset != DISABLED:
-            config.engines.append(RegexEngine)
+            config.engines.append(HashedSecretEngine)
             config.add_ruleset(HashedSecretsRulesetBuilder, conf_hashed_ruleset)
 
         conf_false_findings_ruleset = user_args.false_findings
@@ -297,11 +308,11 @@ class DeepSecretsCliTool:
 
         if config.output.type == 'json':
             console.print('\n')
-            if SCANNER_VERSION_NUMERIC[0] == 2 and SCANNER_VERSION_NUMERIC[1] < 1:
+            if SCANNER_VERSION_NUMERIC[0] == 2 and SCANNER_VERSION_NUMERIC[1] < 2:
                 console.print(
                     Align(
                         Panel(
-                            "The internal JSON report format is now DEPRECATED and will be removed in release 2.1.0\n\nConsider switching now.",
+                            "The internal JSON report format is now DEPRECATED and will be removed in release 2.2.0\n\nConsider switching now.",
                             padding=(1, 2),
                             title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
                             highlight=True,
@@ -321,7 +332,7 @@ class DeepSecretsCliTool:
                 console.print(
                     Align(
                         Panel(
-                            f"The internal JSON report format was DEPRECATED since the release 2.0.0.\nNow ({SCANNER_VERSION}) it is REMOVED. Switch to SARIF\n.",
+                            f"The internal JSON report format was DEPRECATED since the release 2.2.0.\nNow ({SCANNER_VERSION}) it is REMOVED. Switch to SARIF\n.",
                             padding=(1, 2),
                             title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
                             highlight=True,

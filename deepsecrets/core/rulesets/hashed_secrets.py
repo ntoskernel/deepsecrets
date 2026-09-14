@@ -42,5 +42,6 @@ class HashedSecretsRulesetBuilder(IRulesetBuilder):
                 )
             )
 
-        self.rules = list(rules_set)
+        # merge with rules from previously loaded files, de-duplicated by hashed value
+        self.rules = list(set(self.rules) | rules_set)
         return self

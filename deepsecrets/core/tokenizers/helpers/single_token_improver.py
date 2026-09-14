@@ -8,6 +8,13 @@ from deepsecrets.core.tokenizers.helpers.semantic.language import Language
 from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, RegionDetector
 from deepsecrets.core.tokenizers.helpers.type_stream import token_to_typestream_item
 
+# `curl -u <credentials>`: the token after a literal `-u`
+CURL_CREDENTIALS_DETECTOR = RegionDetector(
+    stream_pattern=re.compile('(L)(L)$'),
+    match_rules={1: Match(values=[re.compile('^-u$')])},
+    match_semantics={},
+)
+
 
 class SingleTokenImprover:
     language: Language
@@ -68,15 +75,15 @@ class SingleTokenImprover:
     def _curl_argstring_breakdown(
         self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token
     ) -> List[Token]:
-        projected_typestream = so_far_type_stream + token_to_typestream_item(current_token)
+        # '(L)(L)$' can only match the last two stream items, or the two before a trailing newline,
+        # so matching the tail (aligned with the last two tokens) is equivalent to matching the whole
+        # stream, and keeps this O(1) per token instead of O(tokens so far).
+        tail_length = min(2, len(so_far_tokens))
+        tail_tokens = so_far_tokens[len(so_far_tokens) - tail_length :]
+        projected_tail = so_far_type_stream[len(so_far_type_stream) - tail_length :]
+        projected_tail += token_to_typestream_item(current_token)
 
-        rule = RegionDetector(
-            stream_pattern=re.compile('(L)(L)$'),
-            match_rules={1: Match(values=[re.compile('^-u$')])},
-            match_semantics={},
-        )
-
-        match = rule.match(so_far_tokens, projected_typestream)
+        match = CURL_CREDENTIALS_DETECTOR.match(tail_tokens, projected_tail)
         if not match:
             return [current_token]
 

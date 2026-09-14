@@ -103,32 +103,12 @@ class VariableEvaluator:
         return result
 
     def confidence_from_evaluation_result(self, result: EvaluationResult):
-        entropy_part = 0
-        var_part = result.naming_and_content_score / 25 * 10
+        # Monotonic in every input: more naming evidence, more entropy or a less natural value never lowers it.
+        # Naming: 0.2 per point up to 20, then 0.6 per point up to 25, so a strong name alone reaches 7 (HIGH)
+        # and needs a random-looking value to reach VERY-HIGH. Value: entropy score 0..40 -> 0..5, halved for
+        # natural-looking values. See docs/research/variable-scoring-balance.md.
+        naming = min(max(result.naming_and_content_score, 0), 25)
+        var_part = 0.2 * min(naming, 20) + 0.6 * max(naming - 20, 0)
+        entropy_part = min(max(result.entropy_score, 0), 40) / 40 * 5 * min(result.nonsence_value_score + 0.5, 1)
 
-        if result.entropy_score > 0:
-            if result.naming_and_content_score <= 20:
-                # var_naming: 0 -> 5
-                # entropy: 0 -> 5
-                var_part = result.naming_and_content_score / 25 * 5
-                entropy_part = result.entropy_score / 40 * 5
-            else:
-                var_part = 5
-                entropy_part = result.entropy_score / 40 * 5
-
-            entropy_part = entropy_part * min(result.nonsence_value_score + 0.5, 1)
-            # ep non
-
-        if entropy_part > 5:
-            entropy_part = 5
-
-        if entropy_part < 0:
-            entropy_part = 0
-
-        if var_part > 10:
-            var_part = 10
-
-        if var_part < 0:
-            var_part = 0
-
-        return round(var_part + entropy_part)
+        return round(min(var_part + entropy_part, 10))

@@ -17,7 +17,6 @@ class HashedSecretEngine(IEngine):
             if not self.is_rule_applicable(token=token, rule=rule):
                 continue
 
-            token.calculate_hashed_value(rule.algorithm)
             results.extend(self._check_rule(token, rule))
 
         return results
@@ -30,7 +29,7 @@ class HashedSecretEngine(IEngine):
     def _check_rule(self, token: Token, rule: HashedSecretRule) -> List[Finding]:
         findings: List[Finding] = []
 
-        if token.hashed_value != rule.hashed_val:
+        if token.calculate_hashed_value(rule.algorithm) != rule.hashed_val:
             return findings
 
         findings.append(

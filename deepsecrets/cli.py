@@ -308,11 +308,11 @@ class DeepSecretsCliTool:
 
         if config.output.type == 'json':
             console.print('\n')
-            if SCANNER_VERSION_NUMERIC[0] == 2 and SCANNER_VERSION_NUMERIC[1] < 1:
+            if SCANNER_VERSION_NUMERIC[0] == 2 and SCANNER_VERSION_NUMERIC[1] < 2:
                 console.print(
                     Align(
                         Panel(
-                            "The internal JSON report format is now DEPRECATED and will be removed in release 2.1.0\n\nConsider switching now.",
+                            "The internal JSON report format is now DEPRECATED and will be removed in release 2.2.0\n\nConsider switching now.",
                             padding=(1, 2),
                             title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
                             highlight=True,
@@ -332,7 +332,7 @@ class DeepSecretsCliTool:
                 console.print(
                     Align(
                         Panel(
-                            f"The internal JSON report format was DEPRECATED since the release 2.0.0.\nNow ({SCANNER_VERSION}) it is REMOVED. Switch to SARIF\n.",
+                            f"The internal JSON report format was DEPRECATED since the release 2.2.0.\nNow ({SCANNER_VERSION}) it is REMOVED. Switch to SARIF\n.",
                             padding=(1, 2),
                             title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
                             highlight=True,

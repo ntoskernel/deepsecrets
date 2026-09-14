@@ -54,7 +54,6 @@ class CliScanMode(ScanMode):
                 result._file = file
 
             elapsed = (lifecycle.end_ts - lifecycle.start_ts).total_seconds()
-            result.processing_time_seconds = int(elapsed)
             result.processing_time_ms = round(elapsed * 1000, 1)
             result.errors = get_error_list()
             return result

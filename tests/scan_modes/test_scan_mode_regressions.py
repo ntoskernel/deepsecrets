@@ -1,3 +1,4 @@
+import os
 import pickle
 import shutil
 import threading
@@ -17,6 +18,7 @@ from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.utils.fs import get_path_inside_package
+from deepsecrets.core.modes import iscan_mode
 from deepsecrets.scan_modes.cli import CliScanMode
 
 HASHED_SECRET = '$ecRetT0F1nD'  # sha1 listed in tests/fixtures/hashed_secrets.json, present in tests/fixtures/1.py
@@ -174,8 +176,12 @@ def test_bundle_reaches_workers_once_not_per_task():
         findings, errors, _ = _run_with_timeout(mode)
         pool = RecordingPool.last
 
-        bundle, reporter = pool.init_kwargs['initargs']
-        assert isinstance(bundle, AnalyzerBundle)
+        bundle_path, reporter = pool.init_kwargs['initargs']
+        # the bundle travels as a path, so the payload written to each spawned child stays small (KI-CLI-32)
+        assert isinstance(bundle_path, str) and len(pickle.dumps(bundle_path)) < 1024
+        assert not os.path.exists(bundle_path)  # its staging directory goes with the pool
+        # a thread pool shares the worker globals, so what the initializer loaded is visible here
+        assert iscan_mode._worker_bundle == mode.analyzer_bundle()
         assert reporter is mode.active_task_reporter
         assert len(pool.task_args) == len(mode.filepaths)
         for args in pool.task_args:

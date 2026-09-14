@@ -27,7 +27,7 @@ class PerFileAnalysisResult:
     findings: List[Finding]
     errors: List[str]
 
-    processing_time_seconds: int = field(default=0)
+    # milliseconds: the whole-second field this replaced recorded 0 for almost every file
     processing_time_ms: float = field(default=0.0)
     # 'ok', 'empty' (0 bytes) or 'unreadable' (the file could not be opened)
     status: str = field(default='ok')

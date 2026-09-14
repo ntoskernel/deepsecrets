@@ -187,26 +187,18 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
     def _add_diagnostics(self, run: Run) -> None:
         """Every file found under the target dir as an artifact, and per-file errors as notifications."""
         workdir = self.mode.config.workdir_path
-        statuses = dict(getattr(self.mode, 'file_statuses', {}))
-        timings = getattr(self.mode, 'timings_ms', {})
-        errors = getattr(self.mode, 'errors', {})
-        skipped = getattr(self.mode, 'skipped_files', {})
-
-        for path in skipped:
-            statuses[path] = 'skipped'
-        # a file listed for the scan with no result at all never reached the report
-        for path in self.mode.filepaths:
-            statuses.setdefault(path, 'error')
+        outcomes = getattr(self.mode, 'files', {})
 
         artifacts = []
         notifications = []
-        for path in sorted(statuses):
+        for path, outcome in sorted(outcomes.items()):
             uri = get_relative_path(path, workdir) if workdir else path
-            properties = {'status': statuses[path]}
-            if path in timings:
-                properties['scanTimeMs'] = timings[path]
-            if path in skipped:
-                properties['skipReason'] = skipped[path]
+            # a file that was scheduled but never came back has no result of its own
+            properties = {'status': 'error' if outcome.status == 'scheduled' else outcome.status}
+            if outcome.collected:
+                properties['scanTimeMs'] = outcome.time_ms
+            if outcome.skip_reason:
+                properties['skipReason'] = outcome.skip_reason
             try:
                 length = os.path.getsize(path)
             except OSError:
@@ -218,7 +210,7 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
                     properties=properties,
                 )
             )
-            for error in errors.get(path, []):
+            for error in outcome.errors:
                 notifications.append(
                     Notification(
                         level='error',

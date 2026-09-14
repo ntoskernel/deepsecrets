@@ -13,6 +13,8 @@ import regex as re
 from multiprocessing import Manager, get_context
 from multiprocessing.managers import DictProxy
 import os
+import pickle
+import tempfile
 from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
@@ -43,8 +45,27 @@ class FileJob:
 
 
 @dataclass
+class FileOutcome:
+    """What happened to one file, scanned or skipped. `FileJob` tracks a job while it runs; this is what is left
+    when it is done, and it is what `--report-diagnostics` turns into SARIF artifacts."""
+
+    path: str
+    # scheduled -> ok | empty | unreadable | error, or skipped for a file the scan never opened
+    status: str = 'scheduled'
+    skip_reason: Optional[str] = None
+    time_ms: float = 0.0
+    collected: bool = False
+    errors: List[str] = field(default_factory=list)
+
+    @property
+    def time_seconds(self) -> int:
+        return int(self.time_ms / 1000)
+
+
+@dataclass
 class Stats:
     total_files: int = 0
+    skipped_files: int = 0
     finished: int = 0
     failed_files: int = 0
     tokens_processed: int = 0
@@ -70,6 +91,8 @@ class ScanMode:
 
     file_results: List[AsyncResult]
     file_jobs: Dict[int, FileJob]
+    # path -> outcome, for every file found under the target dir
+    files: Dict[str, FileOutcome]
 
     _mp_manager = None
 
@@ -93,12 +116,7 @@ class ScanMode:
         self.file_jobs = {}
         self.failed_jobs = SimpleQueue()
         self.stats = Stats()
-
-        # per-file diagnostics, keyed by absolute path; reported with --report-diagnostics
-        self.skipped_files: Dict[str, str] = {}
-        self.timings_ms: Dict[str, float] = {}
-        self.file_statuses: Dict[str, str] = {}
-        self.errors: Dict[str, List[str]] = {}
+        self.files = {}
 
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
@@ -232,13 +250,11 @@ class ScanMode:
 
     def run(self) -> Tuple[List[Finding], Dict[str, List[str]], Dict[str, int]]:
         final: List[Finding] = []
-        errors: Dict[str, List[str]] = dict()
-        timings: Dict[str, int] = dict()
 
         bundle = self.analyzer_bundle()
         proc_count = self._get_process_count_for_runner()
         if proc_count == 0:
-            return final, errors, timings
+            return final, self.per_file_errors(), self.per_file_timings()
 
         overall_progress_task = self.progress_bar.add_task(
             "[green bold]OVERALL\nPROGRESS\n",
@@ -257,12 +273,16 @@ class ScanMode:
                 )
         else:
             try:
-                # the bundle and the reporter proxy reach each worker once, not with every file
-                with self.pool_engine(
-                    processes=proc_count,
-                    initializer=init_worker,
-                    initargs=(bundle, self.active_task_reporter),
-                ) as pool:
+                # the bundle and the reporter proxy reach each worker once, not with every file; the bundle as a
+                # path, because in initargs it would make spawned workers start one at a time (KI-CLI-32)
+                with (
+                    tempfile.TemporaryDirectory(prefix='deepsecrets-') as staging,
+                    self.pool_engine(
+                        processes=proc_count,
+                        initializer=init_worker,
+                        initargs=(stage_bundle(bundle, staging), self.active_task_reporter),
+                    ) as pool,
+                ):
                     tid = 0
                     for file in self.filepaths:
                         tid += 1
@@ -304,27 +324,27 @@ class ScanMode:
                 raise
 
             for job in self.file_jobs.values():
+                outcome = self.files.setdefault(job.name, FileOutcome(path=job.name))
                 try:
                     analysis_result: PerFileAnalysisResult = job.result_holder.get(timeout=1000)
                 except Exception as e:
                     # reported as a failed file, like a file that cannot be opened
                     logger.error(f'Analysis of {job.name} failed: {type(e).__name__}: {e}')
-                    errors[job.name] = [f'{type(e).__name__}: {e}']
-                    self.file_statuses[job.name] = 'error'
+                    outcome.status = 'error'
+                    outcome.errors = [f'{type(e).__name__}: {e}']
                     continue
 
                 self._oneshot_file = analysis_result._file
-                errors[job.name] = analysis_result.errors
-                timings[job.name] = analysis_result.processing_time_seconds
-                self.timings_ms[job.name] = analysis_result.processing_time_ms
+                outcome.collected = True
+                outcome.time_ms = analysis_result.processing_time_ms
+                outcome.errors = analysis_result.errors
+                # a file that logged an error is reported as failed even when the analysis returned
                 status = analysis_result.status
-                self.file_statuses[job.name] = 'error' if status == 'ok' and analysis_result.errors else status
+                outcome.status = 'error' if status == 'ok' and analysis_result.errors else status
 
                 if analysis_result.findings is None or len(analysis_result.findings) == 0:
                     continue
                 final.extend(analysis_result.findings)
-
-        self.errors = errors
 
         console.line()
         console.print('[*] Merging similar findings..')
@@ -332,7 +352,7 @@ class ScanMode:
 
         console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
-        return fin, errors, timings
+        return fin, self.per_file_errors(), self.per_file_timings()
 
     def dispose(self):
         self.task_reporter = None
@@ -349,27 +369,26 @@ class ScanMode:
             self.path_exclusion_rules = excl_paths_builder.rules
 
         if self.config.oneshot_path is not None:
-            flist.append(get_abspath(self.config.oneshot_path))
+            path = get_abspath(self.config.oneshot_path)
+            self.files[path] = FileOutcome(path=path)
+            flist.append(path)
             return flist
 
         with Live(console=console, refresh_per_second=5) as live:
             total_files = 0
-            skipped = 0
             for fpath, _, files in os.walk(get_abspath(self.config.workdir_path)):
                 for filename in files:
                     total_files += 1
-                    live.update(Text(text=f'Found {total_files} files, {skipped} will be skipped'))
+                    live.update(Text(text=f'Found {total_files} files, {self.stats.skipped_files} will be skipped'))
                     full_path = os.path.join(fpath, filename)
                     rel_path = get_relative_path(full_path, self.config.workdir_path)
                     exclusion = self._matching_exclusion(rel_path)
                     if exclusion is not None:
-                        skipped += 1
-                        self.skipped_files[full_path] = f'excluded_path:{exclusion}'
+                        self._skip(full_path, f'excluded_path:{exclusion}')
                         continue
 
                     if not self._size_check(full_path):
-                        skipped += 1
-                        self.skipped_files[full_path] = 'max_file_size'
+                        self._skip(full_path, 'max_file_size')
                         '''
                         console.print(
                             f'[bold yellow]:warning: {rel_path}[/bold yellow]: File size exceeds [magenta]--max-file-path[/magenta] of {self.config.max_file_size} bytes and will be [bold]skipped[/bold]'
@@ -377,9 +396,22 @@ class ScanMode:
                         '''
                         continue
 
+                    self.files[full_path] = FileOutcome(path=full_path)
                     flist.append(full_path)
 
         return flist
+
+    def _skip(self, path: str, reason: str) -> None:
+        self.files[path] = FileOutcome(path=path, status='skipped', skip_reason=reason)
+        self.stats.skipped_files += 1
+
+    def per_file_errors(self) -> Dict[str, List[str]]:
+        """Error lists for every file the scan tried to analyse, skipped ones excluded."""
+        return {path: o.errors for path, o in self.files.items() if o.status not in ('skipped', 'scheduled')}
+
+    def per_file_timings(self) -> Dict[str, int]:
+        """Whole seconds per analysed file: the shape benchmarking mode has always returned."""
+        return {path: o.time_seconds for path, o in self.files.items() if o.collected}
 
     def _path_included(self, path: str) -> bool:
         return self._matching_exclusion(path) is None
@@ -442,11 +474,27 @@ _worker_bundle: Optional[AnalyzerBundle] = None
 _worker_task_reporter: Optional[DictProxy] = None
 
 
-def init_worker(bundle: AnalyzerBundle, task_reporter: DictProxy) -> None:  # pragma: nocover
+def stage_bundle(bundle: AnalyzerBundle, directory: str) -> str:
+    """Write the bundle once, for every worker's initializer to load.
+
+    Passing the bundle itself in `initargs` puts it in the payload the spawn launcher writes to each child's pipe in a
+    single call. When that payload is larger than the pipe buffer (8 KB on some hosts; the rules alone are about
+    33 KB) the parent blocks until the child has re-imported the package, so workers start one at a time: 64 of them
+    took 55 s. A path is a few bytes, however many rules there are (KI-CLI-32).
+    """
+    path = os.path.join(directory, 'bundle.pickle')
+    with open(path, 'wb') as f:
+        pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)
+    return path
+
+
+def init_worker(bundle_path: str, task_reporter: DictProxy) -> None:  # pragma: nocover
     # Pool initializer: runs once per worker. Pickling the bundle (compiled rules) and the proxy
     # with every task cost more than analysing a typical small file.
     global _worker_bundle, _worker_task_reporter
-    _worker_bundle = bundle
+    # written by this scan into a private temporary directory (mkdtemp creates it 0700)
+    with open(bundle_path, 'rb') as f:
+        _worker_bundle = pickle.load(f)
     _worker_task_reporter = task_reporter
 
 

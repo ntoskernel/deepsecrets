@@ -1,6 +1,6 @@
 import logging
 import multiprocessing
-from typing import List
+from typing import List, Optional
 from deepsecrets import MODULE_NAME
 
 
@@ -33,16 +33,23 @@ def build_logger(level: int = logging.INFO) -> logging.Logger:
     return logger
 
 
-def get_error_list() -> List[str]:
-    if logger.hasHandlers() is False:
-        return []
-
+def _error_list_handler() -> Optional[ErrorListHandler]:
     for handler in logger.handlers:
-        if not isinstance(handler, ErrorListHandler):
-            continue
+        if isinstance(handler, ErrorListHandler):
+            return handler
+    return None
 
-        return handler.records
-    return []
+
+def get_error_list() -> List[str]:
+    handler = _error_list_handler()
+    # a copy: the live list keeps growing in a worker that handles more files
+    return list(handler.records) if handler is not None else []
+
+
+def clear_error_list() -> None:
+    handler = _error_list_handler()
+    if handler is not None:
+        handler.records.clear()
 
 
 logger = build_logger()

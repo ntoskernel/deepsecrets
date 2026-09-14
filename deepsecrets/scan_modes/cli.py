@@ -17,7 +17,7 @@ from deepsecrets.core.tokenizers.cheap_var_search import CheapVarSearchTokenizer
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
 from deepsecrets.core.utils.lifecycle_hooks import JobLifecycleHooks
-from deepsecrets.core.utils.log import get_error_list, logger
+from deepsecrets.core.utils.log import clear_error_list, get_error_list, logger
 from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.fs import get_relative_path
 from deepsecrets.core.utils.progress import Progress
@@ -53,9 +53,14 @@ class CliScanMode(ScanMode):
             if bundle.benchmarking_mode is True:
                 result._file = file
 
-            result.processing_time_seconds = int((lifecycle.end_ts - lifecycle.start_ts).total_seconds())
+            elapsed = (lifecycle.end_ts - lifecycle.start_ts).total_seconds()
+            result.processing_time_seconds = int(elapsed)
+            result.processing_time_ms = round(elapsed * 1000, 1)
             result.errors = get_error_list()
             return result
+
+        # errors are collected per file, not per worker process (KI-CLI-08)
+        clear_error_list()
 
         progress = Progress()
         lifecycle = JobLifecycleHooks(
@@ -78,10 +83,12 @@ class CliScanMode(ScanMode):
         except Exception as e:
             logger.error(f'Unable to open the file: {e}')
             lifecycle.on_failure(task_reporter[task_id])
+            result.status = 'unreadable'
             return __finalize(result)
 
         if file.length == 0:
             lifecycle.on_finish(task_reporter[task_id])
+            result.status = 'empty'
             return __finalize(result)
 
         file_analyzer = FileAnalyzer(file)

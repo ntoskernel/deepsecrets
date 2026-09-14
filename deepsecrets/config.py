@@ -36,6 +36,7 @@ class Config:
     process_count: int
     return_code_if_findings: bool
     disable_masking: bool
+    report_diagnostics: bool = False
     verbose: bool = False
 
     _benchmarking_mode: bool
@@ -46,6 +47,7 @@ class Config:
         self.global_exclusion_paths = []
         self.return_code_if_findings = False
         self.disable_masking = False
+        self.report_diagnostics = False
 
         self._benchmarking_mode = False
         self.oneshot_path = None
@@ -65,6 +67,9 @@ class Config:
 
     def set_disable_masking(self, state: bool):
         self.disable_masking = state
+
+    def set_report_diagnostics(self, state: bool):
+        self.report_diagnostics = state
 
     def _set_path(self, path: str, field: str) -> None:
         if not path_exists(path):

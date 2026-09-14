@@ -28,6 +28,9 @@ class PerFileAnalysisResult:
     errors: List[str]
 
     processing_time_seconds: int = field(default=0)
+    processing_time_ms: float = field(default=0.0)
+    # 'ok', 'empty' (0 bytes) or 'unreadable' (the file could not be opened)
+    status: str = field(default='ok')
 
     # ONLY FOR BENCHMARKING MODE
     _file: Optional[File] = None

@@ -83,6 +83,8 @@ plugins = [
 pythonpath = [
   "."
 ]
+# the benchmark harness in deepsecrets_bench/ has its own tests and dependencies
+testpaths = ["tests"]
 
 [tool.black]
 line-length = 120

@@ -218,6 +218,13 @@ class DeepSecretsCliTool:
             'Use this flag if you want to render found secrets in plaintext but be extremely careful.',
         )
 
+        parser.add_argument(
+            '--report-diagnostics',
+            action='store_true',
+            help='Add scan diagnostics to a SARIF report: every file found under the target directory in\n'
+            'run.artifacts (scan time in ms, status, skip reason) and per-file errors in run.invocations.\n',
+        )
+
         parser.add_argument('--benchmarking-mode', help=argparse.SUPPRESS, action='store_true')
         parser.add_argument('--oneshot', help=argparse.SUPPRESS, type=str, default=None)
 
@@ -232,6 +239,9 @@ class DeepSecretsCliTool:
 
         if user_args.disable_masking:
             config.set_disable_masking(True)
+
+        # set on every parse: the config singleton outlives one run
+        config.set_report_diagnostics(user_args.report_diagnostics)
 
         if user_args.benchmarking_mode:
             config._set_benchmarking_mode(True)

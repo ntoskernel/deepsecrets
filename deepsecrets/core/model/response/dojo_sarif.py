@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import List, Set
 
@@ -11,11 +12,15 @@ from sarif_om import (
     Message,
     Location,
     PhysicalLocation,
+    Artifact,
     ArtifactLocation,
     ArtifactContent,
+    Invocation,
+    Notification,
     Region,
 )
 from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
+from deepsecrets.core.utils.fs import get_relative_path
 
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.base import BaseResponseBuilder
@@ -173,7 +178,63 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
         sarif_rules = self._convert_rules(set([self._sarif_rule_meta_from_rule(rule) for rule in rules]))
         self.report.runs[0].tool.driver.rules = sarif_rules
+
+        mode = getattr(self, 'mode', None)
+        if mode is not None and getattr(mode.config, 'report_diagnostics', False):
+            self._add_diagnostics(self.report.runs[0])
         return self.report
+
+    def _add_diagnostics(self, run: Run) -> None:
+        """Every file found under the target dir as an artifact, and per-file errors as notifications."""
+        workdir = self.mode.config.workdir_path
+        statuses = dict(getattr(self.mode, 'file_statuses', {}))
+        timings = getattr(self.mode, 'timings_ms', {})
+        errors = getattr(self.mode, 'errors', {})
+        skipped = getattr(self.mode, 'skipped_files', {})
+
+        for path in skipped:
+            statuses[path] = 'skipped'
+        # a file listed for the scan with no result at all never reached the report
+        for path in self.mode.filepaths:
+            statuses.setdefault(path, 'error')
+
+        artifacts = []
+        notifications = []
+        for path in sorted(statuses):
+            uri = get_relative_path(path, workdir) if workdir else path
+            properties = {'status': statuses[path]}
+            if path in timings:
+                properties['scanTimeMs'] = timings[path]
+            if path in skipped:
+                properties['skipReason'] = skipped[path]
+            try:
+                length = os.path.getsize(path)
+            except OSError:
+                length = -1
+            artifacts.append(
+                Artifact(
+                    location=ArtifactLocation(uri=uri, uri_base_id='%SRCROOT%'),
+                    length=length,
+                    properties=properties,
+                )
+            )
+            for error in errors.get(path, []):
+                notifications.append(
+                    Notification(
+                        level='error',
+                        message=Message(text=error),
+                        locations=[
+                            Location(
+                                physical_location=PhysicalLocation(
+                                    artifact_location=ArtifactLocation(uri=uri, uri_base_id='%SRCROOT%')
+                                )
+                            )
+                        ],
+                    )
+                )
+
+        run.artifacts = artifacts
+        run.invocations = [Invocation(execution_successful=True, tool_execution_notifications=notifications)]
 
     def get_context_region(self, finding: Finding, masking: bool = True):
 

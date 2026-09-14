@@ -94,6 +94,12 @@ class ScanMode:
         self.failed_jobs = SimpleQueue()
         self.stats = Stats()
 
+        # per-file diagnostics, keyed by absolute path; reported with --report-diagnostics
+        self.skipped_files: Dict[str, str] = {}
+        self.timings_ms: Dict[str, float] = {}
+        self.file_statuses: Dict[str, str] = {}
+        self.errors: Dict[str, List[str]] = {}
+
         self.filepaths = self._get_files_list()
         self.prepare_for_scan()
 
@@ -304,15 +310,21 @@ class ScanMode:
                     # reported as a failed file, like a file that cannot be opened
                     logger.error(f'Analysis of {job.name} failed: {type(e).__name__}: {e}')
                     errors[job.name] = [f'{type(e).__name__}: {e}']
+                    self.file_statuses[job.name] = 'error'
                     continue
 
                 self._oneshot_file = analysis_result._file
                 errors[job.name] = analysis_result.errors
                 timings[job.name] = analysis_result.processing_time_seconds
+                self.timings_ms[job.name] = analysis_result.processing_time_ms
+                status = analysis_result.status
+                self.file_statuses[job.name] = 'error' if status == 'ok' and analysis_result.errors else status
 
                 if analysis_result.findings is None or len(analysis_result.findings) == 0:
                     continue
                 final.extend(analysis_result.findings)
+
+        self.errors = errors
 
         console.line()
         console.print('[*] Merging similar findings..')
@@ -349,12 +361,15 @@ class ScanMode:
                     live.update(Text(text=f'Found {total_files} files, {skipped} will be skipped'))
                     full_path = os.path.join(fpath, filename)
                     rel_path = get_relative_path(full_path, self.config.workdir_path)
-                    if not self._path_included(rel_path):
+                    exclusion = self._matching_exclusion(rel_path)
+                    if exclusion is not None:
                         skipped += 1
+                        self.skipped_files[full_path] = f'excluded_path:{exclusion}'
                         continue
 
                     if not self._size_check(full_path):
                         skipped += 1
+                        self.skipped_files[full_path] = 'max_file_size'
                         '''
                         console.print(
                             f'[bold yellow]:warning: {rel_path}[/bold yellow]: File size exceeds [magenta]--max-file-path[/magenta] of {self.config.max_file_size} bytes and will be [bold]skipped[/bold]'
@@ -367,12 +382,17 @@ class ScanMode:
         return flist
 
     def _path_included(self, path: str) -> bool:
-        if self.path_exclusion_rules is None or len(self.path_exclusion_rules) == 0:
-            return True
+        return self._matching_exclusion(path) is None
 
-        if any(excl_rule.match(path) for excl_rule in self.path_exclusion_rules):
-            return False
-        return True
+    def _matching_exclusion(self, path: str) -> Optional[str]:
+        """The pattern of the first exclusion rule that matches `path`, or None."""
+        if self.path_exclusion_rules is None or len(self.path_exclusion_rules) == 0:
+            return None
+
+        for excl_rule in self.path_exclusion_rules:
+            if excl_rule.match(path):
+                return excl_rule.pattern.pattern
+        return None
 
     def _size_check(self, path: str):
         if self.config.max_file_size == 0:

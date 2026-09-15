@@ -1,3 +1,4 @@
+import errno
 import os
 import pickle
 import shutil
@@ -210,5 +211,71 @@ def test_hashed_scan_through_process_pool(tmp_path: Path):
         assert [finding.detection for finding in findings] == [HASHED_SECRET]
         assert findings[0].file.relative_path == '1.py'
         assert mode.stats.failed_files == 0
+    finally:
+        mode.dispose()
+
+
+def test_broken_symlink_does_not_abort_discovery(tmp_path: Path):
+    # a dangling symlink, and a symlink loop, used to raise out of _size_check and kill the whole
+    # scan before it started. --max-file-size must be set: at the default 0 the check short-circuits
+    # before os.path.getsize and this passes even against the unfixed code.
+    (tmp_path / 'real.py').write_text('password = "Xk9mQ2vL7pR4tZw8Jq"\n')
+    (tmp_path / 'dangling.py').symlink_to(tmp_path / 'gone.py')
+    (tmp_path / 'loop_a').symlink_to(tmp_path / 'loop_b')
+    (tmp_path / 'loop_b').symlink_to(tmp_path / 'loop_a')
+
+    config = _config(str(tmp_path))
+    config.set_max_file_size(10_000_000)
+    mode = CliScanMode(config=config)
+    try:
+        assert mode.filepaths == [str(tmp_path / 'real.py')]
+        assert mode.stats.skipped_files == 3
+        for name in ('dangling.py', 'loop_a', 'loop_b'):
+            assert mode.files[str(tmp_path / name)].status == 'skipped'
+            assert mode.files[str(tmp_path / name)].skip_reason == 'broken_symlink'
+    finally:
+        mode.dispose()
+
+
+def test_broken_symlink_skipped_without_a_size_limit(tmp_path: Path):
+    # at the default --max-file-size of 0 a dangling symlink never crashed, it reached a worker that
+    # could not open it and was reported as a per-file error. It is a skip with a reason now.
+    (tmp_path / 'real.py').write_text('password = "Xk9mQ2vL7pR4tZw8Jq"\n')
+    (tmp_path / 'dangling.py').symlink_to(tmp_path / 'gone.py')
+
+    config = _config(str(tmp_path))
+    assert config.max_file_size == 0
+    mode = CliScanMode(config=config)
+    try:
+        assert mode.filepaths == [str(tmp_path / 'real.py')]
+        assert mode.files[str(tmp_path / 'dangling.py')].skip_reason == 'broken_symlink'
+        # skipped files carry no error, so they stay out of the per-file error report
+        assert mode.per_file_errors() == {}
+    finally:
+        mode.dispose()
+
+
+def test_unreadable_file_is_not_filed_as_oversized(tmp_path: Path, monkeypatch):
+    # _size_check used to swallow OSError and return False, which the caller could only read as
+    # 'too big' -- so an unreadable file was reported as max_file_size in --report-diagnostics SARIF
+    (tmp_path / 'fine.txt').write_text('x' * 10)
+    victim = tmp_path / 'victim.txt'
+    victim.write_text('y' * 10)
+
+    real_getsize = os.path.getsize
+
+    def fake_getsize(path):
+        if str(path) == str(victim):
+            raise PermissionError(errno.EACCES, 'Permission denied', str(path))
+        return real_getsize(path)
+
+    monkeypatch.setattr(os.path, 'getsize', fake_getsize)
+
+    config = _config(str(tmp_path))
+    config.set_max_file_size(10_000_000)
+    mode = CliScanMode(config=config)
+    try:
+        assert mode.filepaths == [str(tmp_path / 'fine.txt')]
+        assert mode.files[str(victim)].skip_reason == 'unreadable:EACCES'
     finally:
         mode.dispose()

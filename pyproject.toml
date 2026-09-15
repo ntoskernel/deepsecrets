@@ -1,6 +1,6 @@
 [project]
 name = "deepsecrets"
-version = "2.1.0"
+version = "2.1.1"
 description = "A better tool for secrets scanning"
 license = { text = "MIT" }
 readme = "README.md"
@@ -42,7 +42,7 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://owasp.org/www-project-deepsecrets/"
+homepage = "https://owasp.org/projects/deepsecrets"
 repository = "https://github.com/ntoskernel/deepsecrets"
 "Bug Tracker" = "https://github.com/ntoskernel/deepsecrets/issues"
 
@@ -83,7 +83,6 @@ plugins = [
 pythonpath = [
   "."
 ]
-# the benchmark harness in deepsecrets_bench/ has its own tests and dependencies
 testpaths = ["tests"]
 
 [tool.black]

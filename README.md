@@ -1,4 +1,5 @@
-# DeepSecrets 2.0 - a better tool for secrets scanning
+# [OWASP](https://owasp.org/projects/deepsecrets) DeepSecrets — a better tool for secrets scanning
+
 
 ![Tests Status](https://github.com/ntoskernel/deepsecrets/actions/workflows/run-tests.yml/badge.svg)
 

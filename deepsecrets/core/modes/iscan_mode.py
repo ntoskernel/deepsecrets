@@ -12,6 +12,7 @@ import regex as re
 
 from multiprocessing import Manager, get_context
 from multiprocessing.managers import DictProxy
+import errno
 import os
 import pickle
 import tempfile
@@ -388,11 +389,20 @@ class ScanMode:
                         continue
 
                     if os.path.islink(full_path) and not os.path.exists(full_path):
-                        # a dangling symlink cannot be opened or stat'ed: os.path.getsize would raise below
+                        # a dangling symlink or a symlink loop -- os.path.exists is False for both. Skipping here
+                        # keeps it away from a worker that could not open it, and away from _size_check below,
+                        # where os.path.getsize raises once --max-file-size is set.
                         self._skip(full_path, 'broken_symlink')
                         continue
 
-                    if not self._size_check(full_path):
+                    try:
+                        size_ok = self._size_check(full_path)
+                    except OSError as e:
+                        # vanished or became unreadable between os.walk and here
+                        self._skip(full_path, f'unreadable:{errno.errorcode.get(e.errno, e.errno)}')
+                        continue
+
+                    if not size_ok:
                         self._skip(full_path, 'max_file_size')
                         '''
                         console.print(
@@ -432,14 +442,12 @@ class ScanMode:
         return None
 
     def _size_check(self, path: str):
+        """True when `path` is within `--max-file-size`. Raises `OSError` when the path cannot be stat'ed:
+        the caller records that under its own skip reason, distinct from a genuinely oversized file."""
         if self.config.max_file_size == 0:
             return True
 
-        try:
-            size = os.path.getsize(path)
-        except OSError:
-            # e.g. a path that vanished or a dangling symlink raced away between discovery and here
-            return False
+        size = os.path.getsize(path)
         if size > self.config.max_file_size:
             return False
         return True

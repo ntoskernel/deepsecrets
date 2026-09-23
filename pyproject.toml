@@ -49,6 +49,10 @@ repository = "https://github.com/ntoskernel/deepsecrets"
 [project.scripts]
 deepsecrets = "deepsecrets:__main__.runnable_entrypoint"
 
+[tool.poetry]
+# The diagnostics tracer (python -m deepsecrets.diagnostics) is developer tooling: in the repository, not in builds.
+exclude = ["deepsecrets/diagnostics"]
+
 
 [tool.poetry.group.test.dependencies]
 pytest = "9.1.1"

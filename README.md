@@ -174,7 +174,7 @@ While other tools scan only what they know, DeepSecrets leverages lexers. This a
 
 #### Tool comparison based on SecretBench Results
 
-| Feature / Capability | **DeepSecrets 2.0** | **Gitleaks** | **TruffleHog** | **Semgrep Secrets** |
+| Feature / Capability | **DeepSecrets 2.2** | **Gitleaks** | **TruffleHog** | **Semgrep Secrets** |
 | :--- | :---: | :---: | :---: | :---: |
 | **SecretBench Accuracy** | **93% Recall<br>79% Precision** | 88% Recall<br>46% Precision | 52% Recall<br>6% Precision | *Not Evaluated* |
 | **Price & Licensing** | **Free / Open-Source** | Free / Open-Source | Free / Open-Source | Commercial / Paid |

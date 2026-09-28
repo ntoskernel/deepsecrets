@@ -366,6 +366,28 @@ def test_initializer_never_raises(tmp_path: Path, monkeypatch):
         iscan_mode.pool_wrapper(lambda *args: None, 1, 'any.py')
 
 
+def test_skip_bundles_rules_exclude_minified_files_maps_and_bundles(tmp_path: Path):
+    for name in ('app.js', 'app.min.js', 'app.js.map', 'styles.css.map', 'main.bundle.js', 'bundle.js'):
+        (tmp_path / name).write_text('const a = 1;\n')
+    built_in = [get_path_inside_package(f'rules/{name}') for name in ('excluded_paths.json', 'excluded_bundles.json')]
+
+    config = _config(str(tmp_path))
+    config.set_global_exclusion_paths(built_in)
+    mode = CliScanMode(config=config)
+    try:
+        assert sorted(os.path.basename(p) for p in mode.filepaths) == ['app.js', 'bundle.js']
+    finally:
+        mode.dispose()
+
+    config = _config(str(tmp_path))
+    config.set_global_exclusion_paths(built_in[:1])  # the default since the size tier; --skip-bundles adds the second
+    mode = CliScanMode(config=config)
+    try:
+        assert len(mode.filepaths) == 6
+    finally:
+        mode.dispose()
+
+
 class WorkerKillingScanMode(CliScanMode):
     @staticmethod
     def _per_file_analyzer(bundle, file, task_id=None, task_reporter=None):  # type: ignore

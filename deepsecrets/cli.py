@@ -177,6 +177,13 @@ class DeepSecretsCliTool:
         )
 
         parser.add_argument(
+            '--skip-bundles',
+            action='store_true',
+            help='Add minified JavaScript, source maps and bundles (*.min.js, *.map, *.bundle.js) to the built-in\n'
+            'path exclusions. Most of them are larger than --deep-max-size and get the fast analysis anyway.\n',
+        )
+
+        parser.add_argument(
             '--deep-max-size',
             type=int,
             default=DEFAULT_DEEP_MAX_SIZE,
@@ -321,6 +328,8 @@ class DeepSecretsCliTool:
         EXCLUDE_PATHS_BUILTIN = get_path_inside_package('rules/excluded_paths.json')
         if user_args.excluded_paths is not None:
             rules = [rule.replace('built-in', EXCLUDE_PATHS_BUILTIN) for rule in user_args.excluded_paths]
+            if 'built-in' in user_args.excluded_paths and user_args.skip_bundles:
+                rules.append(get_path_inside_package('rules/excluded_bundles.json'))
             config.set_global_exclusion_paths(rules)
 
         config.engines = []

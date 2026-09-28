@@ -101,6 +101,21 @@ def test_hashed_values_registers_hashed_engine():
 
 
 @pytest.mark.parametrize(
+    'extra, bundles_excluded',
+    [([], False), (['--skip-bundles'], True), (['--excluded-paths', 'disable', '--skip-bundles'], False)],
+)
+def test_bundle_exclusions_follow_the_flags(monkeypatch, extra, bundles_excluded):
+    tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
+    config = tool.get_current_config()
+    monkeypatch.setattr(config, 'global_exclusion_paths', [])  # the singleton keeps what earlier tests added
+    tool.parse_arguments()
+
+    names = [path.rsplit('/', 1)[-1] for path in config.global_exclusion_paths]
+    assert ('excluded_bundles.json' in names) is bundles_excluded
+    assert ('excluded_paths.json' in names) is ('disable' not in extra)
+
+
+@pytest.mark.parametrize(
     'extra, detected, ci_mode',
     [([], True, True), ([], False, False), (['--ci'], False, True), (['--no-ci'], True, False)],
 )

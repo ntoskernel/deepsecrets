@@ -6,9 +6,11 @@ span. The verdict names the first stage where an expected secret was lost, or, f
 rule produced it and what drove its score. The schema is versioned: consumers (the benchmark harness) depend on it.
 """
 
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE, deep_analysis
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine, filenames_ignorelist
 from deepsecrets.core.helpers.variable_evaluator import HOPELESS_THRESHOLD, VariableEvaluator
@@ -16,6 +18,7 @@ from deepsecrets.core.model.file import File
 from deepsecrets.core.model.token import SemanticType, Token
 from deepsecrets.core.rulesets.excluded_paths import ExcludedPathsBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.rulesets.regex_candidate_scoring import RegexCandidateScoringRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.tokenizers.cheap_var_search import CheapVarSearchTokenizer
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
@@ -29,7 +32,7 @@ from deepsecrets.core.utils.file_analyzer import EngineWithTokenizer, FileAnalyz
 from deepsecrets.core.utils.finding_merger import FindingMerger
 from deepsecrets.core.utils.fs import get_path_inside_package
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 5  # 2: the size tier ('tier' field, 'tier' verdict stage); 3: 'allows_low_entropy', S106 gating; 4: 'finding_evaluation'; 5: 'candidate_evaluation' (regex candidates judged in RegexEngine) replaces it
 WINDOW_BEFORE, WINDOW_AFTER = 6, 3
 
 
@@ -38,19 +41,37 @@ class Rulesets:
     regex: list
     scoring: list
     excluded: list
+    # the regex-candidate scoring rules (RegexEngine judges each regex match with them)
+    candidates: list = field(default_factory=list)
+    # the size tier of the scan being replayed (--deep-max-size)
+    deep_max_size: int = DEFAULT_DEEP_MAX_SIZE
 
     @classmethod
-    def builtin(cls, path_exclusions: bool = True) -> 'Rulesets':
-        """The shipped rulesets. `path_exclusions=False` mirrors a scan run with `--excluded-paths disable`, so a
-        file under node_modules/ is replayed instead of stopping at the selection stage."""
+    def builtin(
+        cls, path_exclusions: bool = True, skip_bundles: bool = False, deep_max_size: int = DEFAULT_DEEP_MAX_SIZE
+    ) -> 'Rulesets':
+        """The shipped rulesets, as a scan with default flags uses them. `path_exclusions=False` mirrors
+        `--excluded-paths disable`, so a file under node_modules/ is replayed instead of stopping at the selection
+        stage; `skip_bundles=True` mirrors `--skip-bundles`, which adds minified files, source maps and bundles to the
+        built-in exclusions; `deep_max_size` mirrors `--deep-max-size`."""
         regex = RegexRulesetBuilder()
         regex.with_rules_from_file(get_path_inside_package('rules/regexes.json'))
         scoring = VariableScoringRulesetBuilder()
         scoring.with_rules_from_file(get_path_inside_package('rules/variable_scoring_rules.json'))
+        candidates = RegexCandidateScoringRulesetBuilder()
+        candidates.with_rules_from_file(get_path_inside_package('rules/regex_candidate_scoring_rules.json'))
         excluded = ExcludedPathsBuilder()
         if path_exclusions:
             excluded.with_rules_from_file(get_path_inside_package('rules/excluded_paths.json'))
-        return cls(regex=regex.rules, scoring=scoring.rules, excluded=excluded.rules)
+            if skip_bundles:
+                excluded.with_rules_from_file(get_path_inside_package('rules/excluded_bundles.json'))
+        return cls(
+            regex=regex.rules,
+            scoring=scoring.rules,
+            excluded=excluded.rules,
+            candidates=candidates.rules,
+            deep_max_size=deep_max_size,
+        )
 
 
 @dataclass
@@ -197,6 +218,9 @@ class FileReplay:
     file: File
     relative_path: str
     rulesets: Rulesets
+    # False when the file is larger than rulesets.deep_max_size: the scan gives it no lexer
+    deep: bool = True
+    size: int = 0
     lexer_name: Optional[str] = None
     language: Optional[str] = None
     raw_tokens: List[Token] = field(default_factory=list)
@@ -207,6 +231,8 @@ class FileReplay:
     cheap_vars: List[Token] = field(default_factory=list)
     findings: list = field(default_factory=list)
     decisions: List[dict] = field(default_factory=list)
+    # regex candidates RegexEngine rejected, as it rejects them in a scan (not reported at the default level)
+    rejected: List[dict] = field(default_factory=list)
     excluded_by: Optional[str] = None
 
     def run(self) -> 'FileReplay':
@@ -254,16 +280,22 @@ class FileReplay:
         prod = LexerTokenizer(deep_token_inspection=True)
         prod.tokenize(self.file)
         self.production_vars = prod.get_variables()
-        cheap = CheapVarSearchTokenizer()
+        # the tier decides the cheap detectors too (a bounded tag skip where the lexer also reads the file)
+        self.size = os.path.getsize(self.file.path)
+        self.deep = deep_analysis(self.size, self.rulesets.deep_max_size)
+        cheap = CheapVarSearchTokenizer(lexed=self.deep)
         cheap.tokenize(self.file)
         self.cheap_vars = cheap.get_variables()
 
-        # the production pipeline for this file, as scan_modes/cli.py builds it, with the value cache recorded
-        regex_engine = RegexEngine(ruleset=self.rulesets.regex)
+        # the production pipeline for this file, as scan_modes/cli.py builds it, with the value cache recorded; the
+        # lexer stages above still run on a shallow file, so a trace can say what the lexer would have found
+        regex_engine = RegexEngine(ruleset=self.rulesets.regex, candidate_rules=self.rulesets.candidates)
+        regex_engine.rejected_log = self.rejected
         semantic_engine = SemanticEngine(regex_engine, ruleset=self.rulesets.scoring)
         analyzer = TracingFileAnalyzer(self.file)
         analyzer.add_engine(regex_engine, [FullContentTokenizer()])
-        analyzer.add_engine(semantic_engine, [LexerTokenizer(deep_token_inspection=True), CheapVarSearchTokenizer()])
+        tokenizers = [LexerTokenizer(deep_token_inspection=True)] if self.deep else []
+        analyzer.add_engine(semantic_engine, tokenizers + [CheapVarSearchTokenizer(lexed=self.deep)])
         self.findings = FindingMerger(analyzer.process()).merge()
         self.decisions = analyzer.decisions
         return self
@@ -286,6 +318,7 @@ def _trace_span(replay: FileReplay, span: Span, evaluator: VariableEvaluator) ->
         'located': span.located,
         'selection': {'excluded_by': replay.excluded_by},
         'lexer': {'name': replay.lexer_name, 'language': replay.language, 'extension': file.extension},
+        'tier': {'deep': replay.deep, 'size': replay.size, 'deep_max_size': replay.rulesets.deep_max_size},
     }
 
     covering = [i for i, t in enumerate(replay.raw_tokens) if _overlaps(t.span, s, e)]
@@ -311,7 +344,8 @@ def _trace_span(replay: FileReplay, span: Span, evaluator: VariableEvaluator) ->
     trace['variables'] = {'lex_prefilter': bool(in_pre), 'lex': bool(in_prod), 'cheap': bool(in_cheap)}
 
     evaluations = []
-    for source, tokens in (('lex', in_prod), ('cheap', in_cheap)):
+    # a shallow file's lexer variables never reach the engine
+    for source, tokens in (('lex', in_prod if replay.deep else []), ('cheap', in_cheap)):
         for token in tokens:
             if token.semantic is None or token.semantic.type != SemanticType.VARIABLE:
                 continue
@@ -341,6 +375,11 @@ def _trace_span(replay: FileReplay, span: Span, evaluator: VariableEvaluator) ->
         ],
         'cache_skipped': sorted(set(cache_skips)),
     }
+    trace['candidate_evaluation'] = [
+        {k: (list(v) if isinstance(v, tuple) else v) for k, v in d.items()}
+        for d in replay.rejected
+        if _overlaps(d['span'], s, e)
+    ]
     trace['verdict'] = _verdict(trace)
     return trace
 
@@ -364,7 +403,19 @@ def _verdict(t: dict) -> dict:
         return {'stage': 'selection', 'component': 'excluded_paths', 'detail': t['selection']['excluded_by']}
     if not t['located']:
         return {'stage': 'label', 'component': 'dataset', 'detail': 'value not found where the label points'}
+    if t.get('candidate_evaluation'):
+        first = t['candidate_evaluation'][0]
+        return {
+            'stage': 'evaluation',
+            'component': 'regex_candidate_evaluator',
+            'detail': f"{first['rule']}: rejected at {first['total']} points, mostly {first['reason']} ({first['evidence']})",
+        }
     has_cheap = t['variables']['cheap']
+    if not t['tier']['deep'] and not has_cheap:
+        detail = f"{t['tier']['size']} bytes, over --deep-max-size {t['tier']['deep_max_size']}: no lexer"
+        if t['variables']['lex']:
+            detail += ', which would have detected the variable'
+        return {'stage': 'tier', 'component': 'deep_max_size', 'detail': detail}
     if t['lexer']['name'] is None and not has_cheap:
         return {'stage': 'lexer', 'component': 'lexer_finder', 'detail': 'no lexer'}
     if t['token'] is None and not has_cheap:

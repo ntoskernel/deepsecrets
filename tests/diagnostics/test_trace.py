@@ -138,3 +138,71 @@ def test_cli_with_a_process_pool(tmp_path):
         json.loads(line)['case_id']: json.loads(line)['verdict']['stage'] for line in out.read_text().splitlines()
     }
     assert verdicts == {'c0': 'reported', 'c1': 'reported', 'c2': 'reported'}
+
+
+def test_builtin_rulesets_mirror_the_bundle_exclusions():
+    def excludes(rulesets, path):
+        return any(rule.match(path) for rule in rulesets.excluded)
+
+    assert not excludes(Rulesets.builtin(), 'web/app.min.js')
+    assert excludes(Rulesets.builtin(), 'node_modules/pkg/index.js')
+    assert excludes(Rulesets.builtin(skip_bundles=True), 'web/app.min.js')
+    assert not excludes(Rulesets.builtin(path_exclusions=False, skip_bundles=True), 'web/app.min.js')
+
+
+def test_value_only_the_lexer_finds_is_lost_at_the_size_tier(tmp_path):
+    # a name two levels down in JSON: the lexer detects it, the cheap variable search does not
+    path = tmp_path / 'config.json'
+    path.write_text('{\n  "service": {\n    "auth": {\n      "password": "T7r$kq92LmZx"\n    }\n  }\n}\n')
+    col = path.read_text().split('\n')[3].index('T7r') + 1
+    nested = dict(case_id='nested', line=4, end_line=4, start_col=col, end_col=col + 12, value='T7r$kq92LmZx')
+
+    deep = trace_file(str(path), 'config.json', [nested], Rulesets.builtin(deep_max_size=0))[0]
+    assert deep['verdict']['stage'] == 'reported' and deep['tier']['deep'] is True
+
+    shallow = trace_file(str(path), 'config.json', [nested], Rulesets.builtin(deep_max_size=10))[0]
+    assert shallow['tier'] == {'deep': False, 'size': path.stat().st_size, 'deep_max_size': 10}
+    assert shallow['verdict'] == {
+        'stage': 'tier',
+        'component': 'deep_max_size',
+        'detail': f'{path.stat().st_size} bytes, over --deep-max-size 10: no lexer, which would have detected the variable',
+    }
+
+
+def test_low_entropy_value_under_a_key_name_is_dropped_by_the_engine(tmp_path):
+    path = tmp_path / 'settings.py'
+    # two values: the value cache would skip a repeat of one that produced no finding (KI-ENG-08)
+    path.write_text('api_key = "nacc6opq"\npassword = "qpo6ccan"\n')
+    spans = [
+        dict(case_id=name, line=line, end_line=line, start_col=len(name) + 5, end_col=len(name) + 13, value=value)
+        for line, name, value in ((1, 'api_key', 'nacc6opq'), (2, 'password', 'qpo6ccan'))
+    ]
+    traces = {t['case_id']: t for t in trace_file(str(path), 'src/settings.py', spans)}
+
+    key = traces['api_key']
+    assert key['verdict']['stage'] == 'evaluation' and key['verdict']['component'] == 'semantic_engine'
+    assert key['evaluations'][0]['dangerous'] is True
+    assert key['evaluations'][0]['allows_low_entropy'] is False
+    assert key['evaluations'][0]['rule_emitted'] is None
+
+    password = traces['password']
+    assert password['verdict'] == {'stage': 'reported', 'component': 'semantic_engine', 'detail': 'S106'}
+    assert password['evaluations'][0]['rule_emitted'] == 'S106'
+    # a rule that scores nothing cannot change the verdict, so it gets no counterfactual
+    assert 'SEM_VAR_HUMAN_CHOSEN_SECRET_NAMES' not in password['evaluations'][0]['dangerous_without']
+
+
+def test_regex_candidate_rejected_by_its_evaluation(tmp_path):
+    path = tmp_path / 'settings.py'
+    # a dictionary word as a URL password: S19 matches it, the regex-candidate rules reject it
+    path.write_text('SERVER = "https://admin:sunshine@db.internal.example"\n')
+    value = 'sunshine'
+    col = path.read_text().index(value) + 1
+    [t] = trace_file(
+        str(path),
+        'src/settings.py',
+        [dict(case_id='w', line=1, end_line=1, start_col=col, end_col=col + len(value), value=value)],
+    )
+    assert t['verdict']['stage'] == 'evaluation' and t['verdict']['component'] == 'regex_candidate_evaluator'
+    assert t['verdict']['detail'] == 'S19: rejected at -8 points, mostly RC_NATURAL_LANGUAGE (shape)'
+    assert t['candidate_evaluation'][0]['rejected'] is True

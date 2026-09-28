@@ -10,6 +10,7 @@ import sys
 from collections import defaultdict
 from multiprocessing import get_context
 
+from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE
 from deepsecrets.diagnostics.worker import init, trace_job
 
 
@@ -25,6 +26,17 @@ def main(argv=None) -> int:
         '--no-path-exclusions',
         action='store_true',
         help='replay files the built-in excluded_paths rules would skip, as `--excluded-paths disable` does',
+    )
+    t.add_argument(
+        '--skip-bundles',
+        action='store_true',
+        help='stop minified files, source maps and bundles at selection, as a scan with `--skip-bundles` does',
+    )
+    t.add_argument(
+        '--deep-max-size',
+        type=int,
+        default=DEFAULT_DEEP_MAX_SIZE,
+        help='replay larger files without the lexer, as a scan with this `--deep-max-size` does (0: every file)',
     )
     args = parser.parse_args(argv)
 
@@ -42,14 +54,17 @@ def main(argv=None) -> int:
         path_exclusions = not args.no_path_exclusions
         if args.processes > 1:
             with get_context('spawn').Pool(
-                args.processes, initializer=init, initargs=(path_exclusions,), maxtasksperchild=20
+                args.processes,
+                initializer=init,
+                initargs=(path_exclusions, args.skip_bundles, args.deep_max_size),
+                maxtasksperchild=20,
             ) as pool:
                 for traces in pool.imap_unordered(trace_job, jobs):
                     for trace in traces:
                         out.write(json.dumps(trace, default=str) + '\n')
                         written += 1
         else:
-            init(path_exclusions)
+            init(path_exclusions, args.skip_bundles, args.deep_max_size)
             for job in jobs:
                 for trace in trace_job(job):
                     out.write(json.dumps(trace, default=str) + '\n')

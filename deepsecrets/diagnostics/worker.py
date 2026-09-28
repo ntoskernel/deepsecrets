@@ -6,15 +6,18 @@ defined there cannot be found by pool workers.
 
 import os
 import traceback
+from typing import Optional
 
 RULESETS = None
 
 
-def init(path_exclusions: bool = True):
+def init(path_exclusions: bool = True, skip_bundles: bool = False, deep_max_size: Optional[int] = None):
     global RULESETS
+    from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE
     from deepsecrets.diagnostics.trace import Rulesets
 
-    RULESETS = Rulesets.builtin(path_exclusions)
+    size = DEFAULT_DEEP_MAX_SIZE if deep_max_size is None else deep_max_size
+    RULESETS = Rulesets.builtin(path_exclusions, skip_bundles, size)
 
 
 def trace_job(job):

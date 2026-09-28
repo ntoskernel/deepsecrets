@@ -5,6 +5,11 @@ import zlib
 
 from deepsecrets.core.utils.fs import get_path_inside_package
 
+# Below this whole-string trigram score a string is not language, however well the dictionary covers it: the
+# dictionary's many short entries and the bloom filter's false positives cover random letters too (KI-ENG-02). On
+# 44 words and placeholders against 440 random letter strings, words score 0.40 and above, random strings 0.38 at most.
+PLAUSIBLE_TRIGRAMS = 0.35
+
 
 class NaturalnessScorer:
 
@@ -94,6 +99,10 @@ class NaturalnessScorer:
         string = string.lower().strip()
         if not string.isalpha() or len(string) == 0:
             return 0.0
+
+        plausibility = self._get_trigram_score(string)
+        if plausibility < PLAUSIBLE_TRIGRAMS:
+            return round(plausibility, 4)
 
         n = len(string)
 

@@ -22,3 +22,25 @@ def test_membership_answers_match_the_unpacked_filter():
     assert hashlib.sha256(answers.encode()).hexdigest() == (
         '1f8bbaf5cb466b5f25b0ad12a596e8def0dfddf3edd52923ecfbf34b1e7b9e03'
     )
+
+
+def test_scores_of_known_values():
+    assert naturalness_scorer.calculate_score('correcthorsebatterystaple') == 1.0
+    # a keyboard mash: the dictionary covered it (0.64) until implausible trigrams stopped counting as language
+    assert naturalness_scorer.calculate_score('xqzvbnmkjh') == 0.0
+    assert naturalness_scorer.calculate_score('kPq9Zr2vXt') == 0.0
+
+
+def test_random_letters_are_not_language_and_words_still_are():
+    import random
+    import string
+
+    rng = random.Random(7)
+    randoms = [
+        ''.join(rng.choice(string.ascii_lowercase) for _ in range(n)) for n in (8, 12, 16, 20, 32) for _ in range(20)
+    ]
+    words = ['password', 'adminadmin', 'sunshine', 'changeme', 'mysecretpassword', 'letmein', 'iloveyou', 'placeholder']
+    # a few short random strings read as pronounceable (4 of these 100, all 8 to 12 letters): a threshold high enough
+    # to reject them would start rejecting real words, whose lowest trigram score was 0.40
+    assert sum(naturalness_scorer.calculate_score(r) >= 0.6 for r in randoms) <= len(randoms) // 20
+    assert all(naturalness_scorer.calculate_score(w) >= 0.6 for w in words)

@@ -1,22 +1,25 @@
 import regex as re
-from typing import Callable, List
+from typing import Callable, List, Optional, Sequence, Tuple
 
-from pygments.token import Token as PygmentsToken
+from pygments.token import Token as PygmentsToken, _TokenType
 
-from deepsecrets.core.model.token import Token
 from deepsecrets.core.tokenizers.helpers.semantic.language import Language
-from deepsecrets.core.tokenizers.helpers.semantic.var_detection.detector import Match, RegionDetector
-from deepsecrets.core.tokenizers.helpers.type_stream import token_to_typestream_item
+from deepsecrets.core.tokenizers.helpers.type_stream import type_chain
 
-# `curl -u <credentials>`: the token after a literal `-u`
-CURL_CREDENTIALS_DETECTOR = RegionDetector(
-    stream_pattern=re.compile('(L)(L)$'),
-    match_rules={1: Match(values=[re.compile('^-u$')])},
-    match_semantics={},
-)
+# A piece the current token is split into: its content and the Pygments type it gets.
+Part = Tuple[str, _TokenType]
+
+CURL_CREDENTIALS_FLAG = re.compile('^-u$')
 
 
 class SingleTokenImprover:
+    """Splits one lexer token into several in known cases.
+
+    An improvement decides from the current token (Pygments type, sanitised content, type-stream item) and the two
+    tokens before it as the tokenizer has emitted them (their stream items and contents), so the tokenizer never has
+    to build a `Token` to ask. It returns None to keep the token, or the parts that replace it, in order.
+    """
+
     language: Language
     acc: dict[Language, List[Callable]]
 
@@ -27,78 +30,59 @@ class SingleTokenImprover:
             # Language.PHP: [self._php_variable_dollar_sign_breakdown], # TODO: Uncomment in v2.1
         }
 
-    def improve(self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token) -> List[Token]:
-        checkers: List[Callable] = self.acc.get(Language.ANY, [])
-        checkers.extend(self.acc.get(self.language, []))
+    def applies(self) -> bool:
+        """Whether `improve` can change anything for this language; if not, it keeps every token."""
+        return bool(self.acc.get(Language.ANY) or self.acc.get(self.language))
 
-        tokens = []
-        for improvement in checkers:
-            tokens.extend(improvement(so_far_tokens, so_far_type_stream, current_token))
-
-        if len(tokens) == 0:
-            return [current_token]
-
-        return tokens
+    def improve(
+        self, ttype: _TokenType, content: str, item: str, previous_items: str, previous_contents: Sequence[str]
+    ) -> Optional[List[Part]]:
+        """`previous_items` and `previous_contents` hold at most the two tokens emitted before this one."""
+        for improvement in self.acc.get(Language.ANY, []) + self.acc.get(self.language, []):
+            parts = improvement(ttype, content, item, previous_items, previous_contents)
+            if parts is not None:
+                return parts
+        return None
 
     def _php_variable_dollar_sign_breakdown(
-        self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token
-    ) -> List[Token]:
-        target_token_type = PygmentsToken.Name.Variable
-        if target_token_type not in current_token.type:
-            return [current_token]
+        self, ttype: _TokenType, content: str, item: str, previous_items: str, previous_contents: Sequence[str]
+    ) -> Optional[List[Part]]:
+        if PygmentsToken.Name.Variable not in type_chain(ttype):
+            return None
 
-        if not current_token.content.startswith('$'):
-            return [current_token]
+        if not content.startswith('$'):
+            return None
 
-        first_part = current_token.content[0]
-        second_part = current_token.content[1:]
-
-        final = []
-        fp_token = Token(
-            file=current_token.file,
-            content=first_part,
-            span=current_token.file.get_span_for_string(first_part, between=current_token.span),
-        )
-        fp_token.set_type([PygmentsToken.Operator])
-        final.append(fp_token)
-
-        sp_token = Token(
-            file=current_token.file,
-            content=second_part,
-            span=current_token.file.get_span_for_string(first_part, between=current_token.span),
-        )
-        sp_token.set_type([PygmentsToken.Name.Variable])
-        final.append(sp_token)
-
-        return [fp_token, sp_token]
+        return [(content[0], PygmentsToken.Operator), (content[1:], PygmentsToken.Name.Variable)]
 
     def _curl_argstring_breakdown(
-        self, so_far_tokens: List[Token], so_far_type_stream: str, current_token: Token
-    ) -> List[Token]:
-        # '(L)(L)$' can only match the last two stream items, or the two before a trailing newline,
-        # so matching the tail (aligned with the last two tokens) is equivalent to matching the whole
-        # stream, and keeps this O(1) per token instead of O(tokens so far).
-        tail_length = min(2, len(so_far_tokens))
-        tail_tokens = so_far_tokens[len(so_far_tokens) - tail_length :]
-        projected_tail = so_far_type_stream[len(so_far_type_stream) - tail_length :]
-        projected_tail += token_to_typestream_item(current_token)
+        self, ttype: _TokenType, content: str, item: str, previous_items: str, previous_contents: Sequence[str]
+    ) -> Optional[List[Part]]:
+        # `curl -u <credentials>`: a plain word (`L`) right after a literal `-u`, split on ':' into user and password.
+        after_flag = (
+            item == 'L'
+            and previous_items[-1:] == 'L'
+            and CURL_CREDENTIALS_FLAG.match(previous_contents[-1]) is not None
+        )
+        # Kept from the stream regex '(L)(L)$' this replaced: its `$` also matched before a final newline, so a
+        # newline two tokens after `-u` counts as the credentials too (and is dropped below: it has no ':').
+        before_newline = (
+            item == '\n'
+            and previous_items[-2:] == 'LL'
+            and CURL_CREDENTIALS_FLAG.match(previous_contents[-2]) is not None
+        )
+        if not (after_flag or before_newline):
+            return None
 
-        match = CURL_CREDENTIALS_DETECTOR.match(tail_tokens, projected_tail)
-        if not match:
-            return [current_token]
+        new_parts = content.split(':')
+        if len(new_parts) == 1:
+            # Dropped, as before this was rewritten: indexing the missing second part raised, and the tokenizer skips
+            # a token that raises. The dropped token never becomes "the token before", so the next word is judged
+            # against `-u` again: one without ':' is dropped too, one with ':' is split as the credentials
+            # (`curl -u admin https://x` reports `https` = `//x`). KI-TOK-01.
+            return []
 
-        new_parts = current_token.content.split(':')
         if new_parts[0] == '' or new_parts[1] == '':
-            return [current_token]
+            return None
 
-        final = []
-        for part in new_parts:
-            t = Token(
-                file=current_token.file,
-                content=part,
-                span=current_token.file.get_span_for_string(part, between=current_token.span),
-            )
-            t.set_type([PygmentsToken.Text])
-            final.append(t)
-
-        return final
+        return [(part, PygmentsToken.Text) for part in new_parts]

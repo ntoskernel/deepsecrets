@@ -79,6 +79,12 @@ class VariableScoringRule(RegexRule):
 
         return values
 
+    def reads_only_filepath(self) -> bool:
+        """Whether the answer depends on the file path alone, and so is the same for every variable in a file."""
+        return self.target == Target.FILEPATH and all(
+            condition.target == Target.FILEPATH for condition in (*self.when, *self.unless)
+        )
+
     def _get_content_for_matching(self, context: Context):
         field = target_to_fields.get(self.target)
         return getattr(context, field)

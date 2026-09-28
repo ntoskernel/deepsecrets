@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import Dict, List, Optional, Tuple, Union
 from deepsecrets.core.helpers.entropy import EntropyHelper
 from deepsecrets.core.model.rules.variable_scoring import VariableScoringRule
 from deepsecrets.core.model.semantic import Context, Variable
@@ -41,6 +41,22 @@ class VariableEvaluator:
 
     def __init__(self, rules: List[VariableScoringRule]) -> None:
         self.rules = rules
+        # A rule that reads nothing but the file path (SEM_VAR_FILE_PATHS) gives one answer per file, and a scan
+        # evaluates a file's variables together, so each such rule remembers its last path and answer.
+        self._path_only = [rule.reads_only_filepath() for rule in rules]
+        self._last_path_answer: Dict[int, Tuple[Optional[str], bool]] = {}
+
+    def _fires(self, index: int, rule: VariableScoringRule, context: Context) -> bool:
+        if not self._path_only[index]:
+            return rule.match_by_context(context)
+
+        last = self._last_path_answer.get(index)
+        if last is not None and last[0] == context.filepath:
+            return last[1]
+
+        fired = rule.match_by_context(context)
+        self._last_path_answer[index] = (context.filepath, fired)
+        return fired
 
     def calculate_entropy_score(self, entropy: float) -> float:
         if entropy == 0:
@@ -60,8 +76,8 @@ class VariableEvaluator:
         naming_and_content_score = 0
         matched_rules = []
 
-        for rule in self.rules:
-            fired = rule.match_by_context(context)
+        for index, rule in enumerate(self.rules):
+            fired = self._fires(index, rule, context)
             if fired:
                 naming_and_content_score += rule.score
                 matched_rules.append(rule.id)

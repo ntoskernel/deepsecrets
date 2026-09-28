@@ -76,3 +76,8 @@ def test_diagnostics_say_which_files_got_no_lexer(target, tmp_path):
     assert {a['location']['uri']: a for a in run['artifacts']}['src/settings.py']['properties']['depth'] == 'deep'
 
 
+def test_a_file_never_analysed_has_no_depth(tmp_path):
+    (tmp_path / 'empty.py').write_text('')
+    run = scan(tmp_path, tmp_path / 'report.sarif', '--report-diagnostics')
+    properties = {a['location']['uri']: a for a in run['artifacts']}['empty.py']['properties']
+    assert properties['status'] != 'ok' and 'depth' not in properties

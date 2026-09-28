@@ -459,9 +459,9 @@ class DeepSecretsCliTool:
         console.line()
 
         if not config.ci_mode:
+            # run() starts it once the worker pool exists
             mode.set_progress_bar(progress_bar)
             mode.progress_bar.set_start_time(startup_time)
-            mode.progress_bar.start()
 
         findings: List[Finding]
         errors: Dict[str, List[str]]

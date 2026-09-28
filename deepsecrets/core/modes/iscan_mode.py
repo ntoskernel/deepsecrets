@@ -206,7 +206,6 @@ class ScanMode:
                     size='| ? Kb',
                 )
 
-            processed = current_state.get('processed', 0)
             findings = current_state.get('findings', 0)
 
             if finished is True:
@@ -215,7 +214,6 @@ class ScanMode:
                 if failure is True:
                     self.stats.failed_files += 1
                 else:
-                    self.stats.tokens_processed += processed
                     self.stats.total_findings += findings
 
                 if job.pb_task_id is not None:
@@ -381,6 +379,10 @@ class ScanMode:
                         initargs=(stage_bundle(bundle, staging), self.active_task_reporter, self._new_task_pids()),
                     ) as pool,
                 ):
+                    # the live display starts after the pool has created its workers: under fork they are then forked
+                    # from a process without the display's refresh thread
+                    if self.progress_bar is not None:
+                        self.progress_bar.start()
                     tid = 0
                     for file in self.filepaths:
                         tid += 1
@@ -448,6 +450,7 @@ class ScanMode:
                 outcome.collected = True
                 outcome.time_ms = analysis_result.processing_time_ms
                 outcome.depth = analysis_result.depth
+                self.stats.tokens_processed += analysis_result.tokens_processed
                 outcome.errors = analysis_result.errors
                 # a file that logged an error is reported as failed even when the analysis returned
                 status = analysis_result.status
@@ -456,6 +459,10 @@ class ScanMode:
                 if analysis_result.findings is None or len(analysis_result.findings) == 0:
                     continue
                 final.extend(analysis_result.findings)
+
+        # the summary's count, from the outcomes: the same in CI mode (which counts only jobs that raised while it
+        # runs) and with the live display (which counts what the workers report)
+        self.stats.failed_files = sum(1 for outcome in self.files.values() if outcome.status in ('error', 'unreadable'))
 
         console.line()
         console.print('[*] Merging similar findings..')

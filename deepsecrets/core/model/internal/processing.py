@@ -39,6 +39,8 @@ class PerFileAnalysisResult:
     # 'deep' (lexer included) or 'shallow' (larger than deep_max_size: regex rules and the cheap variable search);
     # None for a file that was never analysed (it could not be opened, or it was empty)
     depth: Optional[str] = field(default=None)
+    # tokens the engines searched, for the report summary
+    tokens_processed: int = field(default=0)
 
     # ONLY FOR BENCHMARKING MODE
     _file: Optional[File] = None

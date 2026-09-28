@@ -445,7 +445,13 @@ def test_ci_mode_needs_no_manager_and_finds_the_same():
         try:
             assert (mode._mp_manager is None) is ci_mode
             findings, errors, _ = _run_with_timeout(mode, timeout=120)
-            results[ci_mode] = (sorted((f.file.path, f.start_offset, f.detection) for f in findings), errors)
+            # the summary's token count comes from the results, the same in both modes (it was 0 in CI mode)
+            assert mode.stats.tokens_processed > 0
+            results[ci_mode] = (
+                sorted((f.file.path, f.start_offset, f.detection) for f in findings),
+                errors,
+                mode.stats.tokens_processed,
+            )
             assert mode.stats.finished == 4
             if ci_mode:
                 assert mode.stats.total_findings == len(findings)

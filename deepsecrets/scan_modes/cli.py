@@ -146,11 +146,18 @@ class CliScanMode(ScanMode):
             result.findings = file_analyzer.process()
         except Exception as e:
             logger.exception(e)
+        result.tokens_processed = file_analyzer.progress.processed_count
 
         if PROFILER_ON:
             pass
 
-        # always: it records the end time; with no reporter (CI mode) it reports nothing
-        lifecycle.on_finish(task_reporter.get('task_id') if task_reporter is not None else None)
+        # always: it records the end time; with no reporter (CI mode) it reports nothing. The file analyzer's last
+        # report is merged in, so the final one keeps its token and finding counts, and a failure it caught stays one
+        # (KI-CLI-04)
+        child_report = task_reporter.get(task_id) if task_reporter is not None else None
+        if file_analyzer.progress.failure:
+            lifecycle.on_failure(child_report)
+        else:
+            lifecycle.on_finish(child_report)
 
         return __finalize(result)

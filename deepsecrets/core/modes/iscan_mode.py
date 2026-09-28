@@ -1,7 +1,4 @@
 from deepsecrets.core.ui.progress_bar import DSApplicationProgess
-from deepsecrets.utils import setup_interrupts_for_subprocess
-
-setup_interrupts_for_subprocess()
 import time
 
 from dataclasses import dataclass, field
@@ -665,8 +662,8 @@ def init_worker(bundle_path: str, task_reporter: DictProxy, task_pids: Any = Non
     # It must not raise: the pool would replace the worker, the replacement would fail the same way, and the scan
     # would wait forever for results (KI-DM-30). The failure is kept for the worker's first task to report.
     global _worker_bundle, _worker_task_reporter, _worker_bundle_path, _worker_startup_error, _worker_task_pids
-    # a forkserver worker inherits the server's handlers, where this module was imported as the main process, so the
-    # import-time call at the top of this module did nothing there: Ctrl+C belongs to the parent
+    # Ctrl+C belongs to the parent, so a worker ignores it. Set here, not at import: a forkserver worker inherits the
+    # server's default handler, and a call at import would reach any process that imports this module
     setup_interrupts_for_subprocess()
     _worker_task_reporter = task_reporter
     _worker_task_pids = task_pids

@@ -58,6 +58,8 @@ class LexerTokenizer(Tokenizer):
 
         self.lexer = self._find_lexer_for_file(file)
         if not self.lexer:
+            # not the previous file's tokens, should this tokenizer be reused
+            self.tokens = []
             return self.tokens
         try:
             self.language: Language = Language.from_text(self.lexer.filenames[0])
@@ -66,7 +68,8 @@ class LexerTokenizer(Tokenizer):
         except Exception as e:
             logger.exception(e)
 
-        raw_tokens = list(self.lexer.get_tokens_unprocessed(file.content))
+        # iterated once, as Pygments produces it: a list would hold every raw token of the file at once
+        raw_tokens = self.lexer.get_tokens_unprocessed(file.content)
         single_token_improver = SingleTokenImprover(lang=self.language)
         improving = single_token_improver.applies()
         # Tokens are recorded as rows and built only when something reads them (see helpers/token_table.py).

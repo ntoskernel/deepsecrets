@@ -27,7 +27,7 @@ class VariableDetectionRules:
     rules = [
         VariableDetector(
             language=Language.PYTHON,
-            stream_pattern=re.compile('(n)(o|p)(?:\n?)(L)(?:\n|p|\?)'),  # noqa
+            stream_pattern=re.compile('(n)(o|p)(?:\n?)(L)(?:\n|p|\\?)'),  # noqa
             match_rules={2: Match(values=[re.compile('^=$'), re.compile('^:$')])},
             match_semantics={1: 'name_token', 3: 'value_token'},
         ),
@@ -91,7 +91,7 @@ class VariableDetectionRules:
         ),
         VariableDetector(
             language=Language.GOLANG,
-            stream_pattern=re.compile('(n)(?:o|p){1,3}(\?|u)p(L)p'),  # noqa
+            stream_pattern=re.compile('(n)(?:o|p){1,3}(\\?|u)p(L)p'),  # noqa
             match_rules={2: Match(values=['byte', 'string'])},
             match_semantics={1: 'name_token', 3: 'value_token'},
         ),
@@ -348,7 +348,7 @@ class VariableSuppressionRules(VariableDetectionRules):
             stream_pattern=re.compile('(n)(p)(n)(p)L'),
             match_rules={
                 1: Match(values=[re.compile('^decode$'), re.compile('^decodeIfPresent$'), re.compile('^unbox$')]),
-                2: Match(values=[re.compile('^\($')]),
+                2: Match(values=[re.compile('^\\($')]),
                 3: Match(values=[re.compile('^(key|keyPath)$')]),
                 4: Match(values=[re.compile('^:$')]),
             },

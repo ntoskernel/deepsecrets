@@ -27,7 +27,7 @@ class SingleTokenImprover:
         self.language = lang
         self.acc = {
             Language.SHELL: [self._curl_argstring_breakdown],
-            # Language.PHP: [self._php_variable_dollar_sign_breakdown], # TODO: Uncomment in v2.1
+            # Language.PHP: [self._php_variable_dollar_sign_breakdown],  # off: it would change PHP tokens (KI-TOK-31)
         }
 
     def applies(self) -> bool:

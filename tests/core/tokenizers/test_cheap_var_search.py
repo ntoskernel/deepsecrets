@@ -43,3 +43,10 @@ def test_command_options_and_dotnet_settings_are_variables():
     assert names['loginradius:apisecret'].startswith('3f9a1c2e')
 
 
+def test_a_reused_tokenizer_returns_only_the_current_files_tokens(tmp_path):
+    first, second = tmp_path / 'a.txt', tmp_path / 'b.txt'
+    first.write_text('password = "hunter22hunter22"\n')
+    second.write_text('nothing to see here\n')
+    tokenizer = CheapVarSearchTokenizer(lexed=True)
+    assert tokenizer.tokenize(File(path=str(first)))
+    assert tokenizer.tokenize(File(path=str(second))) == []

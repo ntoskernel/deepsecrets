@@ -131,6 +131,7 @@ class DeepAnalyzer:
         if isinstance(tokens_all, LazyTokens):
             return self._final_cleanup_rows(tokens_all, tokens_to_be_excluded)
 
+        # a list or ordered set: only the eager reference tokenizer in tests passes one, the lexer passes LazyTokens
         if not isinstance(tokens_all, OrderedSet):
             tokens_all = OrderedSet(tokens_all)
 

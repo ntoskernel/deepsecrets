@@ -27,6 +27,8 @@ class CheapVarSearchTokenizer(Tokenizer):
             except Exception as e:
                 logger.exception(e)
 
+        # one file per call: a tokenizer reused for another file must not hand back this one's tokens
+        self.tokens = []
         rules: List[CheapVariableDetector] = CheapVariableDetectionRules.for_language(language, lexed=self.lexed)
         vars: List[Variable] = []
         for rule in rules:

@@ -33,7 +33,6 @@ dependencies = [
   "ordered-set (==4.1.0)",
   "mmh3 (==5.3.0)",
   "regex (==2026.9.3)",
-  "jsx-lexer == 2.0.1",
   "aenum (==3.1.17)",
   "puppetparser == 0.2.14",
   "sarif-om == 1.0.4",

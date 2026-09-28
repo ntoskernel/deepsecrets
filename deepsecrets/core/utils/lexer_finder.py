@@ -4,11 +4,10 @@ from pygments import highlight
 
 from deepsecrets.core.model.file import File
 from deepsecrets.core.utils.guess_filetype import FileTypeGuesser
-from pygments.lexers import load_lexer_from_file, get_lexer_for_filename, get_lexer_by_name
+from pygments.lexers import get_lexer_for_filename, get_lexer_by_name
 from pygments.util import ClassNotFound
 from pygments.formatters import RawTokenFormatter
 from pygments.lexers.special import RawTokenLexer
-from jsx import lexer as lexer_mod
 
 
 class LexerFinder:
@@ -21,12 +20,11 @@ class LexerFinder:
     probes: Dict
 
     def __init__(self) -> None:
-        self._init_custom_lexers()
+        # No JSX lexer to load: Pygments' own `pygments.lexers.jsx.JsxLexer` answers the `jsx` and `react` aliases and
+        # the `*.jsx` and `*.react` file names. The jsx-lexer package once loaded here re-executed its source for every
+        # file and was never the lexer chosen (KI-TOK-18); it is no longer a dependency
         self._init_alias_exceptions()
         self._init_probes()
-
-    def _init_custom_lexers(self):
-        load_lexer_from_file(lexer_mod.__file__, "JsxLexer")
 
     def _init_alias_exceptions(self):
         self.alias_exceptions = {'js+react': 'react'}

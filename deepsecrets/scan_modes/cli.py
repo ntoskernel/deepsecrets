@@ -13,6 +13,7 @@ from deepsecrets.config import deep_analysis
 from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.rulesets.regex_candidate_scoring import RegexCandidateScoringRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.tokenizers.cheap_var_search import CheapVarSearchTokenizer
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
@@ -25,8 +26,9 @@ from deepsecrets.core.utils.progress import Progress
 
 
 class CliScanMode(ScanMode):
-    # the per-file analyzer below and everything it imports: engines, tokenizers, the naturalness model
-    worker_modules = ['deepsecrets.scan_modes.cli']
+    # the per-file analyzer below and everything it imports (engines, tokenizers, the naturalness model), and the
+    # regex-candidate evaluator, which RegexEngine imports only when it judges
+    worker_modules = ['deepsecrets.scan_modes.cli', 'deepsecrets.core.helpers.regex_candidate_evaluator']
 
     def prepare_for_scan(self) -> None:
         self.engines_enabled: Dict[str, bool] = {}
@@ -112,8 +114,10 @@ class CliScanMode(ScanMode):
         cheap_var_search = CheapVarSearchTokenizer()
         lex = LexerTokenizer(deep_token_inspection=True)
 
+        # regex matches are candidates, judged as they are found (rules/regex_candidate_scoring_rules.json)
         regex_engine = RegexEngine(
             ruleset=bundle.rulesets.get(RegexRulesetBuilder.ruleset_name, []),
+            candidate_rules=bundle.rulesets.get(RegexCandidateScoringRulesetBuilder.ruleset_name),
         )
 
         for eng, enabled in bundle.engines.items():

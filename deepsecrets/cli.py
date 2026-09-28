@@ -23,6 +23,7 @@ from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.rulesets.regex_candidate_scoring import RegexCandidateScoringRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.ui.progress_bar import DSApplicationProgess
 from deepsecrets.core.ui.time_remaining_column import SyncedTimeRemainingColumn
@@ -116,6 +117,19 @@ class DeepSecretsCliTool:
             '- Ignore this argument to use the built-in ruleset.\n'
             "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
             'eq. --regex-rules built-in /root/my_regex_rules.json\n',
+            default=['built-in'],
+        )
+
+        parser.add_argument(
+            '--regex-candidate-scoring-rules',
+            nargs='*',
+            type=str,
+            help='Controls rules for judging regex matches (candidates) before they are reported: placeholders,\n'
+            'language-like values, hosts, test paths. Used by regex rules that declare an "evidence" class.\n'
+            '- Ignore this argument to use the built-in ruleset\n'
+            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
+            'eq. --regex-candidate-scoring-rules built-in /root/my_candidate_rules.json\n'
+            '- Give it no value to report regex matches unjudged, as before 2.2\n',
             default=['built-in'],
         )
 
@@ -302,6 +316,14 @@ class DeepSecretsCliTool:
             rules = [rule.replace('built-in', REGEX_BUILTIN_RULESET) for rule in user_args.regex_rules]
             config.engines.append(RegexEngine)
             config.add_ruleset(RegexRulesetBuilder, rules)
+
+            CANDIDATE_BUILTIN_RULESET = get_path_inside_package('rules/regex_candidate_scoring_rules.json')
+            if user_args.regex_candidate_scoring_rules is not None:
+                rules = [
+                    rule.replace('built-in', CANDIDATE_BUILTIN_RULESET)
+                    for rule in user_args.regex_candidate_scoring_rules
+                ]
+                config.add_ruleset(RegexCandidateScoringRulesetBuilder, rules)
 
         conf_semantic_analysis = user_args.semantic_analysis
         if conf_semantic_analysis is not None and conf_semantic_analysis != DISABLED:

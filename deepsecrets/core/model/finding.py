@@ -24,6 +24,8 @@ class Finding(BaseModel):
     reason: str = Field(default='')
     final_rule: Optional[Rule] = Field(default=None)
     internal_score: Optional[dict] = Field(default_factory=dict)
+    # a regex candidate its evaluation rejected: reported only at --confidence-level all, with confidence 0
+    rejected: bool = Field(default=False)
     _mapped_on_file: bool = PrivateAttr(default=False)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -114,7 +116,16 @@ class Finding(BaseModel):
         if other != self:
             return False
 
-        self.rules.extend(other.rules)
-        self.rules = list(set(self.rules))
+        # One rule per id, in insertion order. The same rule reached through two passes keeps the first copy seen, as
+        # before, except that a kept finding's copy beats a rejected candidate's, and a static copy (a regex match the
+        # semantic engine corroborated) beats a dynamic one.
+        first, second = (other, self) if self.rejected and not other.rejected else (self, other)
+        best = {rule.id: rule for rule in first.rules}
+        for rule in second.rules:
+            kept = best.get(rule.id)
+            if kept is None or (kept.is_dynamic_confidence and not rule.is_dynamic_confidence):
+                best[rule.id] = rule
+        self.rules = list(best.values())
+        self.rejected = self.rejected and other.rejected
 
         return True

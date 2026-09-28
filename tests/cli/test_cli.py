@@ -50,7 +50,8 @@ def test_1_cli(args_1):
     config = tool.get_current_config()
 
     assert config is not None
-    assert len(config.rulesets) == 3
+    # regex, regex-candidate scoring, variable scoring and false findings
+    assert len(config.rulesets) == 4
     assert len(config.engines) == 2
     assert len(config.global_exclusion_paths) == 1
 

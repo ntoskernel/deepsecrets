@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Union
+from deepsecrets.core.helpers.confidence import entropy_score, randomness_points
 from deepsecrets.core.helpers.entropy import EntropyHelper
 from deepsecrets.core.model.rules.variable_scoring import VariableScoringRule
 from deepsecrets.core.model.semantic import Context, Variable
@@ -62,16 +63,7 @@ class VariableEvaluator:
         return fired
 
     def calculate_entropy_score(self, entropy: float) -> float:
-        if entropy == 0:
-            return -1
-
-        if entropy < 3:
-            return 0
-
-        if 3 <= entropy < 4:
-            return (entropy - 3) * 35
-
-        return 40
+        return entropy_score(entropy)
 
     def evaluate(self, variable: Union[Variable | Context]) -> EvaluationResult:
         context = variable.context if isinstance(variable, Variable) else variable
@@ -131,6 +123,6 @@ class VariableEvaluator:
         # natural-looking values. See docs/private/research/variable-scoring-balance.md.
         naming = min(max(result.naming_and_content_score, 0), 25)
         var_part = 0.2 * min(naming, 20) + 0.6 * max(naming - 20, 0)
-        entropy_part = min(max(result.entropy_score, 0), 40) / 40 * 5 * min(result.nonsence_value_score + 0.5, 1)
+        entropy_part = randomness_points(result.entropy_score, result.nonsence_value_score)
 
         return round(min(var_part + entropy_part, 10))

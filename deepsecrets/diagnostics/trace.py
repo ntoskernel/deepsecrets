@@ -28,7 +28,7 @@ from deepsecrets.core.tokenizers.helpers.semantic.var_detection.rules import (
     VariableSuppressionRules,
 )
 from deepsecrets.core.tokenizers.lexer import LexerTokenizer
-from deepsecrets.core.utils.file_analyzer import EngineWithTokenizer, FileAnalyzer
+from deepsecrets.core.utils.file_analyzer import EngineWithTokenizer, FileAnalyzer, answer_key
 from deepsecrets.core.utils.finding_merger import FindingMerger
 from deepsecrets.core.utils.fs import get_path_inside_package
 
@@ -96,23 +96,24 @@ class TracingFileAnalyzer(FileAnalyzer):
 
     def _run_engine(self, et: EngineWithTokenizer):
         results = []
-        processed_values: Dict[int, bool] = {}
+        processed_values: Dict[tuple, bool] = {}
         if et.tokenizer not in self.tokens:
             self.tokens[et.tokenizer] = et.tokenizer.tokenize(self.file)
         name = et.tokenizer.__class__.__name__
         for token in self.tokens[et.tokenizer]:
-            known = processed_values.get(token.val_hash())
+            key = answer_key(token)  # the scanner's cache key (FileAnalyzer._run_engine)
+            known = processed_values.get(key)
             if known is not None and known is False:
                 self.decisions.append(
                     {'tokenizer': name, 'engine': et.engine.name, 'span': token.span, 'cache_skip': True}
                 )
                 continue
-            processed_values[token.val_hash()] = False
+            processed_values[key] = False
             findings = et.engine.search(token)
             for finding in findings:
                 finding.map_on_file(file=self.file, relative_start=token.span[0])
                 results.append(finding)
-                processed_values[token.val_hash()] = True
+                processed_values[key] = True
             self.decisions.append(
                 {
                     'tokenizer': name,

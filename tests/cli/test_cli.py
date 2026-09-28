@@ -4,6 +4,7 @@ from deepsecrets.cli import DeepSecretsCliTool
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
+from deepsecrets.core.utils.multiprocessing_setup import default_start_method
 
 
 @pytest.fixture(scope='module')
@@ -95,3 +96,29 @@ def test_hashed_values_registers_hashed_engine():
     finally:
         # the config singleton outlives this test (KI-CLI-12)
         config.rulesets.pop(HashedSecretsRulesetBuilder, None)
+
+
+@pytest.mark.parametrize(
+    'extra, detected, ci_mode',
+    [([], True, True), ([], False, False), (['--ci'], False, True), (['--no-ci'], True, False)],
+)
+def test_ci_mode_follows_the_flags_then_the_environment(monkeypatch, extra, detected, ci_mode):
+    monkeypatch.setattr('deepsecrets.cli.is_ci_environment', lambda: detected)
+    tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
+    config = tool.get_current_config()
+    monkeypatch.setattr(config, 'ci_mode', not ci_mode)  # the singleton keeps what earlier tests set
+    tool.parse_arguments()
+
+    assert config.ci_mode is ci_mode
+
+
+@pytest.mark.parametrize(
+    'extra, expected', [([], default_start_method()), (['--multiprocessing-context', 'spawn'], 'spawn')]
+)
+def test_multiprocessing_context_defaults_to_the_platform_start_method(monkeypatch, extra, expected):
+    tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
+    config = tool.get_current_config()
+    monkeypatch.setattr(config, 'mp_context', 'fork')
+    tool.parse_arguments()
+
+    assert config.mp_context == expected

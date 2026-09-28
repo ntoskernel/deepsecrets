@@ -65,6 +65,7 @@ The `--help` command is always ready to guide you, but here are the key flags yo
 * `--hashed-values /path/to/hashes.json`: Provide a list of pre-hashed known production secrets to search for them securely.
 * `--excluded-paths /path/to/exclusions.json`: Override or extend the default paths ignored during scanning.
 * `--disable-masking`: Keep potential secrets unmasked in the output report *(see caution below)*.
+* `--ci` / `--no-ci`: Turn CI mode on or off. CI mode prints a plain progress line every 30 seconds instead of the live progress display. It turns on by itself inside CI services (GitHub Actions, GitLab CI, Jenkins and others) and whenever the output is not a terminal.
 
 
 ### Github Actions Integration

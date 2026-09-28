@@ -24,6 +24,8 @@ from deepsecrets.core.utils.progress import Progress
 
 
 class CliScanMode(ScanMode):
+    # the per-file analyzer below and everything it imports: engines, tokenizers, the naturalness model
+    worker_modules = ['deepsecrets.scan_modes.cli']
 
     def prepare_for_scan(self) -> None:
         self.engines_enabled: Dict[str, bool] = {}
@@ -81,12 +83,12 @@ class CliScanMode(ScanMode):
             file = File(path=file, relative_path=get_relative_path(file, bundle.workdir))
         except Exception as e:
             logger.error(f'Unable to open the file: {e}')
-            lifecycle.on_failure(task_reporter[task_id])
+            lifecycle.on_failure(task_reporter[task_id] if task_reporter is not None else None)
             result.status = 'unreadable'
             return __finalize(result)
 
         if file.length == 0:
-            lifecycle.on_finish(task_reporter[task_id])
+            lifecycle.on_finish(task_reporter[task_id] if task_reporter is not None else None)
             result.status = 'empty'
             return __finalize(result)
 
@@ -128,7 +130,7 @@ class CliScanMode(ScanMode):
         if PROFILER_ON:
             pass
 
-        if task_reporter is not None:
-            lifecycle.on_finish(task_reporter.get('task_id'))
+        # always: it records the end time; with no reporter (CI mode) it reports nothing
+        lifecycle.on_finish(task_reporter.get('task_id') if task_reporter is not None else None)
 
         return __finalize(result)

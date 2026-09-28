@@ -7,6 +7,7 @@ from deepsecrets.core.utils.cpu import CpuHelper
 
 from deepsecrets.core.utils.exceptions import FileNotFoundException
 from deepsecrets.core.utils.fs import get_abspath, path_exists
+from deepsecrets.core.utils.multiprocessing_setup import default_start_method
 
 FALLBACK_PROCESS_COUNT = 4
 
@@ -28,7 +29,7 @@ class Config:
     workdir_path: str
     oneshot_path: str
     max_file_size: int = 0  # 0 means no limit
-    mp_context: str = 'spawn'
+    mp_context: str = default_start_method()
     engines: List[Type] = []
     rulesets: Dict[Type, List[str]] = {}
     global_exclusion_paths: List[str] = []
@@ -38,6 +39,8 @@ class Config:
     disable_masking: bool
     report_diagnostics: bool = False
     verbose: bool = False
+    # no live terminal UI and no progress manager; the CLI turns it on in CI and when output is not a terminal
+    ci_mode: bool = False
 
     _benchmarking_mode: bool
 
@@ -89,6 +92,9 @@ class Config:
 
     def set_mp_context(self, context: str) -> None:
         self.mp_context = context
+
+    def set_ci_mode(self, enabled: bool) -> None:
+        self.ci_mode = enabled
 
     def set_process_count(self, count: int) -> None:
         if count > 0:

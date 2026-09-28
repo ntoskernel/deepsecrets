@@ -22,6 +22,9 @@ from deepsecrets.core.ui.time_remaining_column import SyncedTimeRemainingColumn
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger
 from deepsecrets.scan_modes.cli import CliScanMode
+from deepsecrets.core.modes.iscan_mode import WorkerStartupError
+from deepsecrets.core.utils.environment import is_ci_environment
+from deepsecrets.core.utils.multiprocessing_setup import TempDirTooLongError, default_start_method, stop_forkserver
 
 from rich.progress import SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.panel import Panel
@@ -195,9 +198,19 @@ class DeepSecretsCliTool:
         parser.add_argument(
             '--multiprocessing-context',
             type=str,
-            default='spawn',
+            default=None,
             choices=['fork', 'spawn', 'forkserver'],
-            help='Control the multiprocessing context\n',
+            help='How worker processes start. Default: forkserver where available (Linux, macOS), spawn elsewhere.\n'
+            'forkserver workers share the scanner already loaded in the server instead of loading it again.\n',
+        )
+
+        parser.add_argument(
+            '--ci',
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help='CI mode: no live progress bars, a plain progress line every 30 s, and no progress manager process.\n'
+            'Default: on inside a CI service (CI, GITHUB_ACTIONS, GITLAB_CI and similar variables) or when the\n'
+            'output is not a terminal; --no-ci forces the live display.\n',
         )
 
         parser.add_argument('--outfile', required=True, type=str)
@@ -252,7 +265,8 @@ class DeepSecretsCliTool:
         config.set_oneshot_path(user_args.oneshot)
         config.set_max_file_size(user_args.max_file_size)
         config.set_process_count(user_args.process_count)
-        config.set_mp_context(user_args.multiprocessing_context)
+        config.set_mp_context(user_args.multiprocessing_context or default_start_method())
+        config.set_ci_mode(is_ci_environment() if user_args.ci is None else user_args.ci)
         config.set_verbose(user_args.verbose)
         config.output = Output(type=user_args.outformat, path=user_args.outfile)
 
@@ -371,19 +385,32 @@ class DeepSecretsCliTool:
                 f'[bold yellow]:warning:[/bold yellow] The tool will return code of {ReturnCodes.FINDINGS_DETECTED} if any findings are detected\n'
             )
 
-        mode = CliScanMode(config=config)
+        try:
+            mode = CliScanMode(config=config)
+        except TempDirTooLongError as e:
+            console.print(f'[bold red][!] Cannot start worker processes: {e}.[/bold red]')
+            return ReturnCodes.ERROR
 
         console.line()
 
-        mode.set_progress_bar(progress_bar)
-        mode.progress_bar.set_start_time(startup_time)
-        mode.progress_bar.start()
+        if not config.ci_mode:
+            mode.set_progress_bar(progress_bar)
+            mode.progress_bar.set_start_time(startup_time)
+            mode.progress_bar.start()
 
         findings: List[Finding]
         errors: Dict[str, List[str]]
         timings: Dict[str, int]
 
-        findings, errors, timings = mode.run()
+        try:
+            findings, errors, timings = mode.run()
+        except WorkerStartupError as e:
+            if mode.progress_bar is not None:
+                mode.progress_bar.stop()
+            console.print(f'[bold red][!] Scan stopped: {e}. Every file it took would fail the same way.[/bold red]')
+            mode.dispose()
+            stop_forkserver()
+            return ReturnCodes.ERROR
 
         '''
         for finding in findings:
@@ -392,7 +419,8 @@ class DeepSecretsCliTool:
             finding.file = None
         '''
 
-        mode.progress_bar.stop()
+        if mode.progress_bar is not None:
+            mode.progress_bar.stop()
         finish_time = datetime.now()
         report_path = get_abspath(config.output.path)
 
@@ -474,6 +502,9 @@ class DeepSecretsCliTool:
         console.print(Align('[bold green]FINISHED', align='center'))
         console.line(2)
         mode.dispose()
+        # the pool and the manager are gone: wait for the forkserver, so whoever waits for this process sees the
+        # workers' CPU time (KI-CLI-42)
+        stop_forkserver()
 
         if len(findings) > 0 and config.return_code_if_findings:
             return ReturnCodes.FINDINGS_DETECTED

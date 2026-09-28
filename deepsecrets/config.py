@@ -7,12 +7,28 @@ from deepsecrets.core.utils.cpu import CpuHelper
 
 from deepsecrets.core.utils.exceptions import FileNotFoundException
 from deepsecrets.core.utils.fs import get_abspath, path_exists
+from deepsecrets.core.utils.multiprocessing_setup import default_start_method
 
 FALLBACK_PROCESS_COUNT = 4
 
+# --confidence-level: the lowest confidence a reported finding may have. 'all' also reports the regex candidates their
+# evaluation rejected (confidence 0); 'low', the default, reports every finding the scanner keeps
+CONFIDENCE_LEVELS = {'all': None, 'low': 0, 'medium': 3, 'high': 6, 'very-high': 9}
+DEFAULT_CONFIDENCE_LEVEL = 'low'
+
+# files larger than this many bytes get the shallow analysis: the regex rules and the cheap variable search, no lexer.
+# On SecretBench the lexer found 12 of its 21 unique secrets in smaller files and the other 9 only in files of 1 MB
+# or more (minified JavaScript, one YAML file), while files over 250 KB took two thirds of its time.
+DEFAULT_DEEP_MAX_SIZE = 250_000
+
+
+def deep_analysis(size: int, deep_max_size: int) -> bool:
+    """Whether a file of `size` bytes gets the full analysis, lexer included. `deep_max_size` 0 or less: every file."""
+    return deep_max_size <= 0 or size <= deep_max_size
+
+
 SCANNER_NAME = "DeepSecrets"
-SCANNER_VERSION = "2.1.1"
-SCANNER_VERSION_NUMERIC = [int(subver) for subver in SCANNER_VERSION.split('.')]
+SCANNER_VERSION = "2.2.0"
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
 
 MAX_LINE_LENGTH_FOR_CONTEXT = 300
@@ -28,7 +44,9 @@ class Config:
     workdir_path: str
     oneshot_path: str
     max_file_size: int = 0  # 0 means no limit
-    mp_context: str = 'spawn'
+    # files above this many bytes get no lexer (see deep_analysis above); 0 means every file gets it
+    deep_max_size: int = DEFAULT_DEEP_MAX_SIZE
+    mp_context: str = default_start_method()
     engines: List[Type] = []
     rulesets: Dict[Type, List[str]] = {}
     global_exclusion_paths: List[str] = []
@@ -37,7 +55,10 @@ class Config:
     return_code_if_findings: bool
     disable_masking: bool
     report_diagnostics: bool = False
+    confidence_level: str = DEFAULT_CONFIDENCE_LEVEL
     verbose: bool = False
+    # no live terminal UI and no progress manager; the CLI turns it on in CI and when output is not a terminal
+    ci_mode: bool = False
 
     _benchmarking_mode: bool
 
@@ -48,6 +69,7 @@ class Config:
         self.return_code_if_findings = False
         self.disable_masking = False
         self.report_diagnostics = False
+        self.confidence_level = DEFAULT_CONFIDENCE_LEVEL
 
         self._benchmarking_mode = False
         self.oneshot_path = None
@@ -71,6 +93,11 @@ class Config:
     def set_report_diagnostics(self, state: bool):
         self.report_diagnostics = state
 
+    def set_confidence_level(self, level: str) -> None:
+        if level not in CONFIDENCE_LEVELS:
+            raise ValueError(f'unknown confidence level {level}')
+        self.confidence_level = level
+
     def _set_path(self, path: str, field: str) -> None:
         if not path_exists(path):
             raise FileNotFoundException(f'{field} path does not exist ({path})')
@@ -87,8 +114,14 @@ class Config:
     def set_max_file_size(self, size: int) -> None:
         self.max_file_size = size
 
+    def set_deep_max_size(self, size: int) -> None:
+        self.deep_max_size = size
+
     def set_mp_context(self, context: str) -> None:
         self.mp_context = context
+
+    def set_ci_mode(self, enabled: bool) -> None:
+        self.ci_mode = enabled
 
     def set_process_count(self, count: int) -> None:
         if count > 0:
@@ -117,7 +150,9 @@ class Config:
                 raise FileNotFoundException(f'global_exclusion_path does not exist ({path})')
             self.global_exclusion_paths.append(path)
 
-        self.global_exclusion_paths = list(set(self.global_exclusion_paths))
+        # de-duplicated in order: the first file's patterns are matched first, so a skip reason names the same
+        # pattern on every run (a set's order changed with the hash seed)
+        self.global_exclusion_paths = list(dict.fromkeys(self.global_exclusion_paths))
 
     def add_ruleset(self, type: Type, paths: List[str] = []) -> None:
         self._validate_paths(paths)
@@ -133,6 +168,3 @@ class Config:
             raise FileNotFoundException(f'File {path} does not exist')
 
         return
-
-
-config = Config()

@@ -45,6 +45,8 @@ From PyPi
 $ pip install deepsecrets
 ```
 
+DeepSecrets needs Python 3.11 or later.
+
 
 ## Scanning
 The easiest way to run a scan:
@@ -64,7 +66,14 @@ The `--help` command is always ready to guide you, but here are the key flags yo
 * `--regex-rules /path/to/rules.json`: Supply your own custom regex ruleset.
 * `--hashed-values /path/to/hashes.json`: Provide a list of pre-hashed known production secrets to search for them securely.
 * `--excluded-paths /path/to/exclusions.json`: Override or extend the default paths ignored during scanning.
+* `--deep-max-size BYTES`: Files larger than this (default 250,000 bytes) get the fast analysis: the regex rules and the variable search, without the language lexer. Big files are mostly generated or minified, the lexer costs most of the scan time on them and rarely finds more there. `0` gives every file the full analysis.
+* `--skip-bundles`: Skip minified JavaScript, source maps and bundles (`*.min.js`, `*.map`, `*.bundle.js`) entirely, on top of the other path exclusions.
+* `--confidence-level {all,low,medium,high,very-high}`: The lowest confidence to report (default `low`, every finding). `medium`, `high` and `very-high` keep confidence 3, 6 and 9 or more; `all` also reports the regex matches the scanner judged not to be secrets (placeholders, examples), with an `-INFO` rule id.
+* `--report-diagnostics`: Add every file found under the target to the SARIF report, with its status, scan time, skip reason and analysis depth.
+* `--regex-candidate-scoring-rules /path/to/rules.json`: Supply your own rules for judging regex matches before they are reported. Give the flag no value to report regex matches unjudged.
+* `--multiprocessing-context {forkserver,spawn,fork}`: How worker processes start. The default is `forkserver` where the platform has it (Linux, macOS): workers share the scanner already loaded in a server process. Windows uses `spawn`. All three give the same findings.
 * `--disable-masking`: Keep potential secrets unmasked in the output report *(see caution below)*.
+* `--ci` / `--no-ci`: Turn CI mode on or off. CI mode prints a plain progress line every 30 seconds instead of the live progress display. It turns on by itself inside CI services (GitHub Actions, GitLab CI, Jenkins and others) and whenever the output is not a terminal.
 
 
 ### Github Actions Integration
@@ -113,7 +122,7 @@ Masking doesn't break the deduplication logic of downstream platforms (like Gith
 
 Every finding gets a confidence score. However, different security platforms parse SARIF metrics differently. To ensure compatibility across modern ASPM dashboards, DeepSecrets does the following:
 
-* **Virtual Subrules (`rules[]`)**: Dynamically generates rules like `S105-LOW` or `S105-CRITICAL`. This forces GitHub Security and DefectDojo to map semantic precision variance properly without breaking native parsers.
+* **Virtual Subrules (`rules[]`)**: Dynamically generates rules by confidence tier, from `S105-LOW` through `-MEDIUM` and `-HIGH` to `S105-VERY-HIGH` (and `-INFO` for the rejected matches `--confidence-level all` reports). This forces GitHub Security and DefectDojo to map semantic precision variance properly without breaking native parsers.
 
 * **Deterministic Result Level**: The tool always explicitly sets `level: error` in the `results[]` model. This acts as a universal fallback for CI/CD pipelines and older SAST parsers, ensuring that exposed secrets reliably break builds or block Pull Requests regardless of individual rule interpretations.
 

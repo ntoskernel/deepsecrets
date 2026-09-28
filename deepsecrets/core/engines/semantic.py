@@ -41,10 +41,21 @@ class SemanticEngine(IEngine):
             if fname in token.file.path:
                 return findings
 
+        # the variable first: a regex match that covers the whole token of a variable reported here is corroborated,
+        # so the regex sub-engine does not judge it again
+        semantic_findings = self._evaluate_semantics(token)
+
         if self.subengine is not None:  # pragma: nocover
-            content_findings = ContentAnalyzer(self.subengine).analyze(token)
+            content_findings = ContentAnalyzer(self.subengine).analyze(token, corroborated=bool(semantic_findings))
             if content_findings is not None:
                 findings.extend(content_findings)
+
+        findings.extend(semantic_findings)
+        return findings
+
+    def _evaluate_semantics(self, token: Token) -> List[Finding]:
+        """S107 for a dangerous condition, S105 or S106 for a variable the evaluator scores as dangerous."""
+        findings: List[Finding] = []
 
         if token.semantic is None:
             return findings
@@ -91,7 +102,8 @@ class SemanticEngine(IEngine):
                             internal_score={'var': token.semantic.name} | evaluation_result.summary(),
                         )
                     )
-                else:
+                elif evaluation_result.allows_low_entropy:
+                    # 3 bits or less: a password someone chose, or else a placeholder, an id or a map key
                     findings.append(
                         Finding(
                             detection=token.content,

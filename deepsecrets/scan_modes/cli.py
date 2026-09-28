@@ -9,9 +9,11 @@ from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.modes.iscan_mode import ScanMode
+from deepsecrets.config import deep_analysis
 from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.rulesets.regex_candidate_scoring import RegexCandidateScoringRulesetBuilder
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.tokenizers.cheap_var_search import CheapVarSearchTokenizer
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
@@ -24,6 +26,9 @@ from deepsecrets.core.utils.progress import Progress
 
 
 class CliScanMode(ScanMode):
+    # the per-file analyzer below and everything it imports (engines, tokenizers, the naturalness model), and the
+    # regex-candidate evaluator, which RegexEngine imports only when it judges
+    worker_modules = ['deepsecrets.scan_modes.cli', 'deepsecrets.core.helpers.regex_candidate_evaluator']
 
     def prepare_for_scan(self) -> None:
         self.engines_enabled: Dict[str, bool] = {}
@@ -44,7 +49,13 @@ class CliScanMode(ScanMode):
             self.rulesets[builder.ruleset_name] = builder.rules
 
     def analyzer_bundle(self) -> AnalyzerBundle:
-        return replace(super().analyzer_bundle(), engines=self.engines_enabled, rulesets=self.rulesets)
+        return replace(
+            super().analyzer_bundle(),
+            engines=self.engines_enabled,
+            rulesets=self.rulesets,
+            deep_max_size=self.config.deep_max_size,
+            report_rejected=self.config.confidence_level == 'all',
+        )
 
     @staticmethod
     def _per_file_analyzer(bundle: AnalyzerBundle, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
@@ -81,24 +92,34 @@ class CliScanMode(ScanMode):
             file = File(path=file, relative_path=get_relative_path(file, bundle.workdir))
         except Exception as e:
             logger.error(f'Unable to open the file: {e}')
-            lifecycle.on_failure(task_reporter[task_id])
+            lifecycle.on_failure(task_reporter[task_id] if task_reporter is not None else None)
             result.status = 'unreadable'
             return __finalize(result)
 
         if file.length == 0:
-            lifecycle.on_finish(task_reporter[task_id])
+            lifecycle.on_finish(task_reporter[task_id] if task_reporter is not None else None)
             result.status = 'empty'
             return __finalize(result)
 
         file_analyzer = FileAnalyzer(file)
         file_analyzer.attach_global_task_reporter(task_reporter=task_reporter, task_id=task_id)
 
+        # the size tier: the lexer only for files up to deep_max_size bytes
+        try:
+            deep = deep_analysis(os.path.getsize(file.path), bundle.deep_max_size)
+        except OSError:
+            deep = True
+        result.depth = 'deep' if deep else 'shallow'
+
         fct = FullContentTokenizer()
-        cheap_var_search = CheapVarSearchTokenizer()
+        cheap_var_search = CheapVarSearchTokenizer(lexed=deep)
         lex = LexerTokenizer(deep_token_inspection=True)
 
+        # regex matches are candidates, judged as they are found (rules/regex_candidate_scoring_rules.json)
         regex_engine = RegexEngine(
             ruleset=bundle.rulesets.get(RegexRulesetBuilder.ruleset_name, []),
+            candidate_rules=bundle.rulesets.get(RegexCandidateScoringRulesetBuilder.ruleset_name),
+            report_rejected=bundle.report_rejected,
         )
 
         for eng, enabled in bundle.engines.items():
@@ -112,23 +133,31 @@ class CliScanMode(ScanMode):
                 hashed_secret_engine = HashedSecretEngine(
                     ruleset=bundle.rulesets.get(HashedSecretsRulesetBuilder.ruleset_name, [])
                 )
+                # hashed values are compared against lexer tokens, so this engine keeps the lexer on every file
                 file_analyzer.add_engine(hashed_secret_engine, [lex])
 
             if eng == SemanticEngine.name:
                 semantic_engine = SemanticEngine(
                     regex_engine, ruleset=bundle.rulesets.get(VariableScoringRulesetBuilder.ruleset_name, [])
                 )
-                file_analyzer.add_engine(semantic_engine, [lex, cheap_var_search])
+                file_analyzer.add_engine(semantic_engine, [lex, cheap_var_search] if deep else [cheap_var_search])
 
         try:
             result.findings = file_analyzer.process()
         except Exception as e:
             logger.exception(e)
+        result.tokens_processed = file_analyzer.progress.processed_count
 
         if PROFILER_ON:
             pass
 
-        if task_reporter is not None:
-            lifecycle.on_finish(task_reporter.get('task_id'))
+        # always: it records the end time; with no reporter (CI mode) it reports nothing. The file analyzer's last
+        # report is merged in, so the final one keeps its token and finding counts, and a failure it caught stays one
+        # (KI-CLI-04)
+        child_report = task_reporter.get(task_id) if task_reporter is not None else None
+        if file_analyzer.progress.failure:
+            lifecycle.on_failure(child_report)
+        else:
+            lifecycle.on_finish(child_report)
 
         return __finalize(result)

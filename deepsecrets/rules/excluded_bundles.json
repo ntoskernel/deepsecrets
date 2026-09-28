@@ -1,0 +1,5 @@
+[
+    {"name": "Minified JavaScript", "pattern": ".*\\.min\\.js$"},
+    {"name": "Source maps", "pattern": ".*\\.map$"},
+    {"name": "JavaScript bundles", "pattern": ".*\\.bundle\\.js$"}
+]

@@ -1,9 +1,14 @@
 import errno
+import gc
 import os
 import pickle
 import shutil
+import signal
+import subprocess
+import sys
 import threading
 from dataclasses import FrozenInstanceError, fields
+from multiprocessing import forkserver, get_all_start_methods
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from unittest.mock import Mock
@@ -18,8 +23,11 @@ from deepsecrets.core.model.rules.hashed_secret import HashedSecretRule
 from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.utils.fs import get_path_inside_package
 from deepsecrets.core.modes import iscan_mode
+from deepsecrets.core.utils.multiprocessing_setup import pool_context
 from deepsecrets.scan_modes.cli import CliScanMode
 
 HASHED_SECRET = '$ecRetT0F1nD'  # sha1 listed in tests/fixtures/hashed_secrets.json, present in tests/fixtures/1.py
@@ -136,11 +144,19 @@ def test_analyzer_bundle_carries_what_workers_read():
     try:
         bundle = mode.analyzer_bundle()
 
-        assert {f.name for f in fields(bundle)} == {'workdir', 'engines', 'rulesets', 'benchmarking_mode'}
+        assert {f.name for f in fields(bundle)} == {
+            'workdir',
+            'engines',
+            'rulesets',
+            'benchmarking_mode',
+            'deep_max_size',
+            'report_rejected',
+        }
         assert bundle.workdir == '/app/tests/fixtures/extless'
         assert bundle.engines == {'regex': True}
         assert list(bundle.rulesets) == ['regex']
         assert bundle.benchmarking_mode is False
+        assert bundle.deep_max_size == config.deep_max_size
         with pytest.raises(FrozenInstanceError):
             setattr(bundle, 'workdir', '/elsewhere')
         assert pickle.loads(pickle.dumps(bundle)) == bundle
@@ -177,7 +193,9 @@ def test_bundle_reaches_workers_once_not_per_task():
         findings, errors, _ = _run_with_timeout(mode)
         pool = RecordingPool.last
 
-        bundle_path, reporter = pool.init_kwargs['initargs']
+        bundle_path, reporter, task_pids = pool.init_kwargs['initargs']
+        # one shared slot per task id, where each worker records its pid (KI-CLI-37)
+        assert len(task_pids) == len(mode.filepaths) + 1 and task_pids is mode.task_pids
         # the bundle travels as a path, so the payload written to each spawned child stays small (KI-CLI-32)
         assert isinstance(bundle_path, str) and len(pickle.dumps(bundle_path)) < 1024
         assert not os.path.exists(bundle_path)  # its staging directory goes with the pool
@@ -195,7 +213,7 @@ def test_bundle_reaches_workers_once_not_per_task():
 
 
 def test_hashed_scan_through_process_pool(tmp_path: Path):
-    # the combination that used to hang: HashedSecretEngine registered, run in a real spawn pool
+    # the combination that used to hang: HashedSecretEngine registered, run in a real process pool
     shutil.copy('tests/fixtures/1.py', tmp_path / '1.py')
     config = Config()
     config.set_workdir(str(tmp_path))
@@ -277,5 +295,271 @@ def test_unreadable_file_is_not_filed_as_oversized(tmp_path: Path, monkeypatch):
     try:
         assert mode.filepaths == [str(tmp_path / 'fine.txt')]
         assert mode.files[str(victim)].skip_reason == 'unreadable:EACCES'
+    finally:
+        mode.dispose()
+
+
+def _run_capturing(mode: CliScanMode, timeout: int = 60):
+    outcome = {}
+
+    def target():
+        try:
+            outcome['result'] = mode.run()
+        except BaseException as e:  # the thread must report what run() raised
+            outcome['error'] = e
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+    assert not thread.is_alive(), 'scan did not terminate'
+    return outcome
+
+
+@pytest.mark.parametrize('start_method', ['forkserver', 'spawn', 'fork'])
+# the scan runs in a thread here (_run_capturing), so fork warns about forking a multi-threaded process
+@pytest.mark.filterwarnings('ignore:This process .* is multi-threaded:DeprecationWarning')
+def test_worker_that_cannot_load_the_bundle_stops_the_scan(start_method):
+    # KI-DM-30: an initializer that raised killed the worker, the pool replaced it, the replacement failed the same
+    # way, and run() polled forever. Now the first task on such a worker fails with WorkerStartupError and run() stops.
+    def corrupted_pool(**kwargs):
+        with open(kwargs['initargs'][0], 'wb') as f:
+            f.write(b'not a pickle')
+        return pool_context(start_method, CliScanMode.worker_modules).Pool(**kwargs)
+
+    config = _config('tests/fixtures/extless')
+    config.set_process_count(2)
+    mode = CliScanMode(config=config, pool_engine=corrupted_pool)
+    _mock_progress_bar(mode)
+    try:
+        outcome = _run_capturing(mode, timeout=120)
+        assert isinstance(outcome.get('error'), iscan_mode.WorkerStartupError)
+        assert 'UnpicklingError' in str(outcome['error'])
+    finally:
+        mode.dispose()
+
+
+def test_bundle_deleted_before_workers_start_is_staged_again(monkeypatch):
+    # a temporary-file cleaner can delete the staged bundle; the scan re-stages it and the workers' retry succeeds
+    monkeypatch.setattr(iscan_mode, 'BUNDLE_RETRY_DELAY', 0.5)
+
+    def pool_after_cleaner(**kwargs):
+        os.remove(kwargs['initargs'][0])
+        return ThreadPool(**kwargs)
+
+    config = _config('tests/fixtures/extless')
+    mode = CliScanMode(config=config, pool_engine=pool_after_cleaner)
+    _mock_progress_bar(mode)
+    try:
+        outcome = _run_capturing(mode)
+        assert 'error' not in outcome, outcome.get('error')
+        assert mode.stats.finished == 4 and mode.stats.failed_files == 0
+    finally:
+        mode.dispose()
+
+
+def test_initializer_never_raises(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(iscan_mode, 'BUNDLE_RETRY_DELAY', 0)
+    iscan_mode.init_worker(str(tmp_path / 'missing.pickle'), {})
+    assert iscan_mode._worker_bundle is None
+    assert iscan_mode._worker_startup_error.startswith('FileNotFoundError')
+    with pytest.raises(iscan_mode.WorkerStartupError, match='could not load the analyzer bundle'):
+        iscan_mode.pool_wrapper(lambda *args: None, 1, 'any.py')
+
+
+def test_skip_bundles_rules_exclude_minified_files_maps_and_bundles(tmp_path: Path):
+    for name in ('app.js', 'app.min.js', 'app.js.map', 'styles.css.map', 'main.bundle.js', 'bundle.js'):
+        (tmp_path / name).write_text('const a = 1;\n')
+    built_in = [get_path_inside_package(f'rules/{name}') for name in ('excluded_paths.json', 'excluded_bundles.json')]
+
+    config = _config(str(tmp_path))
+    config.set_global_exclusion_paths(built_in)
+    mode = CliScanMode(config=config)
+    try:
+        assert sorted(os.path.basename(p) for p in mode.filepaths) == ['app.js', 'bundle.js']
+    finally:
+        mode.dispose()
+
+    config = _config(str(tmp_path))
+    config.set_global_exclusion_paths(built_in[:1])  # the default since the size tier; --skip-bundles adds the second
+    mode = CliScanMode(config=config)
+    try:
+        assert len(mode.filepaths) == 6
+    finally:
+        mode.dispose()
+
+
+class WorkerKillingScanMode(CliScanMode):
+    @staticmethod
+    def _per_file_analyzer(bundle, file, task_id=None, task_reporter=None):  # type: ignore
+        if file.endswith('/json'):
+            os.kill(os.getpid(), signal.SIGKILL)  # what the OOM killer does
+        return CliScanMode._per_file_analyzer(bundle, file, task_id, task_reporter)
+
+
+@pytest.mark.parametrize('ci_mode', [True, False])
+def test_killed_worker_fails_its_file_instead_of_hanging_the_scan(ci_mode):
+    # KI-CLI-37: the pool replaced the dead worker but never reported its task, and run() waited forever
+    config = _config('tests/fixtures/extless')
+    config.set_process_count(2)
+    config.set_ci_mode(ci_mode)
+    mode = WorkerKillingScanMode(config=config)
+    _mock_progress_bar(mode)
+    try:
+        outcome = _run_capturing(mode, timeout=120)
+        assert 'error' not in outcome, outcome.get('error')
+        _, errors, _ = outcome['result']
+        killed = '/app/tests/fixtures/extless/json'
+        assert len(errors[killed]) == 1 and errors[killed][0].startswith('WorkerLostError: the worker process')
+        assert mode.stats.finished == 4 and mode.stats.failed_files == 1
+        assert list(mode.lost_jobs) == [next(t for t, j in mode.file_jobs.items() if j.name == killed)]
+    finally:
+        mode.dispose()
+
+
+def _sigint_handler_is_ignored(bundle, file, task_id=None, task_reporter=None):
+    return signal.getsignal(signal.SIGINT) is signal.SIG_IGN
+
+
+@pytest.mark.parametrize('start_method', ['forkserver', 'spawn', 'fork'])
+def test_pool_workers_leave_ctrl_c_to_the_parent(tmp_path: Path, start_method):
+    # init_worker is the only place a worker ignores SIGINT (KI-CLI-17): forkserver children inherit the server's
+    # default handler, fork children the parent's, and importing iscan_mode no longer changes a handler
+    # finalise earlier tests' pools now: collected while this pool starts the resource tracker, their semaphores
+    # would call into it reentrantly, which it refuses with a "might leak" warning
+    gc.collect()
+    ctx = pool_context(start_method, CliScanMode.worker_modules)
+    path = iscan_mode.stage_bundle(AnalyzerBundle(workdir=str(tmp_path)), str(tmp_path))
+    with ctx.Pool(2, initializer=iscan_mode.init_worker, initargs=(path, None)) as pool:
+        answers = pool.starmap(iscan_mode.pool_wrapper, [(_sigint_handler_is_ignored, i, 'x') for i in range(4)])
+    assert answers == [True] * 4
+
+
+def test_ci_mode_needs_no_manager_and_finds_the_same():
+    results = {}
+    for ci_mode in (False, True):
+        config = _config('tests/fixtures/extless')
+        config.set_process_count(2)
+        config.set_ci_mode(ci_mode)
+        mode = CliScanMode(config=config)
+        _mock_progress_bar(mode)
+        try:
+            assert (mode._mp_manager is None) is ci_mode
+            findings, errors, _ = _run_with_timeout(mode, timeout=120)
+            # the summary's token count comes from the results, the same in both modes (it was 0 in CI mode)
+            assert mode.stats.tokens_processed > 0
+            results[ci_mode] = (
+                sorted((f.file.path, f.start_offset, f.detection) for f in findings),
+                errors,
+                mode.stats.tokens_processed,
+            )
+            assert mode.stats.finished == 4
+            if ci_mode:
+                assert mode.stats.total_findings == len(findings)
+        finally:
+            mode.dispose()
+    assert results[True] == results[False]
+
+
+FORKSERVER_STOP_SCRIPT = """
+import os, sys, time
+from multiprocessing import forkserver
+from deepsecrets.config import Config, Output
+from deepsecrets.core.engines.regex import RegexEngine
+from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.utils.multiprocessing_setup import pool_context, start_manager, stop_forkserver
+from deepsecrets.scan_modes.cli import CliScanMode
+
+config = Config()
+config.set_workdir('tests/fixtures/extless')
+config.engines.append(RegexEngine)
+config.add_ruleset(RegexRulesetBuilder, ['tests/fixtures/regexes.json'])
+config.output = Output(type='sarif', path='/tmp/unused.sarif')
+config.set_process_count(2)
+config.set_mp_context('forkserver')
+config.set_ci_mode(True)
+mode = CliScanMode(config=config)
+mode.run()
+mode.dispose()
+server = forkserver._forkserver._forkserver_pid
+print('stopped', stop_forkserver())
+try:
+    os.waitpid(server, os.WNOHANG)
+    print('reaped', False)
+except ChildProcessError:
+    print('reaped', True)
+
+# another process the server started holds its alive pipe: the stop must not wait for it
+extra = start_manager(pool_context('forkserver', []))
+server = forkserver._forkserver._forkserver_pid
+began = time.monotonic()
+print('stopped', stop_forkserver(timeout=0.5), 'fast' if time.monotonic() - began < 5 else 'slow')
+extra.shutdown()
+os.waitpid(server, 0)  # exits with its last child
+print('exited', True)
+"""
+
+
+@pytest.mark.skipif('forkserver' not in get_all_start_methods(), reason='no forkserver on this platform')
+def test_stop_forkserver_accounts_the_workers_and_never_hangs():
+    # KI-CLI-42: the server reaps the workers; left running, it outlived the scan as an orphan, so their CPU time
+    # never reached `time` or a harness that waits for the scanner (7x too little on the fixtures). In a subprocess,
+    # because other tests leave forkserver-started managers alive in this one.
+    env = dict(os.environ, PYTHONPATH=os.getcwd())
+    out = subprocess.run(
+        [sys.executable, '-c', FORKSERVER_STOP_SCRIPT], env=env, capture_output=True, text=True, timeout=180
+    )
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.split('\n')[-5:] == ['stopped True', 'reaped True', 'stopped False fast', 'exited True', '']
+
+
+@pytest.mark.parametrize('deep_max_size, lexed', [(0, True), (20_233, True), (20_232, False)])
+def test_size_tier_gives_files_over_deep_max_size_no_lexer(monkeypatch, deep_max_size, lexed):
+    # tests/fixtures/1.py is 20,233 bytes; the tier compares its size on disk with deep_max_size, inclusive
+    assert os.path.getsize('tests/fixtures/1.py') == 20_233
+    tokenized = []
+
+    class RecordingLexer(LexerTokenizer):
+        def tokenize(self, file, *args, **kwargs):
+            tokenized.append(file.path)
+            return super().tokenize(file, *args, **kwargs)
+
+    monkeypatch.setattr('deepsecrets.scan_modes.cli.LexerTokenizer', RecordingLexer)
+    scoring = VariableScoringRulesetBuilder().with_rules_from_file(
+        get_path_inside_package('rules/variable_scoring_rules.json')
+    )
+    bundle = AnalyzerBundle(
+        workdir='/app/tests/fixtures',
+        engines={'semantic': True},
+        rulesets={'variable_scoring': scoring.rules},
+        deep_max_size=deep_max_size,
+    )
+    result = CliScanMode._per_file_analyzer(bundle, '/app/tests/fixtures/1.py', 1, {})
+
+    assert result.status == 'ok'
+    assert result.depth == ('deep' if lexed else 'shallow')
+    assert bool(tokenized) is lexed
+
+
+def test_hashed_values_keep_the_lexer_on_a_shallow_file():
+    # hashed values are compared against lexer tokens: the tier must not cost --hashed-values its findings
+    builder = HashedSecretsRulesetBuilder().with_rules_from_file('tests/fixtures/hashed_secrets.json')
+    bundle = AnalyzerBundle(
+        workdir='/app/tests/fixtures', engines={'hashed': True}, rulesets={'hashed': builder.rules}, deep_max_size=1
+    )
+    result = CliScanMode._per_file_analyzer(bundle, '/app/tests/fixtures/1.py', 1, {})
+
+    assert result.depth == 'shallow'
+    assert [finding.detection for finding in result.findings] == [HASHED_SECRET]
+
+
+def test_run_records_each_files_depth():
+    config = _config('tests/fixtures/extless')
+    config.set_deep_max_size(100)  # json (87 bytes) and yaml (53) stay deep; ini (301) and radius (17,883) do not
+    config.set_ci_mode(True)
+    mode = CliScanMode(config=config, pool_engine=ThreadPool)
+    try:
+        _run_with_timeout(mode)
+        depths = {os.path.basename(path): outcome.depth for path, outcome in mode.files.items()}
+        assert depths == {'json': 'deep', 'yaml': 'deep', 'ini': 'shallow', 'radius': 'shallow'}
     finally:
         mode.dispose()

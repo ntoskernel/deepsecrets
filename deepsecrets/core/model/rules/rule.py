@@ -11,6 +11,9 @@ class Rule(BaseModel):
     enabled: bool = Field(default=True)
     confidence: int = Field(default=10)
     is_dynamic_confidence: bool = Field(default=False)
+    # breaks confidence ties when merged findings pick a final rule: a lower rank wins. Ruleset builders number rules
+    # in file order; rules made in code (S105, S106, S107) keep the default and lose ties to a typed rule
+    rank: int = Field(default=1_000_000)
     applicable_file_patterns: List[re.Pattern] = Field(default=[])
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -20,8 +23,8 @@ class Rule(BaseModel):
     def fill_confidence_and_file_patterns(cls, values: Dict) -> Dict:
         file_patterns = values.get('applicable_file_patterns', [])
         if len(file_patterns) > 0:
-            pattеrns = [re.compile(p) for p in file_patterns]
-            values['applicable_file_patterns'] = pattеrns
+            patterns = [re.compile(p) for p in file_patterns]
+            values['applicable_file_patterns'] = patterns
 
         if values.get('confidence', None) is None and values.get('id') is not None:
             values['confidence'] = 10

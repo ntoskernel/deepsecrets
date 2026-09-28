@@ -2,6 +2,7 @@ from dataclasses import field, dataclass
 from typing import Dict, List, Optional, Sequence
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
+from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE
 from deepsecrets.core.model.rules.rule import Rule
 
 
@@ -19,6 +20,10 @@ class AnalyzerBundle:
     # ruleset name -> rules
     rulesets: Dict[str, Sequence[Rule]] = field(default_factory=dict)
     benchmarking_mode: bool = False
+    # see deep_analysis
+    deep_max_size: int = DEFAULT_DEEP_MAX_SIZE
+    # --confidence-level all: regex candidates their evaluation rejected are reported, flagged, at confidence 0
+    report_rejected: bool = False
 
 
 @dataclass
@@ -31,6 +36,11 @@ class PerFileAnalysisResult:
     processing_time_ms: float = field(default=0.0)
     # 'ok', 'empty' (0 bytes) or 'unreadable' (the file could not be opened)
     status: str = field(default='ok')
+    # 'deep' (lexer included) or 'shallow' (larger than deep_max_size: regex rules and the cheap variable search);
+    # None for a file that was never analysed (it could not be opened, or it was empty)
+    depth: Optional[str] = field(default=None)
+    # tokens the engines searched, for the report summary
+    tokens_processed: int = field(default=0)
 
     # ONLY FOR BENCHMARKING MODE
     _file: Optional[File] = None

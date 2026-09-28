@@ -12,6 +12,17 @@ from deepsecrets.core.tokenizers.itokenizer import Tokenizer
 from deepsecrets.core.utils.progress import FileProgress
 
 
+def answer_key(token: Token) -> tuple:
+    """What an engine's answer for a token depends on, as far as the per-file value cache is concerned: the content
+    and, for a variable's value, the variable's name. With the content alone (KI-ENG-08), `x = 'v'` without a finding
+    hid a later `password = 'v'`, and in 2.2 a value whose regex candidate was rejected hid the same value under a
+    secret-like name."""
+    variable = token.semantic.payload if token.semantic is not None else None
+    name_token = getattr(variable, 'name_token', None)
+    name = name_token.content if name_token is not None else getattr(variable, 'name_override', None)
+    return token.content, name
+
+
 class EngineWithTokenizer(BaseModel):
     engine: IEngine
     tokenizer: Tokenizer
@@ -69,7 +80,7 @@ class FileAnalyzer:
 
     def _run_engine(self, et: EngineWithTokenizer) -> List[Finding]:
         results: List[Finding] = []
-        processed_values: Dict[int, bool] = {}
+        processed_values: Dict[tuple, bool] = {}
 
         if et.tokenizer not in self.tokens:
             et.tokenizer.add_lifecycle_hooks(self.lifecycle)
@@ -90,18 +101,19 @@ class FileAnalyzer:
                 name=et.tokenizer.__class__.__name__,
             )
 
-            is_known_content = processed_values.get(token.val_hash())
+            key = answer_key(token)
+            is_known_content = processed_values.get(key)
             if is_known_content is not None and is_known_content is False:
                 continue
 
-            processed_values[token.val_hash()] = False
+            processed_values[key] = False
             findings: List[Finding] = et.engine.search(token)
 
             try:
                 for finding in findings:
                     finding.map_on_file(file=self.file, relative_start=token.span[0])
                     results.append(finding)
-                    processed_values[token.val_hash()] = True
+                    processed_values[key] = True
 
             except Exception as e:
                 logger.exception(f'Unable to process token: {e}')

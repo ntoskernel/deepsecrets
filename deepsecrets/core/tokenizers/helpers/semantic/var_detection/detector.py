@@ -170,6 +170,9 @@ class VariableSuppressor(VariableDetector):
 
 
 class CheapVariableDetector(RegionDetector):
+    # None: every file. True: only a file the semantic engine also lexes (up to --deep-max-size); False: only a file
+    # it does not lex
+    when_lexed: Optional[bool] = None
 
     def match(self, content: str) -> List['Variable']:
         true_detections = []

@@ -1,7 +1,4 @@
 from deepsecrets.core.ui.progress_bar import DSApplicationProgess
-from deepsecrets.utils import setup_interrupts_for_subprocess
-
-setup_interrupts_for_subprocess()
 import time
 
 from dataclasses import dataclass, field
@@ -10,7 +7,7 @@ from multiprocessing.pool import AsyncResult
 from queue import SimpleQueue
 import regex as re
 
-from multiprocessing import Manager, get_context
+import contextlib
 from multiprocessing.managers import DictProxy
 import errno
 import os
@@ -20,7 +17,7 @@ from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from deepsecrets import PROFILER_ON, console
-from deepsecrets.config import Config
+from deepsecrets.config import CONFIDENCE_LEVELS, DEFAULT_CONFIDENCE_LEVEL, Config
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
@@ -31,10 +28,27 @@ from deepsecrets.core.utils.file_analyzer import FileAnalyzer
 from deepsecrets.core.utils.finding_merger import FindingMerger
 from deepsecrets.core.utils.fs import get_abspath, get_relative_path
 from deepsecrets.core.utils.log import logger
+from deepsecrets.core.utils.multiprocessing_setup import pool_context, start_manager
+from deepsecrets.utils import setup_interrupts_for_subprocess
 
 from rich.progress import Progress as ProgressBar
 from rich.live import Live
 from rich.text import Text
+
+
+class WorkerStartupError(RuntimeError):
+    """A pool worker could not load the analyzer bundle, so every file it took would fail the same way."""
+
+
+class WorkerLostError(RuntimeError):
+    """The worker process analysing a file exited without reporting a result (killed, or out of memory)."""
+
+
+# seconds between noticing that a worker exited and failing the file it held, so a result it sent just before
+# exiting can still arrive
+LOST_WORKER_GRACE_SECONDS = 0.5
+# in CI mode, a plain progress line every this many seconds
+CI_PROGRESS_INTERVAL_SECONDS = 30.0
 
 
 @dataclass
@@ -57,6 +71,8 @@ class FileOutcome:
     time_ms: float = 0.0
     collected: bool = False
     errors: List[str] = field(default_factory=list)
+    # 'deep' or 'shallow' once collected (the size tier, see config.deep_analysis)
+    depth: Optional[str] = None
 
     @property
     def time_seconds(self) -> int:
@@ -96,6 +112,8 @@ class ScanMode:
     files: Dict[str, FileOutcome]
 
     _mp_manager = None
+    # modules a forkserver imports before forking workers, so they share them (see pool_context)
+    worker_modules: List[str] = []
 
     # ONLY IN BENCHMARKING MODE
     _oneshot_file: Optional[File] = None
@@ -103,19 +121,29 @@ class ScanMode:
     def __init__(self, config: Config, pool_engine: Optional[Any] = None) -> None:
         console.print('[*] Looking for applicable files...', end='')
         console.line()
+        self.mp_context = pool_context(config.mp_context, self.worker_modules)
         if pool_engine is None:
-            self.pool_engine = get_context(config.mp_context).Pool
+            self.pool_engine = self.mp_context.Pool
         else:
             self.pool_engine = pool_engine
 
-        self._mp_manager = Manager()
-        self.active_task_reporter = self._mp_manager.dict({})
+        # CI mode reports no per-file progress, so it needs no manager process (and no manager socket)
+        self._mp_manager = None if config.ci_mode else start_manager(self.mp_context)
+        self.active_task_reporter = self._mp_manager.dict({}) if self._mp_manager is not None else None
         self.progress_bar = None
 
         self.config = config
         self.file_results = []
         self.file_jobs = {}
         self.failed_jobs = SimpleQueue()
+        self.done_jobs = SimpleQueue()
+        self.startup_error: Optional[str] = None
+        # task id -> pid of the worker that took it, written by the worker (pool_wrapper), for reap_lost_jobs
+        self.task_pids = None
+        self.lost_jobs: Dict[int, int] = {}
+        self._worker_pids_seen: set = set()
+        self._worker_gone_at: Dict[int, float] = {}
+        self._worker_pids_handled: set = set()
         self.stats = Stats()
         self.files = {}
 
@@ -178,7 +206,6 @@ class ScanMode:
                     size='| ? Kb',
                 )
 
-            processed = current_state.get('processed', 0)
             findings = current_state.get('findings', 0)
 
             if finished is True:
@@ -187,7 +214,6 @@ class ScanMode:
                 if failure is True:
                     self.stats.failed_files += 1
                 else:
-                    self.stats.tokens_processed += processed
                     self.stats.total_findings += findings
 
                 if job.pb_task_id is not None:
@@ -216,7 +242,71 @@ class ScanMode:
 
     def _on_job_error(self, task_id: int, error: BaseException) -> None:
         # Called by the pool's result handler thread when a job raised
+        if isinstance(error, WorkerStartupError):
+            self.startup_error = str(error)
         self.failed_jobs.put(task_id)
+
+    def _on_job_done(self, task_id: int, result: PerFileAnalysisResult) -> None:
+        # Called by the pool's result handler thread when a job returned; CI mode counts completion from this
+        self.done_jobs.put((task_id, len(result.findings or [])))
+
+    def _new_task_pids(self) -> Any:
+        # one slot per task id (they start at 1); shared memory, so a worker's write costs no message to the parent
+        self.task_pids = self.mp_context.RawArray('i', len(self.filepaths) + 1)
+        return self.task_pids
+
+    def reap_done_jobs(self) -> None:
+        while not self.done_jobs.empty():
+            task_id, findings = self.done_jobs.get()
+            if task_id in self.stats.finished_ids:
+                continue
+            self.stats.total_findings += findings
+            self.stats.new_finished(task_id)
+
+    def reap_lost_jobs(self, pool: Any) -> None:
+        """Fail the file a killed worker was analysing (KI-CLI-37).
+
+        A worker killed outright (OOM killer, SIGKILL) takes its task with it: the pool starts a replacement but never
+        reports the task, so the scan used to wait forever. Each worker writes its pid into `task_pids` when it takes
+        a file; a pid that has left the pool's worker list for longer than LOST_WORKER_GRACE_SECONDS marks every
+        unfinished file it took as lost."""
+        if self.task_pids is None:
+            return
+        live = {pid for pid in (getattr(worker, 'pid', None) for worker in list(getattr(pool, '_pool', []))) if pid}
+        if not live and not self._worker_pids_seen:
+            return  # a thread pool: its workers cannot exit on their own
+        self._worker_pids_seen |= live
+        now = time.monotonic()
+        for pid in self._worker_pids_seen - live - self._worker_pids_handled:
+            self._worker_gone_at.setdefault(pid, now)
+        gone = {pid for pid, at in self._worker_gone_at.items() if now - at >= LOST_WORKER_GRACE_SECONDS}
+        gone -= self._worker_pids_handled
+        if not gone:
+            return
+        self._worker_pids_handled |= gone
+        for task_id, job in self.file_jobs.items():
+            pid = self.task_pids[task_id]
+            if pid not in gone or task_id in self.lost_jobs or job.result_holder.ready():
+                continue
+            self.lost_jobs[task_id] = pid
+            fail_lost_task(
+                job.result_holder,
+                WorkerLostError(
+                    f'the worker process {pid} exited while analysing this file (killed, or out of memory)'
+                ),
+            )
+
+    def report_plain_progress(self, force: bool = False) -> None:
+        """CI mode's progress: a plain line every CI_PROGRESS_INTERVAL_SECONDS instead of live bars."""
+        now = time.monotonic()
+        if not force and now - self._last_plain_progress < CI_PROGRESS_INTERVAL_SECONDS:
+            return
+        self._last_plain_progress = now
+        console.print(
+            f'[*] {self.stats.finished}/{self.stats.total_files} files scanned, '
+            f'{self.stats.failed_files} failed, {self.stats.total_findings} findings before merging',
+            highlight=False,
+        )
 
     def reap_failed_jobs(self) -> None:
         # A job that raised never reports 'finished', so without this run() would poll forever
@@ -227,7 +317,8 @@ class ScanMode:
 
             self.stats.failed_files += 1
             self.stats.new_finished(task_id)
-            self.active_task_reporter.pop(task_id, None)
+            if self.active_task_reporter is not None:
+                self.active_task_reporter.pop(task_id, None)
 
             job = self.file_jobs.get(task_id)
             if job is not None and job.pb_task_id is not None:
@@ -257,13 +348,17 @@ class ScanMode:
         if proc_count == 0:
             return final, self.per_file_errors(), self.per_file_timings()
 
-        overall_progress_task = self.progress_bar.add_task(
-            "[green bold]OVERALL\nPROGRESS\n",
-            visible=True,
-            findings='F: 0',
-            errors='ERR: 0',
-            size=f'0/{self.stats.total_files}',
-        )
+        overall_progress_task = None
+        if self.progress_bar is not None:
+            overall_progress_task = self.progress_bar.add_task(
+                "[green bold]OVERALL\nPROGRESS\n",
+                visible=True,
+                findings='F: 0',
+                errors='ERR: 0',
+                size=f'0/{self.stats.total_files}',
+            )
+        ci_mode = self.config.ci_mode
+        self._last_plain_progress = time.monotonic()
 
         if PROFILER_ON:
             for file in self.filepaths:
@@ -281,15 +376,20 @@ class ScanMode:
                     self.pool_engine(
                         processes=proc_count,
                         initializer=init_worker,
-                        initargs=(stage_bundle(bundle, staging), self.active_task_reporter),
+                        initargs=(stage_bundle(bundle, staging), self.active_task_reporter, self._new_task_pids()),
                     ) as pool,
                 ):
+                    # the live display starts after the pool has created its workers: under fork they are then forked
+                    # from a process without the display's refresh thread
+                    if self.progress_bar is not None:
+                        self.progress_bar.start()
                     tid = 0
                     for file in self.filepaths:
                         tid += 1
                         result = pool.apply_async(
                             pool_wrapper,
                             (self._per_file_analyzer, tid, file),
+                            callback=partial(self._on_job_done, tid) if ci_mode else None,
                             error_callback=partial(self._on_job_error, tid),
                         )
                         self.file_results.append(result)
@@ -298,12 +398,23 @@ class ScanMode:
 
                     self.stats.total_files = len(self.file_jobs.keys())
                     while self.stats.finished < self.stats.total_files:
+                        # a worker that cannot load the bundle would fail every file it takes: stop, don't poll
+                        # for results that cannot come (KI-DM-30)
+                        if self.startup_error is not None:
+                            raise WorkerStartupError(self.startup_error)
+                        keep_bundle_staged(bundle, staging)
                         self.refresh_jobs_progress_bars()
+                        self.reap_done_jobs()
+                        self.reap_lost_jobs(pool)
                         self.reap_failed_jobs()
                         self.refresh_overall_progress_bar(overall_progress_task)
+                        if ci_mode:
+                            self.report_plain_progress()
                         time.sleep(0.1)
                         # self.refresh_overall_debug_progress_bar(overall_debug)
                     self.stop_progress_bar(overall_progress_task)
+                    if ci_mode:
+                        self.report_plain_progress(force=True)
                     console.print('[*] Collecting results..')
                     pool.join()
 
@@ -338,6 +449,8 @@ class ScanMode:
                 self._oneshot_file = analysis_result._file
                 outcome.collected = True
                 outcome.time_ms = analysis_result.processing_time_ms
+                outcome.depth = analysis_result.depth
+                self.stats.tokens_processed += analysis_result.tokens_processed
                 outcome.errors = analysis_result.errors
                 # a file that logged an error is reported as failed even when the analysis returned
                 status = analysis_result.status
@@ -347,17 +460,23 @@ class ScanMode:
                     continue
                 final.extend(analysis_result.findings)
 
+        # the summary's count, from the outcomes: the same in CI mode (which counts only jobs that raised while it
+        # runs) and with the live display (which counts what the workers report)
+        self.stats.failed_files = sum(1 for outcome in self.files.values() if outcome.status in ('error', 'unreadable'))
+
         console.line()
         console.print('[*] Merging similar findings..')
         fin = FindingMerger(final).merge()
 
         console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
+        fin = self.filter_by_confidence_level(fin)
         return fin, self.per_file_errors(), self.per_file_timings()
 
     def dispose(self):
         self.task_reporter = None
-        self._mp_manager.shutdown()
+        if self._mp_manager is not None:
+            self._mp_manager.shutdown()
         print()
 
     def _get_files_list(self) -> List[str]:
@@ -375,12 +494,14 @@ class ScanMode:
             flist.append(path)
             return flist
 
-        with Live(console=console, refresh_per_second=5) as live:
+        # CI mode: no live counter, which only redraws in a build log
+        with contextlib.nullcontext() if self.config.ci_mode else Live(console=console, refresh_per_second=5) as live:
             total_files = 0
             for fpath, _, files in os.walk(get_abspath(self.config.workdir_path)):
                 for filename in files:
                     total_files += 1
-                    live.update(Text(text=f'Found {total_files} files, {self.stats.skipped_files} will be skipped'))
+                    if live is not None:
+                        live.update(Text(text=f'Found {total_files} files, {self.stats.skipped_files} will be skipped'))
                     full_path = os.path.join(fpath, filename)
                     rel_path = get_relative_path(full_path, self.config.workdir_path)
                     exclusion = self._matching_exclusion(rel_path)
@@ -467,6 +588,22 @@ class ScanMode:
     def _per_file_analyzer(bundle: AnalyzerBundle, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
         pass
 
+    def filter_by_confidence_level(self, results: List[Finding]) -> List[Finding]:
+        """--confidence-level: 'all' reports everything, rejected regex candidates included; the other levels drop those
+        and keep findings whose final rule has at least the level's confidence."""
+        minimum = CONFIDENCE_LEVELS.get(getattr(self.config, 'confidence_level', DEFAULT_CONFIDENCE_LEVEL))
+        if minimum is None:
+            return results
+
+        kept: List[Finding] = []
+        for finding in results:
+            if finding.rejected:
+                continue
+            finding.choose_final_rule()
+            if finding.final_rule.confidence >= minimum:
+                kept.append(finding)
+        return kept
+
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
         false_finding_rules = self.rulesets.get(FalseFindingsBuilder.ruleset_name)
         if false_finding_rules is None:
@@ -499,22 +636,78 @@ def stage_bundle(bundle: AnalyzerBundle, directory: str) -> str:
     33 KB) the parent blocks until the child has re-imported the package, so workers start one at a time: 64 of them
     took 55 s. A path is a few bytes, however many rules there are (KI-CLI-32).
     """
+    os.makedirs(directory, mode=0o700, exist_ok=True)
     path = os.path.join(directory, 'bundle.pickle')
     with open(path, 'wb') as f:
         pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)
     return path
 
 
-def init_worker(bundle_path: str, task_reporter: DictProxy) -> None:  # pragma: nocover
-    # Pool initializer: runs once per worker. Pickling the bundle (compiled rules) and the proxy
-    # with every task cost more than analysing a typical small file.
-    global _worker_bundle, _worker_task_reporter
+def keep_bundle_staged(bundle: AnalyzerBundle, directory: str) -> None:
+    """Stage the bundle again if something deleted it mid-scan, such as a temporary-file cleaner. Workers that already
+    started do not need it, but the pool replaces any worker that exits, and the replacement loads it afresh."""
+    if not os.path.exists(os.path.join(directory, 'bundle.pickle')):
+        stage_bundle(bundle, directory)
+
+
+# seconds a worker waits before its one retry of a failed bundle load, which covers the parent re-staging it
+BUNDLE_RETRY_DELAY = 0.5
+_worker_bundle_path: Optional[str] = None
+_worker_startup_error: Optional[str] = None
+_worker_task_pids: Any = None
+
+
+def _load_bundle(bundle_path: str) -> AnalyzerBundle:
     # written by this scan into a private temporary directory (mkdtemp creates it 0700)
     with open(bundle_path, 'rb') as f:
-        _worker_bundle = pickle.load(f)
+        return pickle.load(f)
+
+
+def init_worker(bundle_path: str, task_reporter: DictProxy, task_pids: Any = None) -> None:  # pragma: nocover
+    # Pool initializer: runs once per worker. Pickling the bundle (compiled rules) and the proxy
+    # with every task cost more than analysing a typical small file.
+    # It must not raise: the pool would replace the worker, the replacement would fail the same way, and the scan
+    # would wait forever for results (KI-DM-30). The failure is kept for the worker's first task to report.
+    global _worker_bundle, _worker_task_reporter, _worker_bundle_path, _worker_startup_error, _worker_task_pids
+    # Ctrl+C belongs to the parent, so a worker ignores it. Set here, not at import: a forkserver worker inherits the
+    # server's default handler, and a call at import would reach any process that imports this module
+    setup_interrupts_for_subprocess()
     _worker_task_reporter = task_reporter
+    _worker_task_pids = task_pids
+    _worker_bundle_path = bundle_path
+    try:
+        _worker_bundle = _load_bundle(bundle_path)
+        _worker_startup_error = None
+    except Exception as e:
+        _worker_bundle = None
+        _worker_startup_error = f'{type(e).__name__}: {e}'
+
+
+def _bundle_or_raise() -> AnalyzerBundle:
+    global _worker_bundle, _worker_startup_error
+    if _worker_bundle is None:
+        time.sleep(BUNDLE_RETRY_DELAY)
+        try:
+            _worker_bundle = _load_bundle(_worker_bundle_path)
+            _worker_startup_error = None
+        except Exception as e:
+            raise WorkerStartupError(
+                f'a worker could not load the analyzer bundle ({_worker_startup_error}; retry: {type(e).__name__}: {e})'
+            ) from e
+    return _worker_bundle
 
 
 def pool_wrapper(runner: Callable, task_id: Optional[int], file: str) -> PerFileAnalysisResult:  # pragma: nocover
-    result = runner(_worker_bundle, file, task_id, _worker_task_reporter)
+    if _worker_task_pids is not None and isinstance(task_id, int) and 0 <= task_id < len(_worker_task_pids):
+        _worker_task_pids[task_id] = os.getpid()  # lets the parent fail this file if this process dies (KI-CLI-37)
+    result = runner(_bundle_or_raise(), file, task_id, _worker_task_reporter)
     return result
+
+
+def fail_lost_task(result: AsyncResult, error: BaseException) -> None:
+    """Complete a task whose worker died with `error`, as if the task had raised it: the error callback runs, `get()`
+    raises it, and the pool stops waiting for it, so `join()` returns. Uses `ApplyResult._set`, the method the pool's
+    own result handler calls; a result that arrives later is ignored by the pool."""
+    setter = getattr(result, '_set', None)
+    if setter is not None and not result.ready():
+        setter(0, (False, error))

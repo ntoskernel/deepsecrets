@@ -12,6 +12,13 @@ from deepsecrets.core.utils.log import logger
 
 class CheapVarSearchTokenizer(Tokenizer):
 
+    def __init__(self, lexed: bool = False, **kwargs) -> None:
+        """`lexed`: the semantic engine also lexes this file, because it is within --deep-max-size; that selects the
+        detectors meant for such files (rules.py, `when_lexed`). The hashed engine's lexer does not count: it finds no
+        variables."""
+        super().__init__(**kwargs)
+        self.lexed = lexed
+
     def tokenize(self, file: File) -> List[Token]:
         language: Language = Language.ANY
         if file.extension is not None:
@@ -20,7 +27,9 @@ class CheapVarSearchTokenizer(Tokenizer):
             except Exception as e:
                 logger.exception(e)
 
-        rules: List[CheapVariableDetector] = CheapVariableDetectionRules.for_language(language)
+        # one file per call: a tokenizer reused for another file must not hand back this one's tokens
+        self.tokens = []
+        rules: List[CheapVariableDetector] = CheapVariableDetectionRules.for_language(language, lexed=self.lexed)
         vars: List[Variable] = []
         for rule in rules:
             vars.extend(rule.match(file.content))

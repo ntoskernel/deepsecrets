@@ -3,7 +3,6 @@ import json
 import pytest
 
 from deepsecrets.cli import DeepSecretsCliTool
-from deepsecrets.config import config
 from deepsecrets.core.utils.log import clear_error_list, get_error_list, logger
 
 
@@ -19,9 +18,6 @@ def target(tmp_path):
 
 
 def scan(target, outfile, *extra):
-    # the config singleton outlives other tests' runs; benchmarking mode would skip writing the report
-    config._set_benchmarking_mode(False)
-    config.set_oneshot_path(None)
     tool = DeepSecretsCliTool(
         args=['', '--target-dir', str(target), '--outfile', str(outfile), '--process-count', '1', *extra]
     )
@@ -64,3 +60,24 @@ def test_error_list_is_per_file():
     assert get_error_list() == []
     # the returned list is a copy, not the live buffer
     assert errors == ['first file failed']
+
+
+def test_diagnostics_say_which_files_got_no_lexer(target, tmp_path):
+    run = scan(target, tmp_path / 'report.sarif', '--report-diagnostics', '--deep-max-size', '10')
+    artifacts = {a['location']['uri']: a for a in run['artifacts']}
+    assert artifacts['src/settings.py']['properties']['depth'] == 'shallow'
+    assert 'depth' not in artifacts['node_modules/pkg/index.js']['properties']  # skipped, never analysed
+    # the variable search still reads a small assignment without the lexer
+    assert [r['locations'][0]['physicalLocation']['artifactLocation']['uri'] for r in run['results']] == [
+        'src/settings.py'
+    ]
+
+    run = scan(target, tmp_path / 'report.sarif', '--report-diagnostics')
+    assert {a['location']['uri']: a for a in run['artifacts']}['src/settings.py']['properties']['depth'] == 'deep'
+
+
+def test_a_file_never_analysed_has_no_depth(tmp_path):
+    (tmp_path / 'empty.py').write_text('')
+    run = scan(tmp_path, tmp_path / 'report.sarif', '--report-diagnostics')
+    properties = {a['location']['uri']: a for a in run['artifacts']}['empty.py']['properties']
+    assert properties['status'] != 'ok' and 'depth' not in properties

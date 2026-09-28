@@ -11,7 +11,8 @@ from deepsecrets.core.tokenizers.helpers.semantic.var_detection.rules import (
     VariableDetectionRules,
     VariableSuppressionRules,
 )
-from deepsecrets.core.tokenizers.helpers.type_stream import types_to_filter_before, types_to_filter_after
+from deepsecrets.core.tokenizers.helpers.token_table import LazyTokens
+from deepsecrets.core.tokenizers.helpers.type_stream import is_filtered_ttype, is_filtered_type
 
 empty_tokens = ['\n', '\t', "'", "''", '"', '""']
 
@@ -48,9 +49,8 @@ class DeepAnalyzer:
             region.tokens = updated_tokens
 
     def analyze_token_sequence(self, language: Language, tokens: List[Token], stream: str) -> Set[Token]:
-        tokens_all = OrderedSet(tokens)
         if language is None:
-            return tokens_all
+            return OrderedSet(tokens)
 
         exclude_after = set()
 
@@ -128,16 +128,47 @@ class DeepAnalyzer:
         return regions
 
     def final_cleanup(self, tokens_all: Sequence[Token], tokens_to_be_excluded: Sequence[Token]) -> List[Token]:
+        if isinstance(tokens_all, LazyTokens):
+            return self._final_cleanup_rows(tokens_all, tokens_to_be_excluded)
+
+        # a list or ordered set: only the eager reference tokenizer in tests passes one, the lexer passes LazyTokens
         if not isinstance(tokens_all, OrderedSet):
             tokens_all = OrderedSet(tokens_all)
 
         tokens_all = tokens_all - tokens_to_be_excluded
         final = []
         for token in tokens_all:
-            if any(type in token.type for type in types_to_filter_before):  # type: ignore
+            if is_filtered_type(token.type):
                 continue
 
-            if any(type in token.type for type in types_to_filter_after):  # type: ignore
+            if token.content.replace(' ', '') in empty_tokens:
+                continue
+
+            final.append(token)
+
+        return final
+
+    def _final_cleanup_rows(self, tokens: LazyTokens, tokens_to_be_excluded: Sequence[Token]) -> List[Token]:
+        """`final_cleanup` over a lazy view, building only the tokens it keeps. A row nothing has read yet was never
+        handed out, so it cannot be excluded, and its type and content decide it."""
+        table = tokens.table
+        final = []
+        for index in range(tokens.start, tokens.stop):
+            token = table.built[index]
+            if token is None:
+                if is_filtered_ttype(table.ttypes[index]):  # type: ignore
+                    continue
+
+                if table.contents[index].replace(' ', '') in empty_tokens:
+                    continue
+
+                final.append(table.token(index))
+                continue
+
+            if token in tokens_to_be_excluded:
+                continue
+
+            if is_filtered_type(token.type):
                 continue
 
             if token.content.replace(' ', '') in empty_tokens:

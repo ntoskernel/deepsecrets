@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Tuple
 
 from sarif_om import (
     SarifLog,
@@ -52,51 +52,39 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
     report: SarifLog
 
-    def _get_tier(self, confidence: int):
-        confidence_tiers = {
-            (9, float('inf')): {
-                'suffix': '-VERY-HIGH',
-                'precision': 'very-high',
-                'severity': '10.00',
-                'label': 'Very High',
-            },
-            (6, 9): {
-                'suffix': '-HIGH',
-                'precision': 'high',
-                'severity': '9.70',
-                'label': 'High',
-            },
-            (3, 6): {
-                'suffix': '-MEDIUM',
-                'precision': 'medium',
-                'severity': '9.40',
-                'label': 'Medium',
-            },
-            (float('-inf'), 3): {
-                'suffix': '-LOW',
-                'precision': 'low',
-                'severity': '9.10',
-                'label': 'Low',
-            },
-        }
+    # Severity is how bad a leak of the secret is, and it does not depend on how sure we are: every tier carries the
+    # same value, critical for GitHub (over 9.0), DefectDojo (9 or more) and GitLab alike. Confidence goes in the tier:
+    # the rule id suffix, GitHub's rule-level `precision`, and the result's `confidence` property.
+    SECURITY_SEVERITY = '10.00'
+    CONFIDENCE_TIERS = {
+        (9, float('inf')): {'suffix': '-VERY-HIGH', 'precision': 'very-high', 'label': 'Very High'},
+        (6, 9): {'suffix': '-HIGH', 'precision': 'high', 'label': 'High'},
+        (3, 6): {'suffix': '-MEDIUM', 'precision': 'medium', 'label': 'Medium'},
+        (float('-inf'), 3): {'suffix': '-LOW', 'precision': 'low', 'label': 'Low'},
+    }
+    # a regex candidate its evaluation rejected, reported only at --confidence-level all
+    INFO_TIER = {'suffix': '-INFO', 'precision': 'low', 'label': 'Info'}
 
-        for (start, end), value in confidence_tiers.items():
+    def _get_tier(self, confidence: int, rejected: bool = False):
+        if rejected:
+            return self.INFO_TIER
+        for (start, end), value in self.CONFIDENCE_TIERS.items():
             if start <= confidence < end:
                 return value
 
-    def _sarif_rule_meta_from_rule(self, rule: Rule) -> TierAwareSarifRuleMeta:
+    def _sarif_rule_meta_from_rule(self, rule: Rule, rejected: bool = False) -> TierAwareSarifRuleMeta:
 
         base_rule_id = rule.id
         base_description = rule.name
 
-        tier = self._get_tier(rule.confidence)
-        suffix = tier.get('suffix') if rule.is_dynamic_confidence is True else ''
+        tier = self._get_tier(rule.confidence, rejected)
+        suffix = tier.get('suffix') if rule.is_dynamic_confidence is True or rejected else ''
 
         return TierAwareSarifRuleMeta(
             id=f'{base_rule_id}{suffix}',
             payload={
                 'shortDescription': {'text': f'{base_description} ({tier.get("label")} Confidence)'},
-                'properties': {'precision': tier.get("precision"), 'security-severity': tier.get("severity")},
+                'properties': {'precision': tier.get("precision"), 'security-severity': self.SECURITY_SEVERITY},
             },
         )
 
@@ -141,25 +129,26 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
     def build(self) -> SarifLog:  # type: ignore
 
-        rules: List[Rule] = list()
+        rules: List[Tuple[Rule, bool]] = list()
 
         for finding in self.findings:
             finding.choose_final_rule()
             region = self.get_region(finding=finding, masking=self.masking_enabled)
             context_region = self.get_context_region(finding=finding, masking=self.masking_enabled)
 
-            rules.append(finding.final_rule)
-            rule_meta = self._sarif_rule_meta_from_rule(finding.final_rule)
+            rules.append((finding.final_rule, finding.rejected))
+            rule_meta = self._sarif_rule_meta_from_rule(finding.final_rule, finding.rejected)
+            properties = {'confidence': finding.final_rule.confidence}
+            text = f'[Confidence {finding.final_rule.confidence}/10] Secret in code: {finding.final_rule.name}'
+            if finding.rejected:
+                properties['rejected'] = True
+                text = f'[Rejected candidate] Possibly a secret in code: {finding.final_rule.name}'
 
             result = Result(
                 rule_id=rule_meta.id,
                 level='error',
-                properties={
-                    'confidence': finding.final_rule.confidence,
-                },
-                message=Message(
-                    text=f'[Confidence {finding.final_rule.confidence}/10] Secret in code: {finding.final_rule.name}'
-                ),
+                properties=properties,
+                message=Message(text=text),
                 locations=[
                     Location(
                         physical_location=PhysicalLocation(
@@ -176,7 +165,7 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
             self.report.runs[0].results.append(result)
 
-        sarif_rules = self._convert_rules(set([self._sarif_rule_meta_from_rule(rule) for rule in rules]))
+        sarif_rules = self._convert_rules(set([self._sarif_rule_meta_from_rule(rule, rej) for rule, rej in rules]))
         self.report.runs[0].tool.driver.rules = sarif_rules
 
         mode = getattr(self, 'mode', None)
@@ -197,6 +186,8 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
             properties = {'status': 'error' if outcome.status == 'scheduled' else outcome.status}
             if outcome.collected:
                 properties['scanTimeMs'] = outcome.time_ms
+                if outcome.depth:
+                    properties['depth'] = outcome.depth
             if outcome.skip_reason:
                 properties['skipReason'] = outcome.skip_reason
             try:

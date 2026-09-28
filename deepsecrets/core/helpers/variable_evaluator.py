@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import Dict, List, Optional, Tuple, Union
+from deepsecrets.core.helpers.confidence import entropy_score, randomness_points
 from deepsecrets.core.helpers.entropy import EntropyHelper
 from deepsecrets.core.model.rules.variable_scoring import VariableScoringRule
 from deepsecrets.core.model.semantic import Context, Variable
@@ -18,6 +19,9 @@ class EvaluationResult:
     total_score: float = 0.0
 
     export_confidence: int = 0
+
+    # a fired rule allows a value with no entropy score to be reported: people choose passwords, not API keys
+    allows_low_entropy: bool = False
 
     # < 3: 0
     # 3-4: 0 -> 35
@@ -41,30 +45,39 @@ class VariableEvaluator:
 
     def __init__(self, rules: List[VariableScoringRule]) -> None:
         self.rules = rules
+        # A rule that reads nothing but the file path (SEM_VAR_FILE_PATHS) gives one answer per file, and a scan
+        # evaluates a file's variables together, so each such rule remembers its last path and answer.
+        self._path_only = [rule.reads_only_filepath() for rule in rules]
+        self._last_path_answer: Dict[int, Tuple[Optional[str], bool]] = {}
+
+    def _fires(self, index: int, rule: VariableScoringRule, context: Context) -> bool:
+        if not self._path_only[index]:
+            return rule.match_by_context(context)
+
+        last = self._last_path_answer.get(index)
+        if last is not None and last[0] == context.filepath:
+            return last[1]
+
+        fired = rule.match_by_context(context)
+        self._last_path_answer[index] = (context.filepath, fired)
+        return fired
 
     def calculate_entropy_score(self, entropy: float) -> float:
-        if entropy == 0:
-            return -1
-
-        if entropy < 3:
-            return 0
-
-        if 3 <= entropy < 4:
-            return (entropy - 3) * 35
-
-        return 40
+        return entropy_score(entropy)
 
     def evaluate(self, variable: Union[Variable | Context]) -> EvaluationResult:
         context = variable.context if isinstance(variable, Variable) else variable
 
         naming_and_content_score = 0
         matched_rules = []
+        allows_low_entropy = False
 
-        for rule in self.rules:
-            fired = rule.match_by_context(context)
+        for index, rule in enumerate(self.rules):
+            fired = self._fires(index, rule, context)
             if fired:
                 naming_and_content_score += rule.score
                 matched_rules.append(rule.id)
+                allows_low_entropy = allows_low_entropy or rule.allows_low_entropy
 
             if naming_and_content_score <= HOPELESS_THRESHOLD:
                 return EvaluationResult(
@@ -97,6 +110,7 @@ class VariableEvaluator:
             matched_rules=matched_rules,
             nonsence_value_score=nonsense_value_score,
             is_dangerous=naming_and_content_score > DANGER_THRESHOLD,
+            allows_low_entropy=allows_low_entropy,
         )
 
         result.export_confidence = self.confidence_from_evaluation_result(result)
@@ -106,9 +120,9 @@ class VariableEvaluator:
         # Monotonic in every input: more naming evidence, more entropy or a less natural value never lowers it.
         # Naming: 0.2 per point up to 20, then 0.6 per point up to 25, so a strong name alone reaches 7 (HIGH)
         # and needs a random-looking value to reach VERY-HIGH. Value: entropy score 0..40 -> 0..5, halved for
-        # natural-looking values. See docs/research/variable-scoring-balance.md.
+        # natural-looking values. See docs/private/research/variable-scoring-balance.md.
         naming = min(max(result.naming_and_content_score, 0), 25)
         var_part = 0.2 * min(naming, 20) + 0.6 * max(naming - 20, 0)
-        entropy_part = min(max(result.entropy_score, 0), 40) / 40 * 5 * min(result.nonsence_value_score + 0.5, 1)
+        entropy_part = randomness_points(result.entropy_score, result.nonsence_value_score)
 
         return round(min(var_part + entropy_part, 10))

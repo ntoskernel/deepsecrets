@@ -16,10 +16,10 @@ class ContentAnalyzer:
         self.engine = engine
         self.uncover_tactics = [self._check_by_base64]
 
-    def analyze(self, token: Token) -> List[Finding]:
+    def analyze(self, token: Token, **search_options) -> List[Finding]:
         self.token = token
         self.uncover()
-        return self.engine.search(self.token) if self.engine is not None else []
+        return self.engine.search(self.token, **search_options) if self.engine is not None else []
 
     def uncover(self) -> None:
         for tactic in self.uncover_tactics:

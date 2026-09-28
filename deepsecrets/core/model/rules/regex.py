@@ -1,5 +1,7 @@
 import regex as re
-from typing import Dict, ForwardRef, List, Optional, Union
+from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, ForwardRef, List, Optional, Tuple, Union
 
 from pydantic import ConfigDict, Field, field_serializer, model_validator
 
@@ -10,6 +12,45 @@ from deepsecrets.core.model.token import Token
 RegexRule = ForwardRef('RegexRule')
 
 
+class GroupType(str, Enum):
+    """What a capture group of a regex rule holds, declared in its `match_rules` entry. A regex match typed this way is
+    a candidate: like a variable, it has a value and sometimes a name, plus what the rule knows around them."""
+
+    VALUE = 'value'  # the text the candidate rules judge; default: the reported text (target_group)
+    NAME = 'name'  # what the value is assigned to, like a variable's name
+    USER = 'user'  # the account a credential belongs to
+    HOST = 'host'  # the service a credential opens
+    KIND = 'kind'  # a sub-type the rule distinguishes (an AWS key id's prefix)
+
+
+class Encoding(str, Enum):
+    """How a value group's text is encoded, declared next to its type (`{"type": "value", "encoding": "base64"}`). The
+    candidate then judges the payload (core/helpers/encoding.py): the share outside the alphabet, the randomness
+    against it, the checksum."""
+
+    BASE64 = 'base64'
+    BASE32 = 'base32'
+    HEX = 'hex'
+    BASE58CHECK = 'base58check'  # carries a checksum
+
+
+class Evidence(str, Enum):
+    """What a regex rule's match proves, which decides the regex-candidate rules that apply to it."""
+
+    FORMAT = 'format'  # the match proves the secret type: a key block, a prefixed or checksummed token
+    SHAPE = 'shape'  # the match is only a shape (a URL password, an AWS key id) and needs corroboration
+
+
+@dataclass
+class RuleMatch:
+    """One match of a rule: the reported span, and the match itself for its groups. A hit in decoded content reports
+    the whole encoded token as its span, while `match` is the match in the decoded text."""
+
+    start: int
+    end: int
+    match: re.Match
+
+
 class RegexRule(Rule):  # type: ignore
     pattern: re.Pattern
     negative_pattern: Optional[re.Pattern] = Field(default=None)
@@ -18,6 +59,13 @@ class RegexRule(Rule):  # type: ignore
     entropy_settings: Optional[float] = Field(default=None)
     escaping_needed: bool = False
     case_sensitive: bool = False
+    # which regex-candidate rules apply to this rule's matches (rules/regex_candidate_scoring_rules.json). None, the
+    # default for a user's own rules, leaves its matches unjudged, as before 2.2
+    evidence: Optional[Evidence] = Field(default=None)
+    # on a match_rules entry: what its capture group holds (the text of the group must also match the entry)
+    type: Optional[GroupType] = Field(default=None)
+    # on a match_rules entry typed `value`: how the value is encoded
+    encoding: Optional[Encoding] = Field(default=None)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -61,13 +109,40 @@ class RegexRule(Rule):  # type: ignore
         for _, match_rule in match_rules.items():
             match_rule['id'] = ''
             match_rule['confidence'] = 9
+            # a group can be typed without being constrained
+            match_rule.setdefault('pattern', '.*')
 
         return values
+
+    @model_validator(mode='after')
+    def one_group_per_type(self) -> 'RegexRule':
+        types = [rule.type for rule in (self.match_rules or {}).values() if rule.type is not None]
+        if len(types) != len(set(types)):
+            raise ValueError(f'rule {self.id}: a group type is declared twice in match_rules')
+        for rule in (self.match_rules or {}).values():
+            if rule.encoding is not None and rule.type != GroupType.VALUE:
+                raise ValueError(f'rule {self.id}: only the group typed value declares an encoding')
+        return self
+
+    def encoding_of_value(self) -> Optional[Encoding]:
+        """The encoding the value group declares, if any."""
+        index = self.group_of(GroupType.VALUE)
+        return self.match_rules[index].encoding if index is not None else None  # type: ignore
+
+    def group_of(self, type: GroupType) -> Optional[int]:
+        """The capture group declared with this type, if any."""
+        for group, rule in (self.match_rules or {}).items():
+            if rule.type == type:
+                return int(group)
+        return None
 
     def __hash__(self) -> int:  # pragma: nocover
         return hash(self.id)
 
-    def match(self, token: Union[Token, str]) -> List[re.Match]:
+    def match(self, token: Union[Token, str]) -> List[Tuple[int, int]]:
+        return [(m.start, m.end) for m in self.matches(token)]
+
+    def matches(self, token: Union[Token, str]) -> List[RuleMatch]:
         good_matches = []
         contents = []
         contents.append(token.content if isinstance(token, Token) else token)
@@ -79,13 +154,15 @@ class RegexRule(Rule):  # type: ignore
             if self.negative_pattern is not None and self.negative_pattern.search(content) is not None:
                 continue
 
-            matches = self.pattern.finditer(content)
-
-            for match in matches:
+            for match in self.pattern.finditer(content):
                 if not self._verify(match):
                     continue
 
-                good_matches.append(match.span(self.target_group) if i == 0 else (0, len(contents[0])))
+                if i == 0:
+                    start, end = match.span(self.target_group)
+                    good_matches.append(RuleMatch(start, end, match))
+                else:
+                    good_matches.append(RuleMatch(0, len(contents[0]), match))
 
         return good_matches
 

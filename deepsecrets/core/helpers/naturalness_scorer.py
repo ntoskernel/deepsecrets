@@ -5,6 +5,11 @@ import zlib
 
 from deepsecrets.core.utils.fs import get_path_inside_package
 
+# Below this whole-string trigram score a string is not language, however well the dictionary covers it: the
+# dictionary's many short entries and the bloom filter's false positives cover random letters too (KI-ENG-02). On
+# 44 words and placeholders against 440 random letter strings, words score 0.40 and above, random strings 0.38 at most.
+PLAUSIBLE_TRIGRAMS = 0.35
+
 
 class NaturalnessScorer:
 
@@ -14,7 +19,9 @@ class NaturalnessScorer:
         self.fp_rate = false_positive_rate
         self.bit_size = int(-(self.num_words * math.log(self.fp_rate)) / (math.log(2) ** 2))
         self.num_hashes = int((self.bit_size / self.num_words) * math.log(2))
-        self.bit_array = [0] * self.bit_size
+        # The filter's bits, packed eight to a byte, most significant bit first. Kept packed: expanding them into a
+        # list of ints took 585 ms and 31 MB in every worker, for the same answers.
+        self.bits = bytes((self.bit_size + 7) // 8)
 
         # Trigrams frequency dictionary
         self.trigram_counts = collections.Counter()
@@ -33,8 +40,9 @@ class NaturalnessScorer:
     def _in_dictionary(self, word):
         if len(word) < 2:
             return False
+        bits = self.bits
         for position in self._get_hashes(word):
-            if self.bit_array[position] == 0:
+            if not (bits[position >> 3] >> (7 - (position & 7))) & 1:
                 return False
         return True
 
@@ -54,14 +62,9 @@ class NaturalnessScorer:
         instance.total_trigrams = model_data["total_trigrams"]
         instance.trigram_counts = collections.Counter(model_data["trigram_counts"])
 
-        byte_data = bytes.fromhex(model_data["bit_array_hex"])
-        bit_array = []
-        for byte in byte_data:
-            for i in range(7, -1, -1):
-                bit = (byte >> i) & 1
-                bit_array.append(bit)
-
-        instance.bit_array = bit_array
+        instance.bits = bytes.fromhex(model_data["bit_array_hex"])
+        if len(instance.bits) * 8 < instance.bit_size:
+            raise ValueError('the model holds fewer bits than its bit_size')
         return instance
 
     def _get_trigram_score(self, substring):
@@ -96,6 +99,10 @@ class NaturalnessScorer:
         string = string.lower().strip()
         if not string.isalpha() or len(string) == 0:
             return 0.0
+
+        plausibility = self._get_trigram_score(string)
+        if plausibility < PLAUSIBLE_TRIGRAMS:
+            return round(plausibility, 4)
 
         n = len(string)
 

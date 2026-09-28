@@ -67,6 +67,8 @@ class VariableScoringRule(RegexRule):
     # the rule can only fire when every `when` condition matches and no `unless` condition does
     when: List[ScoringCondition] = Field(default=[])
     unless: List[ScoringCondition] = Field(default=[])
+    # when the rule fires, a dangerous variable is reported even if its value earns no entropy score (S106)
+    allows_low_entropy: bool = False
 
     def _is_threshold_type(self):
         return self.threshold is not None and self.method is not None
@@ -78,6 +80,12 @@ class VariableScoringRule(RegexRule):
             return values
 
         return values
+
+    def reads_only_filepath(self) -> bool:
+        """Whether the answer depends on the file path alone, and so is the same for every variable in a file."""
+        return self.target == Target.FILEPATH and all(
+            condition.target == Target.FILEPATH for condition in (*self.when, *self.unless)
+        )
 
     def _get_content_for_matching(self, context: Context):
         field = target_to_fields.get(self.target)

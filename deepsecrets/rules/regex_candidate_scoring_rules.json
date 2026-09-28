@@ -1,0 +1,180 @@
+[
+    {
+        "id": "RC_VALUE_LENGTH",
+        "name": "Too short to be a secret",
+        "description": "A value of 4 characters or less",
+        "target": "VALUE_LENGTH",
+        "method": "<=",
+        "threshold": 4,
+        "score": -100
+    },
+    {
+        "id": "RC_FALSE_STARTING_SEQ",
+        "name": "A template, a boolean or markup, not a value",
+        "target": "VALUE",
+        "pattern": "^(\\$\\{|%env|true|false|#|\\(|<)",
+        "score": -100
+    },
+    {
+        "id": "RC_NOT_ENCODED",
+        "name": "Not in the encoding its group declares",
+        "description": "Over 2% of the payload outside the declared alphabet: code or an ellipsis between key markers, not a key body; an AWS key id with a 0, 1, 8 or 9 (they are base32). The allowance covers a stray comment prefix",
+        "target": "VALUE_FOREIGN_SHARE",
+        "method": ">",
+        "threshold": 0.02,
+        "score": -100
+    },
+    {
+        "id": "RC_BAD_CHECKSUM",
+        "name": "A checksummed value whose checksum fails",
+        "description": "A base58check value (a Bitcoin WIF key) whose last 4 bytes are not its double SHA-256: a run of base58 characters, not a key",
+        "target": "VALUE_CHECKSUM",
+        "equals": "invalid",
+        "score": -100
+    },
+    {
+        "id": "RC_NOT_RANDOM",
+        "name": "Far from random",
+        "description": "The value has under 75% of the entropy a random string of its length and alphabet is expected to have: a placeholder, a repeated character, a run of digits (xoxb-XXXXXXXX-..., AKIAAAAAAAAAAAAAAAAA)",
+        "target": "VALUE_RANDOMNESS",
+        "method": "<",
+        "threshold": 0.75,
+        "score": -8
+    },
+    {
+        "id": "RC_LONG_NOT_RANDOM",
+        "name": "A long value that is not random",
+        "description": "From 100 characters the estimate is tight (a random key body stays above 0.98), so under 85% is structure, not key material. The bar sits below real OpenSSH keys, whose fixed length fields put them at 0.91 to 0.93",
+        "when": [
+            {
+                "target": "VALUE_LENGTH",
+                "method": ">=",
+                "threshold": 100
+            }
+        ],
+        "target": "VALUE_RANDOMNESS",
+        "method": "<",
+        "threshold": 0.85,
+        "score": -8
+    },
+    {
+        "id": "RC_FORMAT_PLACEHOLDER",
+        "name": "A placeholder word in a match whose format proves its type",
+        "description": "A warning sign, bought back when the value is random: 4 bits per character or more",
+        "when": [
+            {
+                "target": "EVIDENCE",
+                "equals": "format"
+            }
+        ],
+        "target": "VALUE_NORMALIZED",
+        "pattern": "^(.*${.*|.*custom.*|.*deadbeef.*|.*langua.*|.*right.*|.*debug.*|.*left.*|.*egmen.*|.*auto.*|.*exampl.*|add.*|use.*|.*launc.*|.*mode.*|.*conne.*|.*sume.*|.*prod.*|.*ward.*|.*serv.*|.*elem.*|.*contain.*|sav.*|.*attac.*|.*fail.*|.*displ.*|.*fake.*|meta.*|.*text.*|.*scop.*|.*tach.*|.*vigat.*|.*ploy.*|.*reat.*|.*your.*|access.*|.*project.*|.*process.*|get.*|set.*|is.*|has.*|.*obje.*|.*beaut.*|.*file.*|.*runn.*|.*confir.*|.*click.*|.*wast.*|.*liste.*|.*hand.*|.*json.*|.*cance.*|.*reduc.*|.*delet.*|.*move.*|.*compa.*|.*forma.*|.*item.*|.*focus.*|.*west.*|.*east.*|.*build.*|.*toggl.*|.*dispos.*|.*componen.*|.*prop.*|.*destr.*|.*string.*|.*receiv.*|.*rende.*|.*featu.*|.*close.*|.*open.*|.*subscr.*|.*coord.*|.*space.*|.*dimen.*|.*menu.*|.*purcha.*|.*order.*|.*report.*|.*identifi.*|.*time.*|.*simpl.*|.*offse.*|.*state.*|.*quantit.*|.*categ.*|.*identit.*|.*devic.*|.*memor.*|.*settin.*|.*locat.*|.*option.*|.*stor.*|record.*|.*versi.*|.*origi.*|.*year.*|.*week.*|.*detai.*|.*gatew.*|.*packa.*|.*prefer.*|.*chain.*|.*provid.*|.*phon.*|.*email.*|.*convers.*|.*perso.*|.*recomm.*|.*referen.*|.*master.*|.*impor.*|.*encrypt.*|.*sched.*|.*contac.*|.*verla.*|.*mediu.*|.*extern.*|.*intern.*|.*progr.*|.*contr.*|.*positi.*|.*facebook.*|.*scale.*|.*button.*|.*untime.*|.*modif.*|.*service.*|.*volum.*|.*length.*|.*guest.*|.*point.*|.*speci.*|.*networ.*|.*mount.*|.*instruc.*|.*kuberne.*|.*layer.*|.*notifi.*|.*submi.*|.*success.*|.*operat.*|.*percen.*|.*persona.*|.*direct.*|.*prefix.*|.*print.*|.*previ.*|.*price.*|.*protoco.*|.*reaso.*|.*count.*|.*reques.*|.*return.*|.*event.*|.*desig.*|.*place.*|.*select.*|.*search.*|.*share.*|.*shape.*|.*show.*|.*stora.*|.*width.*|.*plan.*|.*suggest.*|.*style.*|.*syste.*|.*targe.*|.*export.*|.*amou.*|.*actio.*|.*encod.*|.*decod.*|.*trans.*|.*page.*|.*local.*|.*symb.*|.*userid.*|.*useragent.*|.*mock.*|.*color.*|.*password.*|.*ctrl.*|.*help.*|.*numb.*|.*long.*|.*short.*|.*tip.*|.*down.*|.*head.*|.*foote.*|.*info.*|.*last.*|.*next.*|.*title.*|.*label.*|.*error.*|.*view.*|.*center.*|.*date.*|.*paren.*|.*able.*|.*examp.*|.*servi.*|.*class.*|.*prope.*|.*reset.*|.*eract.*|.*rule.*|.*track.*|.*cloud.*|.*call.*|.*index.*|.*limit.*|.*acce.*|.*param.*|.*note.*|.*name.*|.*descr.*|.*value.*|.*polic.*|.*part.*|.*correc.*|.*conte.*|.*media.*|.*exten.*|.*defau.*|.*fill.*|.*unive.*|.*star.*|.*addit.*|.*stac.*|.*excep.*|.*messa.*|.*zone.*|.*total.*|.*type.*|.*valid.*|.*instan.*|.*seria.*|.*docum.*|.*base.*|.*addre.*|.*size.*|.*first.*|.*sourc.*|.*cover.*|.*gener.*|.*config.*|.*with.*|.*window.*|.*support.*|.*comment.*|.*batch.*|.*vault.*|.*secret.*|.*copy.*|.*filte.*|.*clear.*|.*status.*|.*private.*|.*password.*|.*invalid.*|.*link.*|.*test.*|.*expir.*|.*empty.*|.*token.*|null|bearer|foo|foobar|xyz|undefined|none|.*todo.*|.*change.*|.*restore.*|[^A-Za-z0-9]*|%.*%|\\[.*\\]|{.*})$",
+        "score": -8,
+        "cases": [
+            {
+                "name": "random enough to be a secret anyway",
+                "if": [
+                    {
+                        "target": "VALUE_ENTROPY",
+                        "method": ">=",
+                        "threshold": 4.0
+                    }
+                ],
+                "score": 4
+            }
+        ]
+    },
+    {
+        "id": "RC_PLACEHOLDER",
+        "name": "A placeholder word in a shape match",
+        "description": "A warning sign that costs the match its corroboration. A public host cancels it: a real service's password with a placeholder word in it is weak, not an example. A random value buys it back",
+        "when": [
+            {
+                "target": "EVIDENCE",
+                "equals": "shape"
+            }
+        ],
+        "target": "VALUE_NORMALIZED",
+        "pattern": "^(.*${.*|.*custom.*|.*deadbeef.*|.*langua.*|.*right.*|.*debug.*|.*left.*|.*egmen.*|.*auto.*|.*exampl.*|add.*|use.*|.*launc.*|.*mode.*|.*conne.*|.*sume.*|.*prod.*|.*ward.*|.*serv.*|.*elem.*|.*contain.*|sav.*|.*attac.*|.*fail.*|.*displ.*|.*fake.*|meta.*|.*text.*|.*scop.*|.*tach.*|.*vigat.*|.*ploy.*|.*reat.*|.*your.*|access.*|.*project.*|.*process.*|get.*|set.*|is.*|has.*|.*obje.*|.*beaut.*|.*file.*|.*runn.*|.*confir.*|.*click.*|.*wast.*|.*liste.*|.*hand.*|.*json.*|.*cance.*|.*reduc.*|.*delet.*|.*move.*|.*compa.*|.*forma.*|.*item.*|.*focus.*|.*west.*|.*east.*|.*build.*|.*toggl.*|.*dispos.*|.*componen.*|.*prop.*|.*destr.*|.*string.*|.*receiv.*|.*rende.*|.*featu.*|.*close.*|.*open.*|.*subscr.*|.*coord.*|.*space.*|.*dimen.*|.*menu.*|.*purcha.*|.*order.*|.*report.*|.*identifi.*|.*time.*|.*simpl.*|.*offse.*|.*state.*|.*quantit.*|.*categ.*|.*identit.*|.*devic.*|.*memor.*|.*settin.*|.*locat.*|.*option.*|.*stor.*|record.*|.*versi.*|.*origi.*|.*year.*|.*week.*|.*detai.*|.*gatew.*|.*packa.*|.*prefer.*|.*chain.*|.*provid.*|.*phon.*|.*email.*|.*convers.*|.*perso.*|.*recomm.*|.*referen.*|.*master.*|.*impor.*|.*encrypt.*|.*sched.*|.*contac.*|.*verla.*|.*mediu.*|.*extern.*|.*intern.*|.*progr.*|.*contr.*|.*positi.*|.*facebook.*|.*scale.*|.*button.*|.*untime.*|.*modif.*|.*service.*|.*volum.*|.*length.*|.*guest.*|.*point.*|.*speci.*|.*networ.*|.*mount.*|.*instruc.*|.*kuberne.*|.*layer.*|.*notifi.*|.*submi.*|.*success.*|.*operat.*|.*percen.*|.*persona.*|.*direct.*|.*prefix.*|.*print.*|.*previ.*|.*price.*|.*protoco.*|.*reaso.*|.*count.*|.*reques.*|.*return.*|.*event.*|.*desig.*|.*place.*|.*select.*|.*search.*|.*share.*|.*shape.*|.*show.*|.*stora.*|.*width.*|.*plan.*|.*suggest.*|.*style.*|.*syste.*|.*targe.*|.*export.*|.*amou.*|.*actio.*|.*encod.*|.*decod.*|.*trans.*|.*page.*|.*local.*|.*symb.*|.*userid.*|.*useragent.*|.*mock.*|.*color.*|.*password.*|.*ctrl.*|.*help.*|.*numb.*|.*long.*|.*short.*|.*tip.*|.*down.*|.*head.*|.*foote.*|.*info.*|.*last.*|.*next.*|.*title.*|.*label.*|.*error.*|.*view.*|.*center.*|.*date.*|.*paren.*|.*able.*|.*examp.*|.*servi.*|.*class.*|.*prope.*|.*reset.*|.*eract.*|.*rule.*|.*track.*|.*cloud.*|.*call.*|.*index.*|.*limit.*|.*acce.*|.*param.*|.*note.*|.*name.*|.*descr.*|.*value.*|.*polic.*|.*part.*|.*correc.*|.*conte.*|.*media.*|.*exten.*|.*defau.*|.*fill.*|.*unive.*|.*star.*|.*addit.*|.*stac.*|.*excep.*|.*messa.*|.*zone.*|.*total.*|.*type.*|.*valid.*|.*instan.*|.*seria.*|.*docum.*|.*base.*|.*addre.*|.*size.*|.*first.*|.*sourc.*|.*cover.*|.*gener.*|.*config.*|.*with.*|.*window.*|.*support.*|.*comment.*|.*batch.*|.*vault.*|.*secret.*|.*copy.*|.*filte.*|.*clear.*|.*status.*|.*private.*|.*password.*|.*invalid.*|.*link.*|.*test.*|.*expir.*|.*empty.*|.*token.*|null|bearer|foo|foobar|xyz|undefined|none|.*todo.*|.*change.*|.*restore.*|[^A-Za-z0-9]*|%.*%|\\[.*\\]|{.*})$",
+        "score": -8,
+        "cases": [
+            {
+                "name": "a public host: a weak password, not an example",
+                "if": [
+                    {
+                        "target": "HOST_KIND",
+                        "equals": "public"
+                    }
+                ],
+                "score": 8
+            },
+            {
+                "name": "random enough to be a secret anyway",
+                "if": [
+                    {
+                        "target": "VALUE_ENTROPY",
+                        "method": ">",
+                        "threshold": 3.857142857142857
+                    }
+                ],
+                "score": 4
+            }
+        ]
+    },
+    {
+        "id": "RC_NATURAL_LANGUAGE",
+        "name": "A shape match that reads as language",
+        "description": "A warning sign that costs the match its corroboration, bought back by a random value; a public host lowers the bar to 3 bits per character",
+        "when": [
+            {
+                "target": "EVIDENCE",
+                "equals": "shape"
+            }
+        ],
+        "target": "VALUE_NORMALIZED_NATURALNESS_SCORE",
+        "method": ">=",
+        "threshold": 0.6,
+        "score": -8,
+        "cases": [
+            {
+                "name": "random enough to be a secret anyway",
+                "if": [
+                    {
+                        "target": "VALUE_ENTROPY",
+                        "method": ">",
+                        "threshold": 3.857142857142857
+                    }
+                ],
+                "score": 4
+            },
+            {
+                "name": "a public host lowers the bar to 3 bits",
+                "if": [
+                    {
+                        "target": "HOST_KIND",
+                        "equals": "public"
+                    },
+                    {
+                        "target": "VALUE_ENTROPY",
+                        "method": ">",
+                        "threshold": 3.0
+                    }
+                ],
+                "score": 4
+            }
+        ]
+    },
+    {
+        "id": "RC_TEST_PATH",
+        "name": "A shape match in a test, mock or minified file",
+        "when": [
+            {
+                "target": "EVIDENCE",
+                "equals": "shape"
+            }
+        ],
+        "target": "FILEPATH",
+        "pattern": "(.*\\.min\\.js$|/test/|/tests/|/spec/|/mock/|_test\\.)",
+        "score": -1
+    }
+]

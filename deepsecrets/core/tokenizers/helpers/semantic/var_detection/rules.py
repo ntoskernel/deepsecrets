@@ -27,7 +27,7 @@ class VariableDetectionRules:
     rules = [
         VariableDetector(
             language=Language.PYTHON,
-            stream_pattern=re.compile('(n)(o|p)(?:\n?)(L)(?:\n|p|\?)'),  # noqa
+            stream_pattern=re.compile('(n)(o|p)(?:\n?)(L)(?:\n|p|\\?)'),  # noqa
             match_rules={2: Match(values=[re.compile('^=$'), re.compile('^:$')])},
             match_semantics={1: 'name_token', 3: 'value_token'},
         ),
@@ -91,7 +91,7 @@ class VariableDetectionRules:
         ),
         VariableDetector(
             language=Language.GOLANG,
-            stream_pattern=re.compile('(n)(?:o|p){1,3}(\?|u)p(L)p'),  # noqa
+            stream_pattern=re.compile('(n)(?:o|p){1,3}(\\?|u)p(L)p'),  # noqa
             match_rules={2: Match(values=['byte', 'string'])},
             match_semantics={1: 'name_token', 3: 'value_token'},
         ),
@@ -348,7 +348,7 @@ class VariableSuppressionRules(VariableDetectionRules):
             stream_pattern=re.compile('(n)(p)(n)(p)L'),
             match_rules={
                 1: Match(values=[re.compile('^decode$'), re.compile('^decodeIfPresent$'), re.compile('^unbox$')]),
-                2: Match(values=[re.compile('^\($')]),
+                2: Match(values=[re.compile('^\\($')]),
                 3: Match(values=[re.compile('^(key|keyPath)$')]),
                 4: Match(values=[re.compile('^:$')]),
             },
@@ -414,11 +414,26 @@ class CheapVariableDetectionRules(VariableDetectionRules):
             match_rules={},
             match_semantics={2: 'name', 4: 'value'},
         ),
-        # looking for key-values when key is not in quoted, ignoring html tags (important really)
+        # looking for key-values when key is not in quoted, ignoring html tags (important really). In a file only the
+        # cheap search reads (over --deep-max-size), a "tag" runs to the next '>': in minified code `a<b` then skips
+        # everything up to the next '>', which the maintainer keeps on purpose as the precision guard of those files
+        # (KI-TOK-36; bounding it there costs 607 look-alike groups on SecretBench for 7 real)
         CheapVariableDetector(
             language=Language.ANY,
+            when_lexed=False,
             stream_pattern=re.compile(
                 r'<[a-zA-Z]+[^>]*(*SKIP)(*F)|\b([a-zA-Z0-9_]+?)\b[\s]*?[:=][\s]*?([\'"])\b([^\'"()]+?)\b\2'
+            ),
+            match_rules={},
+            match_semantics={1: 'name', 3: 'value'},
+        ),
+        # the same where the lexer also reads the file: a tag is skipped only when it is one, `<name attributes>`
+        CheapVariableDetector(
+            language=Language.ANY,
+            when_lexed=True,
+            stream_pattern=re.compile(
+                r'<[a-zA-Z][\w:-]*(?:\s[^<>]{0,400})?/?>(*SKIP)(*F)|'
+                r'\b([a-zA-Z0-9_]+?)\b[\s]*?[:=][\s]*?([\'"])\b([^\'"()]+?)\b\2'
             ),
             match_rules={},
             match_semantics={1: 'name', 3: 'value'},
@@ -441,6 +456,28 @@ class CheapVariableDetectionRules(VariableDetectionRules):
             match_rules={},
             match_semantics={2: 'name', 4: 'value'},
         ),
+        # a command-line option: -Dsonar.login=…, --api-key "…", --token=…
+        CheapVariableDetector(
+            language=Language.ANY,
+            stream_pattern=re.compile(
+                r'(?:^|\s)(?:-D|--?)([A-Za-z][\w.-]{1,60}[A-Za-z0-9])(?:=|[ \t]+)(["\']?)([^\s"\'`;|&]{6,200})\2'
+                r'(?=\s|$|[;|&])',
+                re.MULTILINE,
+            ),
+            overlapped=False,
+            match_rules={},
+            match_semantics={1: 'name', 3: 'value'},
+        ),
+        # .NET configuration: <add key="name" value="…"/>, where the name is an attribute's value
+        CheapVariableDetector(
+            language=Language.ANY,
+            stream_pattern=re.compile(
+                r'<add\s+key\s*=\s*"([^"]{1,100})"\s+value\s*=\s*"([^"\s]{6,300})"', re.IGNORECASE
+            ),
+            overlapped=False,
+            match_rules={},
+            match_semantics={1: 'name', 2: 'value'},
+        ),
         # Searching key-value escaped (JSON inside JSON)
         CheapVariableDetector(
             language=Language.JSON,
@@ -449,3 +486,8 @@ class CheapVariableDetectionRules(VariableDetectionRules):
             match_semantics={2: 'name', 4: 'value'},
         ),
     ]
+
+    @classmethod
+    def for_language(cls, language: Language, lexed: bool = False) -> List[VariableDetector]:  # type: ignore[override]
+        """The cheap detectors for a language; `lexed` says whether the semantic engine also lexes the file."""
+        return [rule for rule in super().for_language(language) if rule.when_lexed in (None, lexed)]

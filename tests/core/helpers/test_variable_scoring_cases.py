@@ -54,14 +54,12 @@ DANGEROUS = [
         LOWER_20,
         CODE,
         id='client_secret-random-lowercase',
-        marks=known_imbalance('naturalness scores random letters-only strings as natural language (-50 > +30)'),
     ),
     pytest.param(
         'secret',
         MIXED_LETTERS_16,
         CODE,
         id='secret-random-mixedcase-letters',
-        marks=known_imbalance('naturalness scores random letters-only strings as natural language (-50 > +30)'),
     ),
     pytest.param('access_token', B64URL_DASH, CODE, id='access_token-b64url-leading-dash'),
     pytest.param('access_token', B64URL_UNDERSCORE, CODE, id='access_token-b64url-leading-underscore'),
@@ -199,3 +197,31 @@ def test_word_valued_password_is_reported_at_low_confidence(variable_scoring_rul
     result = VariableEvaluator(variable_scoring_rules).evaluate(Context(name=name, value=value, filepath=filepath))
     assert result.is_dangerous is True, result
     assert result.export_confidence < 3, result
+
+
+LOW_ENTROPY = 'nacc6opq'  # 8 characters, 2.75 bits: earns no entropy score
+
+
+@pytest.mark.parametrize(
+    'name, allowed',
+    [
+        pytest.param('password', True, id='password'),
+        pytest.param('DB_PWD', True, id='DB_PWD'),
+        pytest.param('smtp_passwd', True, id='smtp_passwd'),
+        pytest.param('db_pass', True, id='db_pass'),
+        pytest.param('client_secret', True, id='client_secret'),
+        pytest.param('SECRET_KEY', True, id='SECRET_KEY'),
+        pytest.param('api_key', False, id='api_key'),
+        pytest.param('auth_token', False, id='auth_token'),
+        pytest.param('SERVICE_OAUTH', False, id='SERVICE_OAUTH'),
+        pytest.param('private_key', False, id='private_key'),
+        pytest.param('kube_kubeconfig_token', False, id='kube_kubeconfig_token'),
+    ],
+)
+def test_only_names_people_choose_a_value_for_allow_low_entropy(variable_scoring_rules, name, allowed):
+    # issued keys and tokens are random: a value of 3 bits or less under their names is a placeholder, an id or a
+    # map key, so SemanticEngine reports S106 only when an allows_low_entropy rule fired
+    result = VariableEvaluator(variable_scoring_rules).evaluate(Context(name=name, value=LOW_ENTROPY, filepath=CODE))
+    assert result.is_dangerous is True, result
+    assert result.entropy_score == 0, result
+    assert result.allows_low_entropy is allowed, result

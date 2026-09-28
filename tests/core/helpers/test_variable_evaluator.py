@@ -229,3 +229,34 @@ def test_18(variable_scoring_rules):
     result: EvaluationResult = ve.evaluate(ctx)
     assert result.is_dangerous is True
     assert result.export_confidence >= 6
+
+
+def test_path_only_rule_is_matched_once_per_file(variable_scoring_rules, monkeypatch):
+    # SEM_VAR_FILE_PATHS reads only the path, the same for every variable in a file; its `.*`-led pattern cost up to
+    # 70 us per variable on long paths
+    path_rules = [rule for rule in variable_scoring_rules if rule.reads_only_filepath()]
+    assert [rule.id for rule in path_rules] == ['SEM_VAR_FILE_PATHS']
+    calls = []
+    original = type(path_rules[0]).match_by_context
+
+    def counting(self, context):
+        if self.reads_only_filepath():
+            calls.append(context.filepath)
+        return original(self, context)
+
+    monkeypatch.setattr(type(path_rules[0]), 'match_by_context', counting)
+    ve = VariableEvaluator(variable_scoring_rules)
+    for name in ('db_password', 'api_token', 'client_secret', 'auth_key'):
+        ve.evaluate(Context(name=name, value='vhpn6mbsvhpn6mbsvhpn6mbs', filepath='src/app/settings.py'))
+    assert calls == ['src/app/settings.py']
+
+
+def test_path_answer_follows_the_path(variable_scoring_rules):
+    # a long-lived evaluator (the research scripts keep one) sees paths change back and forth
+    ve = VariableEvaluator(variable_scoring_rules)
+    fresh = lambda ctx: VariableEvaluator(variable_scoring_rules).evaluate(ctx)  # noqa: E731
+    for filepath in ('src/app.py', 'src/tests/app.py', 'src/app.py', 'web/bundle.min.js', 'web/bundle.min.js'):
+        ctx = Context(name='api_token', value='vhpn6mbsvhpn6mbsvhpn6mbs', filepath=filepath)
+        cached, expected = ve.evaluate(ctx), fresh(ctx)
+        assert cached.matched_rules == expected.matched_rules, filepath
+        assert ('SEM_VAR_FILE_PATHS' in cached.matched_rules) == (filepath != 'src/app.py'), filepath

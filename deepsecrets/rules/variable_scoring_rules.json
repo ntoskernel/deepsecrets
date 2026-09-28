@@ -154,5 +154,13 @@
         "target": "NAME_NORMALIZED",
         "pattern": "^key$",
         "score": 2
+    },
+    {
+        "id": "SEM_VAR_HUMAN_CHOSEN_SECRET_NAMES",
+        "description": "Scores nothing: marks the names of secrets people choose (passwords, secret keys), the only ones legitimately low in entropy. A dangerous variable whose value earns no entropy score (3 bits or less) is reported as S106 only when an allows_low_entropy rule fired; issued keys and tokens are random, so under their names such a value is a placeholder, an id or a map key. The password half of SEM_VAR_HIGH_CONFIDENCE_FULLNAME_2.",
+        "target": "NAME_NORMALIZED",
+        "pattern": "(passw|pwd|pass$|secret)",
+        "score": 0,
+        "allows_low_entropy": true
     }
 ]

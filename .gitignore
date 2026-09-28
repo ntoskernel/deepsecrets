@@ -60,3 +60,8 @@ pytest*
 /benchmarker/
 /tests/fixtures/problem_files/
 /*.json
+
+/docs/private/
+AGENTS.md
+CLAUDE.md
+research/

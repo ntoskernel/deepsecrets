@@ -22,6 +22,8 @@ class AnalyzerBundle:
     benchmarking_mode: bool = False
     # see deep_analysis
     deep_max_size: int = DEFAULT_DEEP_MAX_SIZE
+    # --confidence-level all: regex candidates their evaluation rejected are reported, flagged, at confidence 0
+    report_rejected: bool = False
 
 
 @dataclass

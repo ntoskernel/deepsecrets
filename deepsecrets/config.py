@@ -11,6 +11,11 @@ from deepsecrets.core.utils.multiprocessing_setup import default_start_method
 
 FALLBACK_PROCESS_COUNT = 4
 
+# --confidence-level: the lowest confidence a reported finding may have. 'all' also reports the regex candidates their
+# evaluation rejected (confidence 0); 'low', the default, reports every finding the scanner keeps
+CONFIDENCE_LEVELS = {'all': None, 'low': 0, 'medium': 3, 'high': 6, 'very-high': 9}
+DEFAULT_CONFIDENCE_LEVEL = 'low'
+
 # files larger than this many bytes get the shallow analysis: the regex rules and the cheap variable search, no lexer.
 # On SecretBench the lexer found 12 of its 21 unique secrets in smaller files and the other 9 only in files of 1 MB
 # or more (minified JavaScript, one YAML file), while files over 250 KB took two thirds of its time.
@@ -51,6 +56,7 @@ class Config:
     return_code_if_findings: bool
     disable_masking: bool
     report_diagnostics: bool = False
+    confidence_level: str = DEFAULT_CONFIDENCE_LEVEL
     verbose: bool = False
     # no live terminal UI and no progress manager; the CLI turns it on in CI and when output is not a terminal
     ci_mode: bool = False
@@ -64,6 +70,7 @@ class Config:
         self.return_code_if_findings = False
         self.disable_masking = False
         self.report_diagnostics = False
+        self.confidence_level = DEFAULT_CONFIDENCE_LEVEL
 
         self._benchmarking_mode = False
         self.oneshot_path = None
@@ -86,6 +93,11 @@ class Config:
 
     def set_report_diagnostics(self, state: bool):
         self.report_diagnostics = state
+
+    def set_confidence_level(self, level: str) -> None:
+        if level not in CONFIDENCE_LEVELS:
+            raise ValueError(f'unknown confidence level {level}')
+        self.confidence_level = level
 
     def _set_path(self, path: str, field: str) -> None:
         if not path_exists(path):

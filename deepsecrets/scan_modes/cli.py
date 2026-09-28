@@ -54,6 +54,7 @@ class CliScanMode(ScanMode):
             engines=self.engines_enabled,
             rulesets=self.rulesets,
             deep_max_size=self.config.deep_max_size,
+            report_rejected=self.config.confidence_level == 'all',
         )
 
     @staticmethod
@@ -118,6 +119,7 @@ class CliScanMode(ScanMode):
         regex_engine = RegexEngine(
             ruleset=bundle.rulesets.get(RegexRulesetBuilder.ruleset_name, []),
             candidate_rules=bundle.rulesets.get(RegexCandidateScoringRulesetBuilder.ruleset_name),
+            report_rejected=bundle.report_rejected,
         )
 
         for eng, enabled in bundle.engines.items():

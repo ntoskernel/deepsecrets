@@ -20,7 +20,7 @@ from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from deepsecrets import PROFILER_ON, console
-from deepsecrets.config import Config
+from deepsecrets.config import CONFIDENCE_LEVELS, DEFAULT_CONFIDENCE_LEVEL, Config
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
@@ -466,6 +466,7 @@ class ScanMode:
 
         console.print('[*] Filtering predefined false Findings..')
         fin = self.filter_false_positives(fin)
+        fin = self.filter_by_confidence_level(fin)
         return fin, self.per_file_errors(), self.per_file_timings()
 
     def dispose(self):
@@ -582,6 +583,22 @@ class ScanMode:
     @abstractmethod
     def _per_file_analyzer(bundle: AnalyzerBundle, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
         pass
+
+    def filter_by_confidence_level(self, results: List[Finding]) -> List[Finding]:
+        """--confidence-level: 'all' reports everything, rejected regex candidates included; the other levels drop those
+        and keep findings whose final rule has at least the level's confidence."""
+        minimum = CONFIDENCE_LEVELS.get(getattr(self.config, 'confidence_level', DEFAULT_CONFIDENCE_LEVEL))
+        if minimum is None:
+            return results
+
+        kept: List[Finding] = []
+        for finding in results:
+            if finding.rejected:
+                continue
+            finding.choose_final_rule()
+            if finding.final_rule.confidence >= minimum:
+                kept.append(finding)
+        return kept
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
         false_finding_rules = self.rulesets.get(FalseFindingsBuilder.ruleset_name)

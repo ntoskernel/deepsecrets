@@ -150,6 +150,7 @@ def test_analyzer_bundle_carries_what_workers_read():
             'rulesets',
             'benchmarking_mode',
             'deep_max_size',
+            'report_rejected',
         }
         assert bundle.workdir == '/app/tests/fixtures/extless'
         assert bundle.engines == {'regex': True}

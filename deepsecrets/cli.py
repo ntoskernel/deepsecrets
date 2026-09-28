@@ -7,6 +7,8 @@ from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME, console
 from deepsecrets.config import (
+    CONFIDENCE_LEVELS,
+    DEFAULT_CONFIDENCE_LEVEL,
     DEFAULT_DEEP_MAX_SIZE,
     SCANNER_VERSION,
     SCANNER_VERSION_NUMERIC,
@@ -184,6 +186,17 @@ class DeepSecretsCliTool:
         )
 
         parser.add_argument(
+            '--confidence-level',
+            type=str,
+            default=DEFAULT_CONFIDENCE_LEVEL,
+            choices=list(CONFIDENCE_LEVELS),
+            help='The lowest confidence to report, from all to very-high (default: low).\n'
+            '"low" reports every finding; "medium", "high" and "very-high" keep confidence 3, 6 and 9 or more.\n'
+            '"all" also reports the regex matches the scanner judged not to be secrets (placeholders, examples),\n'
+            'at confidence 0 with an -INFO rule id.\n',
+        )
+
+        parser.add_argument(
             '--false-findings',
             nargs='*',
             type=str,
@@ -285,6 +298,7 @@ class DeepSecretsCliTool:
 
         # set on every parse: the config singleton outlives one run
         config.set_report_diagnostics(user_args.report_diagnostics)
+        config.set_confidence_level(user_args.confidence_level)
 
         if user_args.benchmarking_mode:
             config._set_benchmarking_mode(True)

@@ -19,6 +19,9 @@ class EvaluationResult:
 
     export_confidence: int = 0
 
+    # a fired rule allows a value with no entropy score to be reported: people choose passwords, not API keys
+    allows_low_entropy: bool = False
+
     # < 3: 0
     # 3-4: 0 -> 35
 
@@ -75,12 +78,14 @@ class VariableEvaluator:
 
         naming_and_content_score = 0
         matched_rules = []
+        allows_low_entropy = False
 
         for index, rule in enumerate(self.rules):
             fired = self._fires(index, rule, context)
             if fired:
                 naming_and_content_score += rule.score
                 matched_rules.append(rule.id)
+                allows_low_entropy = allows_low_entropy or rule.allows_low_entropy
 
             if naming_and_content_score <= HOPELESS_THRESHOLD:
                 return EvaluationResult(
@@ -113,6 +118,7 @@ class VariableEvaluator:
             matched_rules=matched_rules,
             nonsence_value_score=nonsense_value_score,
             is_dangerous=naming_and_content_score > DANGER_THRESHOLD,
+            allows_low_entropy=allows_low_entropy,
         )
 
         result.export_confidence = self.confidence_from_evaluation_result(result)

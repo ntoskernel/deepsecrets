@@ -67,6 +67,8 @@ class VariableScoringRule(RegexRule):
     # the rule can only fire when every `when` condition matches and no `unless` condition does
     when: List[ScoringCondition] = Field(default=[])
     unless: List[ScoringCondition] = Field(default=[])
+    # when the rule fires, a dangerous variable is reported even if its value earns no entropy score (S106)
+    allows_low_entropy: bool = False
 
     def _is_threshold_type(self):
         return self.threshold is not None and self.method is not None

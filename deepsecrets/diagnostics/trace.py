@@ -150,6 +150,8 @@ def _evaluate(evaluator: VariableEvaluator, scoring_rules: list, variable) -> di
     result = evaluator.evaluate(variable)
     counterfactual = {}
     for entry in fired:
+        if not entry['score']:
+            continue
         without = VariableEvaluator([r for r in scoring_rules if r.id != entry['id']])
         counterfactual[entry['id']] = without.evaluate(variable).is_dangerous
     return {
@@ -162,9 +164,19 @@ def _evaluate(evaluator: VariableEvaluator, scoring_rules: list, variable) -> di
         'naturalness': round(1 - result.nonsence_value_score, 3) if not hopeless else None,
         'dangerous': result.is_dangerous,
         'confidence': result.export_confidence,
-        'rule_emitted': ('S105' if result.entropy_score > 0 else 'S106') if result.is_dangerous else None,
+        'allows_low_entropy': result.allows_low_entropy,
+        'rule_emitted': _rule_emitted(result),
         'dangerous_without': counterfactual,
     }
+
+
+def _rule_emitted(result) -> Optional[str]:
+    """The rule SemanticEngine.search reports for an evaluated variable, or None."""
+    if not result.is_dangerous:
+        return None
+    if result.entropy_score > 0:
+        return 'S105'
+    return 'S106' if result.allows_low_entropy else None
 
 
 def _gate(token: Token, file: File) -> Optional[str]:
@@ -373,7 +385,7 @@ def _verdict(t: dict) -> dict:
         }
     if all(ev.get('gate') for ev in evaluations):
         return {'stage': 'gate', 'component': 'semantic_engine', 'detail': evaluations[0]['gate']}
-    if any(ev.get('dangerous') for ev in evaluations):
+    if any(ev.get('rule_emitted') for ev in evaluations):
         if t['production']['cache_skipped']:
             return {
                 'stage': 'emission',
@@ -381,6 +393,12 @@ def _verdict(t: dict) -> dict:
                 'detail': 'value cache: seen earlier with no finding',
             }
         return {'stage': 'emission', 'component': 'finding_merger', 'detail': 'dangerous but not reported'}
+    if any(ev.get('dangerous') for ev in evaluations):
+        return {
+            'stage': 'evaluation',
+            'component': 'semantic_engine',
+            'detail': 'no entropy score, and no allows_low_entropy rule fired on the name (S106)',
+        }
     return {'stage': 'evaluation', 'component': 'variable_evaluator', 'detail': 'scored as not dangerous'}
 
 

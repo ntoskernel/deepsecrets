@@ -91,7 +91,8 @@ class SemanticEngine(IEngine):
                             internal_score={'var': token.semantic.name} | evaluation_result.summary(),
                         )
                     )
-                else:
+                elif evaluation_result.allows_low_entropy:
+                    # 3 bits or less: a password someone chose, or else a placeholder, an id or a map key
                     findings.append(
                         Finding(
                             detection=token.content,

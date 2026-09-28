@@ -167,6 +167,3 @@ class Config:
             raise FileNotFoundException(f'File {path} does not exist')
 
         return
-
-
-config = Config()

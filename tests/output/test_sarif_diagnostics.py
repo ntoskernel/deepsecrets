@@ -3,7 +3,6 @@ import json
 import pytest
 
 from deepsecrets.cli import DeepSecretsCliTool
-from deepsecrets.config import config
 from deepsecrets.core.utils.log import clear_error_list, get_error_list, logger
 
 
@@ -19,9 +18,6 @@ def target(tmp_path):
 
 
 def scan(target, outfile, *extra):
-    # the config singleton outlives other tests' runs; benchmarking mode would skip writing the report
-    config._set_benchmarking_mode(False)
-    config.set_oneshot_path(None)
     tool = DeepSecretsCliTool(
         args=['', '--target-dir', str(target), '--outfile', str(outfile), '--process-count', '1', *extra]
     )

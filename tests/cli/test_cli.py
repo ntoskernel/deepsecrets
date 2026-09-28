@@ -91,24 +91,41 @@ def test_hashed_values_registers_hashed_engine():
     tool.parse_arguments()
     config = tool.get_current_config()
 
-    try:
-        assert HashedSecretEngine in config.engines
-        assert config.engines.count(RegexEngine) == 1
-        assert config.rulesets[HashedSecretsRulesetBuilder] == ['/app/tests/fixtures/hashed_secrets.json']
-    finally:
-        # the config singleton outlives this test (KI-CLI-12)
-        config.rulesets.pop(HashedSecretsRulesetBuilder, None)
+    assert HashedSecretEngine in config.engines
+    assert config.engines.count(RegexEngine) == 1
+    assert config.rulesets[HashedSecretsRulesetBuilder] == ['/app/tests/fixtures/hashed_secrets.json']
+
+
+def test_a_parse_starts_from_a_fresh_config():
+    # KI-CLI-12: the config was a process-wide singleton, so what one run set stayed set for the next, masking included
+    base = ['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif']
+    first = DeepSecretsCliTool(
+        args=base
+        + ['--disable-masking', '--reflect-findings-in-return-code', '--benchmarking-mode']
+        + ['--hashed-values', '/app/tests/fixtures/hashed_secrets.json']
+        + ['--excluded-paths', '/app/tests/fixtures/false_findings.json']
+    )
+    first.parse_arguments()
+    second = DeepSecretsCliTool(args=base)
+    second.parse_arguments()
+
+    config = second.get_current_config()
+    assert config is not first.get_current_config()
+    assert config.disable_masking is False
+    assert config.return_code_if_findings is False
+    assert config._benchmarking_mode is False
+    assert HashedSecretsRulesetBuilder not in config.rulesets
+    assert not any(path.endswith('false_findings.json') for path in config.global_exclusion_paths)
 
 
 @pytest.mark.parametrize(
     'extra, bundles_excluded',
     [([], False), (['--skip-bundles'], True), (['--excluded-paths', 'disable', '--skip-bundles'], False)],
 )
-def test_bundle_exclusions_follow_the_flags(monkeypatch, extra, bundles_excluded):
+def test_bundle_exclusions_follow_the_flags(extra, bundles_excluded):
     tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
-    config = tool.get_current_config()
-    monkeypatch.setattr(config, 'global_exclusion_paths', [])  # the singleton keeps what earlier tests added
     tool.parse_arguments()
+    config = tool.get_current_config()
 
     names = [path.rsplit('/', 1)[-1] for path in config.global_exclusion_paths]
     assert ('excluded_bundles.json' in names) is bundles_excluded
@@ -122,9 +139,8 @@ def test_bundle_exclusions_follow_the_flags(monkeypatch, extra, bundles_excluded
 def test_ci_mode_follows_the_flags_then_the_environment(monkeypatch, extra, detected, ci_mode):
     monkeypatch.setattr('deepsecrets.cli.is_ci_environment', lambda: detected)
     tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
-    config = tool.get_current_config()
-    monkeypatch.setattr(config, 'ci_mode', not ci_mode)  # the singleton keeps what earlier tests set
     tool.parse_arguments()
+    config = tool.get_current_config()
 
     assert config.ci_mode is ci_mode
 
@@ -132,20 +148,18 @@ def test_ci_mode_follows_the_flags_then_the_environment(monkeypatch, extra, dete
 @pytest.mark.parametrize(
     'extra, expected', [([], default_start_method()), (['--multiprocessing-context', 'spawn'], 'spawn')]
 )
-def test_multiprocessing_context_defaults_to_the_platform_start_method(monkeypatch, extra, expected):
+def test_multiprocessing_context_defaults_to_the_platform_start_method(extra, expected):
     tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
-    config = tool.get_current_config()
-    monkeypatch.setattr(config, 'mp_context', 'fork')
     tool.parse_arguments()
+    config = tool.get_current_config()
 
     assert config.mp_context == expected
 
 
 @pytest.mark.parametrize('extra, expected', [([], DEFAULT_DEEP_MAX_SIZE), (['--deep-max-size', '0'], 0)])
-def test_deep_max_size_flag(monkeypatch, extra, expected):
+def test_deep_max_size_flag(extra, expected):
     tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
-    config = tool.get_current_config()
-    monkeypatch.setattr(config, 'deep_max_size', -1)
     tool.parse_arguments()
+    config = tool.get_current_config()
 
     assert config.deep_max_size == expected

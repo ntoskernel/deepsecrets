@@ -13,7 +13,6 @@ from deepsecrets.config import (
     SCANNER_VERSION,
     SCANNER_VERSION_NUMERIC,
     Config,
-    config,
     Output,
 )
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
@@ -72,6 +71,8 @@ overall_time_column.progress_instance = progress_bar
 
 class DeepSecretsCliTool:
     argparser: argparse.ArgumentParser
+    # built by parse_arguments, one per parse
+    config: Config
 
     def __init__(self, args: List[str]):
         self.args = args
@@ -294,6 +295,8 @@ class DeepSecretsCliTool:
         self.argparser = parser
 
     def parse_arguments(self) -> None:
+        # a fresh config for every parse: nothing an earlier run set carries over (KI-CLI-12)
+        config = self.config = Config()
 
         user_args = self.argparser.parse_args(args=self.args[1:])
         if user_args.verbose:
@@ -303,7 +306,6 @@ class DeepSecretsCliTool:
         if user_args.disable_masking:
             config.set_disable_masking(True)
 
-        # set on every parse: the config singleton outlives one run
         config.set_report_diagnostics(user_args.report_diagnostics)
         config.set_confidence_level(user_args.confidence_level)
 
@@ -369,10 +371,10 @@ class DeepSecretsCliTool:
             config.add_ruleset(FalseFindingsBuilder, conf_false_findings_ruleset)
 
     def get_current_config(self) -> Config:
-        return config
+        return self.config
 
     def _add_ignorefiles(self, files: List[str]):
-        config.set_global_exclusion_paths(files)
+        self.config.set_global_exclusion_paths(files)
 
     def start(self) -> int:  # pragma: nocover
         startup_time = datetime.now()
@@ -381,6 +383,7 @@ class DeepSecretsCliTool:
         except Exception as e:
             logger.exception(e)
             return ReturnCodes.ERROR
+        config = self.config
 
         if config.output.type == 'json':
             console.print('\n')

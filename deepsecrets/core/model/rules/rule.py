@@ -20,8 +20,8 @@ class Rule(BaseModel):
     def fill_confidence_and_file_patterns(cls, values: Dict) -> Dict:
         file_patterns = values.get('applicable_file_patterns', [])
         if len(file_patterns) > 0:
-            pattеrns = [re.compile(p) for p in file_patterns]
-            values['applicable_file_patterns'] = pattеrns
+            patterns = [re.compile(p) for p in file_patterns]
+            values['applicable_file_patterns'] = patterns
 
         if values.get('confidence', None) is None and values.get('id') is not None:
             values['confidence'] = 10

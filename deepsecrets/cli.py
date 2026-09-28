@@ -6,7 +6,14 @@ from typing import Dict, List
 from jschema_to_python.to_json import to_json
 
 from deepsecrets import MODULE_NAME, console
-from deepsecrets.config import SCANNER_VERSION, SCANNER_VERSION_NUMERIC, Config, config, Output
+from deepsecrets.config import (
+    DEFAULT_DEEP_MAX_SIZE,
+    SCANNER_VERSION,
+    SCANNER_VERSION_NUMERIC,
+    Config,
+    config,
+    Output,
+)
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
@@ -154,6 +161,15 @@ class DeepSecretsCliTool:
         )
 
         parser.add_argument(
+            '--deep-max-size',
+            type=int,
+            default=DEFAULT_DEEP_MAX_SIZE,
+            help='Files larger than this many bytes get the fast analysis: the regex rules and the variable search,\n'
+            'without the language lexer, which costs most of the scan time on big files and rarely finds more there.\n'
+            f'Default: {DEFAULT_DEEP_MAX_SIZE}. 0 gives every file the full analysis.\n',
+        )
+
+        parser.add_argument(
             '--false-findings',
             nargs='*',
             type=str,
@@ -264,6 +280,7 @@ class DeepSecretsCliTool:
         config.set_workdir(user_args.target_dir)
         config.set_oneshot_path(user_args.oneshot)
         config.set_max_file_size(user_args.max_file_size)
+        config.set_deep_max_size(user_args.deep_max_size)
         config.set_process_count(user_args.process_count)
         config.set_mp_context(user_args.multiprocessing_context or default_start_method())
         config.set_ci_mode(is_ci_environment() if user_args.ci is None else user_args.ci)

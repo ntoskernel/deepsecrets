@@ -23,6 +23,8 @@ from deepsecrets.core.model.rules.hashed_secret import HashedSecretRule
 from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+from deepsecrets.core.tokenizers.lexer import LexerTokenizer
+from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.utils.fs import get_path_inside_package
 from deepsecrets.core.modes import iscan_mode
 from deepsecrets.core.utils.multiprocessing_setup import pool_context
@@ -142,11 +144,18 @@ def test_analyzer_bundle_carries_what_workers_read():
     try:
         bundle = mode.analyzer_bundle()
 
-        assert {f.name for f in fields(bundle)} == {'workdir', 'engines', 'rulesets', 'benchmarking_mode'}
+        assert {f.name for f in fields(bundle)} == {
+            'workdir',
+            'engines',
+            'rulesets',
+            'benchmarking_mode',
+            'deep_max_size',
+        }
         assert bundle.workdir == '/app/tests/fixtures/extless'
         assert bundle.engines == {'regex': True}
         assert list(bundle.rulesets) == ['regex']
         assert bundle.benchmarking_mode is False
+        assert bundle.deep_max_size == config.deep_max_size
         with pytest.raises(FrozenInstanceError):
             setattr(bundle, 'workdir', '/elsewhere')
         assert pickle.loads(pickle.dumps(bundle)) == bundle
@@ -474,3 +483,54 @@ def test_stop_forkserver_accounts_the_workers_and_never_hangs():
     assert out.stdout.split('\n')[-5:] == ['stopped True', 'reaped True', 'stopped False fast', 'exited True', '']
 
 
+@pytest.mark.parametrize('deep_max_size, lexed', [(0, True), (20_233, True), (20_232, False)])
+def test_size_tier_gives_files_over_deep_max_size_no_lexer(monkeypatch, deep_max_size, lexed):
+    # tests/fixtures/1.py is 20,233 bytes; the tier compares its size on disk with deep_max_size, inclusive
+    assert os.path.getsize('tests/fixtures/1.py') == 20_233
+    tokenized = []
+
+    class RecordingLexer(LexerTokenizer):
+        def tokenize(self, file, *args, **kwargs):
+            tokenized.append(file.path)
+            return super().tokenize(file, *args, **kwargs)
+
+    monkeypatch.setattr('deepsecrets.scan_modes.cli.LexerTokenizer', RecordingLexer)
+    scoring = VariableScoringRulesetBuilder().with_rules_from_file(
+        get_path_inside_package('rules/variable_scoring_rules.json')
+    )
+    bundle = AnalyzerBundle(
+        workdir='/app/tests/fixtures',
+        engines={'semantic': True},
+        rulesets={'variable_scoring': scoring.rules},
+        deep_max_size=deep_max_size,
+    )
+    result = CliScanMode._per_file_analyzer(bundle, '/app/tests/fixtures/1.py', 1, {})
+
+    assert result.status == 'ok'
+    assert result.depth == ('deep' if lexed else 'shallow')
+    assert bool(tokenized) is lexed
+
+
+def test_hashed_values_keep_the_lexer_on_a_shallow_file():
+    # hashed values are compared against lexer tokens: the tier must not cost --hashed-values its findings
+    builder = HashedSecretsRulesetBuilder().with_rules_from_file('tests/fixtures/hashed_secrets.json')
+    bundle = AnalyzerBundle(
+        workdir='/app/tests/fixtures', engines={'hashed': True}, rulesets={'hashed': builder.rules}, deep_max_size=1
+    )
+    result = CliScanMode._per_file_analyzer(bundle, '/app/tests/fixtures/1.py', 1, {})
+
+    assert result.depth == 'shallow'
+    assert [finding.detection for finding in result.findings] == [HASHED_SECRET]
+
+
+def test_run_records_each_files_depth():
+    config = _config('tests/fixtures/extless')
+    config.set_deep_max_size(100)  # json (87 bytes) and yaml (53) stay deep; ini (301) and radius (17,883) do not
+    config.set_ci_mode(True)
+    mode = CliScanMode(config=config, pool_engine=ThreadPool)
+    try:
+        _run_with_timeout(mode)
+        depths = {os.path.basename(path): outcome.depth for path, outcome in mode.files.items()}
+        assert depths == {'json': 'deep', 'yaml': 'deep', 'ini': 'shallow', 'radius': 'shallow'}
+    finally:
+        mode.dispose()

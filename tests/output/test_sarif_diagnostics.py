@@ -64,3 +64,19 @@ def test_error_list_is_per_file():
     assert get_error_list() == []
     # the returned list is a copy, not the live buffer
     assert errors == ['first file failed']
+
+
+def test_diagnostics_say_which_files_got_no_lexer(target, tmp_path):
+    run = scan(target, tmp_path / 'report.sarif', '--report-diagnostics', '--deep-max-size', '10')
+    artifacts = {a['location']['uri']: a for a in run['artifacts']}
+    assert artifacts['src/settings.py']['properties']['depth'] == 'shallow'
+    assert 'depth' not in artifacts['node_modules/pkg/index.js']['properties']  # skipped, never analysed
+    # the variable search still reads a small assignment without the lexer
+    assert [r['locations'][0]['physicalLocation']['artifactLocation']['uri'] for r in run['results']] == [
+        'src/settings.py'
+    ]
+
+    run = scan(target, tmp_path / 'report.sarif', '--report-diagnostics')
+    assert {a['location']['uri']: a for a in run['artifacts']}['src/settings.py']['properties']['depth'] == 'deep'
+
+

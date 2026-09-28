@@ -74,6 +74,8 @@ class FileOutcome:
     time_ms: float = 0.0
     collected: bool = False
     errors: List[str] = field(default_factory=list)
+    # 'deep' or 'shallow' once collected (the size tier, see config.deep_analysis)
+    depth: Optional[str] = None
 
     @property
     def time_seconds(self) -> int:
@@ -448,6 +450,7 @@ class ScanMode:
                 self._oneshot_file = analysis_result._file
                 outcome.collected = True
                 outcome.time_ms = analysis_result.processing_time_ms
+                outcome.depth = analysis_result.depth
                 outcome.errors = analysis_result.errors
                 # a file that logged an error is reported as failed even when the analysis returned
                 status = analysis_result.status

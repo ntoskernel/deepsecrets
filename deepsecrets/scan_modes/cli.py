@@ -9,6 +9,7 @@ from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.modes.iscan_mode import ScanMode
+from deepsecrets.config import deep_analysis
 from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
@@ -46,7 +47,12 @@ class CliScanMode(ScanMode):
             self.rulesets[builder.ruleset_name] = builder.rules
 
     def analyzer_bundle(self) -> AnalyzerBundle:
-        return replace(super().analyzer_bundle(), engines=self.engines_enabled, rulesets=self.rulesets)
+        return replace(
+            super().analyzer_bundle(),
+            engines=self.engines_enabled,
+            rulesets=self.rulesets,
+            deep_max_size=self.config.deep_max_size,
+        )
 
     @staticmethod
     def _per_file_analyzer(bundle: AnalyzerBundle, file: Any, task_id: Optional[int] = None, task_reporter: Optional[Any] = None) -> PerFileAnalysisResult:  # type: ignore
@@ -95,6 +101,13 @@ class CliScanMode(ScanMode):
         file_analyzer = FileAnalyzer(file)
         file_analyzer.attach_global_task_reporter(task_reporter=task_reporter, task_id=task_id)
 
+        # the size tier: the lexer only for files up to deep_max_size bytes
+        try:
+            deep = deep_analysis(os.path.getsize(file.path), bundle.deep_max_size)
+        except OSError:
+            deep = True
+        result.depth = 'deep' if deep else 'shallow'
+
         fct = FullContentTokenizer()
         cheap_var_search = CheapVarSearchTokenizer()
         lex = LexerTokenizer(deep_token_inspection=True)
@@ -114,13 +127,14 @@ class CliScanMode(ScanMode):
                 hashed_secret_engine = HashedSecretEngine(
                     ruleset=bundle.rulesets.get(HashedSecretsRulesetBuilder.ruleset_name, [])
                 )
+                # hashed values are compared against lexer tokens, so this engine keeps the lexer on every file
                 file_analyzer.add_engine(hashed_secret_engine, [lex])
 
             if eng == SemanticEngine.name:
                 semantic_engine = SemanticEngine(
                     regex_engine, ruleset=bundle.rulesets.get(VariableScoringRulesetBuilder.ruleset_name, [])
                 )
-                file_analyzer.add_engine(semantic_engine, [lex, cheap_var_search])
+                file_analyzer.add_engine(semantic_engine, [lex, cheap_var_search] if deep else [cheap_var_search])
 
         try:
             result.findings = file_analyzer.process()

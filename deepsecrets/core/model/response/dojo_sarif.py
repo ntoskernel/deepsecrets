@@ -197,6 +197,8 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
             properties = {'status': 'error' if outcome.status == 'scheduled' else outcome.status}
             if outcome.collected:
                 properties['scanTimeMs'] = outcome.time_ms
+                if outcome.depth:
+                    properties['depth'] = outcome.depth
             if outcome.skip_reason:
                 properties['skipReason'] = outcome.skip_reason
             try:

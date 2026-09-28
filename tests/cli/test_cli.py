@@ -1,6 +1,7 @@
 import pytest
 
 from deepsecrets.cli import DeepSecretsCliTool
+from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
@@ -122,3 +123,13 @@ def test_multiprocessing_context_defaults_to_the_platform_start_method(monkeypat
     tool.parse_arguments()
 
     assert config.mp_context == expected
+
+
+@pytest.mark.parametrize('extra, expected', [([], DEFAULT_DEEP_MAX_SIZE), (['--deep-max-size', '0'], 0)])
+def test_deep_max_size_flag(monkeypatch, extra, expected):
+    tool = DeepSecretsCliTool(args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif'] + extra)
+    config = tool.get_current_config()
+    monkeypatch.setattr(config, 'deep_max_size', -1)
+    tool.parse_arguments()
+
+    assert config.deep_max_size == expected

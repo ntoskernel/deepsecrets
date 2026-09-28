@@ -11,6 +11,17 @@ from deepsecrets.core.utils.multiprocessing_setup import default_start_method
 
 FALLBACK_PROCESS_COUNT = 4
 
+# files larger than this many bytes get the shallow analysis: the regex rules and the cheap variable search, no lexer.
+# On SecretBench the lexer found 12 of its 21 unique secrets in smaller files and the other 9 only in files of 1 MB
+# or more (minified JavaScript, one YAML file), while files over 250 KB took two thirds of its time.
+DEFAULT_DEEP_MAX_SIZE = 250_000
+
+
+def deep_analysis(size: int, deep_max_size: int) -> bool:
+    """Whether a file of `size` bytes gets the full analysis, lexer included. `deep_max_size` 0 or less: every file."""
+    return deep_max_size <= 0 or size <= deep_max_size
+
+
 SCANNER_NAME = "DeepSecrets"
 SCANNER_VERSION = "2.1.1"
 SCANNER_VERSION_NUMERIC = [int(subver) for subver in SCANNER_VERSION.split('.')]
@@ -29,6 +40,8 @@ class Config:
     workdir_path: str
     oneshot_path: str
     max_file_size: int = 0  # 0 means no limit
+    # files above this many bytes get no lexer (see deep_analysis above); 0 means every file gets it
+    deep_max_size: int = DEFAULT_DEEP_MAX_SIZE
     mp_context: str = default_start_method()
     engines: List[Type] = []
     rulesets: Dict[Type, List[str]] = {}
@@ -89,6 +102,9 @@ class Config:
 
     def set_max_file_size(self, size: int) -> None:
         self.max_file_size = size
+
+    def set_deep_max_size(self, size: int) -> None:
+        self.deep_max_size = size
 
     def set_mp_context(self, context: str) -> None:
         self.mp_context = context

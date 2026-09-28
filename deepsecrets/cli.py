@@ -1,9 +1,10 @@
 import argparse
 from datetime import datetime
-import json
+import os
 from argparse import RawTextHelpFormatter
 from typing import Dict, List
 from jschema_to_python.to_json import to_json
+from multiprocessing import get_all_start_methods
 
 from deepsecrets import MODULE_NAME, console
 from deepsecrets.config import (
@@ -11,7 +12,6 @@ from deepsecrets.config import (
     DEFAULT_CONFIDENCE_LEVEL,
     DEFAULT_DEEP_MAX_SIZE,
     SCANNER_VERSION,
-    SCANNER_VERSION_NUMERIC,
     Config,
     Output,
 )
@@ -19,7 +19,6 @@ from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.model.finding import Finding
-from deepsecrets.core.model.response.builtin import BuiltinFormatResponseBuilder
 from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
@@ -28,6 +27,7 @@ from deepsecrets.core.rulesets.regex_candidate_scoring import RegexCandidateScor
 from deepsecrets.core.rulesets.variable_scoring import VariableScoringRulesetBuilder
 from deepsecrets.core.ui.progress_bar import DSApplicationProgess
 from deepsecrets.core.ui.time_remaining_column import SyncedTimeRemainingColumn
+from deepsecrets.core.utils.exceptions import FileNotFoundException
 from deepsecrets.core.utils.fs import get_abspath, get_path_inside_package
 from deepsecrets.core.utils.log import logger
 from deepsecrets.scan_modes.cli import CliScanMode
@@ -81,9 +81,6 @@ class DeepSecretsCliTool:
     def say_hello(self) -> None:
         console.line(2)
         console.rule('DeepSecrets', characters='=')
-
-        from rich.panel import Panel
-
         console.print(
             Align(
                 Panel.fit(
@@ -140,7 +137,8 @@ class DeepSecretsCliTool:
             '--hashed-values',
             nargs='*',
             type=str,
-            help='Path to your Hashed Values set.\n' "Don't set any value to disable this checks\n",
+            help='Path to your Hashed Values set.\n'
+            'Leave the flag out, or give it no value, to disable these checks\n',
         )
 
         parser.add_argument(
@@ -180,8 +178,9 @@ class DeepSecretsCliTool:
         parser.add_argument(
             '--skip-bundles',
             action='store_true',
-            help='Add minified JavaScript, source maps and bundles (*.min.js, *.map, *.bundle.js) to the built-in\n'
-            'path exclusions. Most of them are larger than --deep-max-size and get the fast analysis anyway.\n',
+            help='Also skip minified JavaScript, source maps and bundles (*.min.js, *.map, *.bundle.js), whatever\n'
+            "--excluded-paths lists (except 'disable'). Most of them are larger than --deep-max-size and get the\n"
+            'fast analysis anyway.\n',
         )
 
         parser.add_argument(
@@ -250,7 +249,8 @@ class DeepSecretsCliTool:
             '--multiprocessing-context',
             type=str,
             default=None,
-            choices=['fork', 'spawn', 'forkserver'],
+            # the platform's own: fork and forkserver do not exist on Windows
+            choices=get_all_start_methods(),
             help='How worker processes start. Default: forkserver where available (Linux, macOS), spawn elsewhere.\n'
             'forkserver workers share the scanner already loaded in the server instead of loading it again.\n',
         )
@@ -272,7 +272,7 @@ class DeepSecretsCliTool:
             choices=['json', 'sarif', 'dojo-sarif'],
             help='"sarif": SARIF format (specification accurate, default)\n'
             '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n'
-            '"json": old internal format (deprecated and will be removed soon)',
+            '"json": the old internal format, removed in 2.2.0 (exits with an error)',
         )
 
         parser.add_argument(
@@ -286,7 +286,8 @@ class DeepSecretsCliTool:
             '--report-diagnostics',
             action='store_true',
             help='Add scan diagnostics to a SARIF report: every file found under the target directory in\n'
-            'run.artifacts (scan time in ms, status, skip reason) and per-file errors in run.invocations.\n',
+            'run.artifacts (scan time in ms, status, skip reason, analysis depth) and per-file errors in\n'
+            'run.invocations.\n',
         )
 
         parser.add_argument('--benchmarking-mode', help=argparse.SUPPRESS, action='store_true')
@@ -299,9 +300,6 @@ class DeepSecretsCliTool:
         config = self.config = Config()
 
         user_args = self.argparser.parse_args(args=self.args[1:])
-        if user_args.verbose:
-            pass
-            # config.set_logging_level(logging.DEBUG)
 
         if user_args.disable_masking:
             config.set_disable_masking(True)
@@ -323,6 +321,10 @@ class DeepSecretsCliTool:
         config.set_ci_mode(is_ci_environment() if user_args.ci is None else user_args.ci)
         config.set_verbose(user_args.verbose)
         config.output = Output(type=user_args.outformat, path=user_args.outfile)
+        # checked now, not when the report is written after the whole scan
+        report_dir = os.path.dirname(get_abspath(user_args.outfile))
+        if not os.path.isdir(report_dir):
+            raise FileNotFoundException(f'--outfile: the directory {report_dir} does not exist')
 
         if user_args.reflect_findings_in_return_code:
             config.return_code_if_findings = True
@@ -330,11 +332,9 @@ class DeepSecretsCliTool:
         EXCLUDE_PATHS_BUILTIN = get_path_inside_package('rules/excluded_paths.json')
         if user_args.excluded_paths is not None:
             rules = [rule.replace('built-in', EXCLUDE_PATHS_BUILTIN) for rule in user_args.excluded_paths]
-            if 'built-in' in user_args.excluded_paths and user_args.skip_bundles:
+            if user_args.skip_bundles and 'disable' not in user_args.excluded_paths:
                 rules.append(get_path_inside_package('rules/excluded_bundles.json'))
             config.set_global_exclusion_paths(rules)
-
-        config.engines = []
 
         REGEX_BUILTIN_RULESET = get_path_inside_package('rules/regexes.json')
         if user_args.regex_rules is not None:
@@ -362,7 +362,9 @@ class DeepSecretsCliTool:
                 config.add_ruleset(VariableScoringRulesetBuilder, rules)
 
         conf_hashed_ruleset = user_args.hashed_values
-        if conf_hashed_ruleset is not None and conf_hashed_ruleset != DISABLED:
+        # the flag without a value disables the check, as its help says; an empty ruleset would only keep the lexer on
+        # every file for nothing (the hashed engine lexes files over --deep-max-size too)
+        if conf_hashed_ruleset and conf_hashed_ruleset != DISABLED:
             config.engines.append(HashedSecretEngine)
             config.add_ruleset(HashedSecretsRulesetBuilder, conf_hashed_ruleset)
 
@@ -372,9 +374,6 @@ class DeepSecretsCliTool:
 
     def get_current_config(self) -> Config:
         return self.config
-
-    def _add_ignorefiles(self, files: List[str]):
-        self.config.set_global_exclusion_paths(files)
 
     def start(self) -> int:  # pragma: nocover
         startup_time = datetime.now()
@@ -386,50 +385,75 @@ class DeepSecretsCliTool:
         config = self.config
 
         if config.output.type == 'json':
-            console.print('\n')
-            if SCANNER_VERSION_NUMERIC[0] == 2 and SCANNER_VERSION_NUMERIC[1] < 2:
-                console.print(
-                    Align(
-                        Panel(
-                            "The internal JSON report format is now DEPRECATED and will be removed in release 2.2.0\n\nConsider switching now.",
-                            padding=(1, 2),
-                            title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
-                            highlight=True,
-                            subtitle=Text(' --outformat sarif ', style='reverse'),
-                            title_align='center',
-                            width=90,
-                            subtitle_align='center',
-                            box=box.HEAVY,
-                            style='black on orange_red1',
-                            expand=False,
-                        ),
-                        align='center',
-                    )
-                )
+            self._refuse_json_output()
+            return ReturnCodes.ERROR
 
-            else:
-                console.print(
-                    Align(
-                        Panel(
-                            f"The internal JSON report format was DEPRECATED since the release 2.2.0.\nNow ({SCANNER_VERSION}) it is REMOVED. Switch to SARIF\n.",
-                            padding=(1, 2),
-                            title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
-                            highlight=True,
-                            subtitle=Text(' --outformat sarif ', style='reverse'),
-                            title_align='center',
-                            width=90,
-                            subtitle_align='center',
-                            box=box.HEAVY,
-                            style='black on orange_red1',
-                            expand=False,
-                        ),
-                        align='center',
-                    )
-                )
-                return ReturnCodes.ERROR
+        self._print_plan()
 
-            console.print('\n\n')
+        try:
+            mode = CliScanMode(config=config)
+        except TempDirTooLongError as e:
+            console.print(f'[bold red][!] Cannot start worker processes: {e}.[/bold red]')
+            return ReturnCodes.ERROR
 
+        console.line()
+
+        if not config.ci_mode:
+            # run() starts it once the worker pool exists
+            mode.set_progress_bar(progress_bar)
+            mode.progress_bar.set_start_time(startup_time)
+
+        try:
+            findings, errors, timings = mode.run()
+        except WorkerStartupError as e:
+            if mode.progress_bar is not None:
+                mode.progress_bar.stop()
+            console.print(f'[bold red][!] Scan stopped: {e}. Every file it took would fail the same way.[/bold red]')
+            self._release(mode)
+            return ReturnCodes.ERROR
+
+        if mode.progress_bar is not None:
+            mode.progress_bar.stop()
+        report_path = get_abspath(config.output.path)
+        self._print_summary(mode, findings, errors, datetime.now() - startup_time, report_path)
+
+        if config._benchmarking_mode is True:
+            return findings, errors, timings, mode._oneshot_file
+
+        self._write_report(mode, findings, report_path)
+        self._say_goodbye(findings)
+        self._release(mode)
+
+        if len(findings) > 0 and config.return_code_if_findings:
+            return ReturnCodes.FINDINGS_DETECTED
+
+        return ReturnCodes.OK
+
+    @staticmethod
+    def _refuse_json_output() -> None:  # pragma: nocover
+        console.print('\n')
+        console.print(
+            Align(
+                Panel(
+                    'The internal JSON report format was deprecated in 2.1 and is removed in 2.2.0.\n'
+                    'Use --outformat sarif (the default) or dojo-sarif.',
+                    padding=(1, 2),
+                    title=Text('SARIF IS NOW DEFAULT OUTPUT FORMAT', style='reverse'),
+                    highlight=True,
+                    subtitle=Text(' --outformat sarif ', style='reverse'),
+                    title_align='center',
+                    width=90,
+                    subtitle_align='center',
+                    box=box.HEAVY,
+                    style='black on orange_red1',
+                    expand=False,
+                ),
+                align='center',
+            )
+        )
+
+    def _print_plan(self) -> None:  # pragma: nocover
+        config = self.config
         console.rule(
             f'Planning a scan against {config.workdir_path} using {config.process_count} process(es)', characters='='
         )
@@ -450,45 +474,9 @@ class DeepSecretsCliTool:
                 f'[bold yellow]:warning:[/bold yellow] The tool will return code of {ReturnCodes.FINDINGS_DETECTED} if any findings are detected\n'
             )
 
-        try:
-            mode = CliScanMode(config=config)
-        except TempDirTooLongError as e:
-            console.print(f'[bold red][!] Cannot start worker processes: {e}.[/bold red]')
-            return ReturnCodes.ERROR
-
-        console.line()
-
-        if not config.ci_mode:
-            # run() starts it once the worker pool exists
-            mode.set_progress_bar(progress_bar)
-            mode.progress_bar.set_start_time(startup_time)
-
-        findings: List[Finding]
-        errors: Dict[str, List[str]]
-        timings: Dict[str, int]
-
-        try:
-            findings, errors, timings = mode.run()
-        except WorkerStartupError as e:
-            if mode.progress_bar is not None:
-                mode.progress_bar.stop()
-            console.print(f'[bold red][!] Scan stopped: {e}. Every file it took would fail the same way.[/bold red]')
-            mode.dispose()
-            stop_forkserver()
-            return ReturnCodes.ERROR
-
-        '''
-        for finding in findings:
-            if finding._mapped_on_file is False:
-                continue
-            finding.file = None
-        '''
-
-        if mode.progress_bar is not None:
-            mode.progress_bar.stop()
-        finish_time = datetime.now()
-        report_path = get_abspath(config.output.path)
-
+    def _print_summary(
+        self, mode: CliScanMode, findings: List[Finding], errors: Dict[str, List[str]], elapsed, report_path: str
+    ) -> None:  # pragma: nocover
         console.line()
         console.print('[bold green]Scanning finished successfully', justify='center')
         console.line()
@@ -509,7 +497,7 @@ class DeepSecretsCliTool:
             Align('Processed Files (Tokens)', vertical='middle'),
             f'{str(len(mode.filepaths))} ({mode.stats.tokens_processed})',
         )
-        table.add_row(Align('Elapsed', vertical='middle'), f'{(finish_time-startup_time).total_seconds():.1f}s')
+        table.add_row(Align('Elapsed', vertical='middle'), f'{elapsed.total_seconds():.1f}s')
         errors_line_color = '[bold red]' if len(errors.keys()) > 0 else '[bold green]'
         table.add_row(
             Align(f'{errors_line_color}File Errors', vertical='middle'),
@@ -522,36 +510,24 @@ class DeepSecretsCliTool:
             Align(f'{findings_line_color}Potential Findings', vertical='middle'),
             f'{findings_line_color}{str(len(findings))}',
         )
-        table.add_row(Align(f'Report Location ({config.output.type})', vertical='middle'), report_path)
+        table.add_row(Align(f'Report Location ({self.config.output.type})', vertical='middle'), report_path)
         console.print(Align(table, align='center'))
 
-        if config._benchmarking_mode is True:
-            return findings, errors, timings, mode._oneshot_file
-
+    def _write_report(self, mode: CliScanMode, findings: List[Finding], report_path: str) -> None:
+        # sarif and dojo-sarif are the same document; built before the file is opened, so a failure leaves no
+        # truncated report behind
+        report = (
+            DojoSarifResponseBuilder()
+            .with_current_mode(mode)
+            .with_findings_list(findings)
+            .with_masking_enabled(not self.config.disable_masking)
+            .build()
+        )
         with open(report_path, 'w+') as f:
+            f.write(to_json(report))
 
-            if config.output.type == 'json':
-                json.dump(
-                    BuiltinFormatResponseBuilder()
-                    .with_current_mode(mode)
-                    .with_findings_list(findings)
-                    .with_masking_enabled(not config.disable_masking)
-                    .build(),
-                    f,
-                )
-
-            if config.output.type in ['sarif', 'dojo-sarif']:
-                f.write(
-                    to_json(
-                        DojoSarifResponseBuilder()
-                        .with_current_mode(mode)
-                        .with_findings_list(findings)
-                        .with_masking_enabled(not config.disable_masking)
-                        .build()
-                    )
-                )
-
-        if len(findings) > 0 and config.disable_masking:
+    def _say_goodbye(self, findings: List[Finding]) -> None:  # pragma: nocover
+        if len(findings) > 0 and self.config.disable_masking:
             console.print(
                 '[bold red]:warning: SECRETS MASKING WAS DISABLED, THE REPORT CONTAINS POTENTIAL SECRETS IN PLAINTEXT.\nBE CAREFUL!',
                 justify='center',
@@ -566,12 +542,10 @@ class DeepSecretsCliTool:
         console.line()
         console.print(Align('[bold green]FINISHED', align='center'))
         console.line(2)
+
+    @staticmethod
+    def _release(mode: CliScanMode) -> None:
         mode.dispose()
         # the pool and the manager are gone: wait for the forkserver, so whoever waits for this process sees the
         # workers' CPU time (KI-CLI-42)
         stop_forkserver()
-
-        if len(findings) > 0 and config.return_code_if_findings:
-            return ReturnCodes.FINDINGS_DETECTED
-
-        return ReturnCodes.OK

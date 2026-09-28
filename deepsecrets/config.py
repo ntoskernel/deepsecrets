@@ -28,8 +28,7 @@ def deep_analysis(size: int, deep_max_size: int) -> bool:
 
 
 SCANNER_NAME = "DeepSecrets"
-SCANNER_VERSION = "2.1.1"
-SCANNER_VERSION_NUMERIC = [int(subver) for subver in SCANNER_VERSION.split('.')]
+SCANNER_VERSION = "2.2.0"
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
 
 MAX_LINE_LENGTH_FOR_CONTEXT = 300
@@ -151,7 +150,9 @@ class Config:
                 raise FileNotFoundException(f'global_exclusion_path does not exist ({path})')
             self.global_exclusion_paths.append(path)
 
-        self.global_exclusion_paths = list(set(self.global_exclusion_paths))
+        # de-duplicated in order: the first file's patterns are matched first, so a skip reason names the same
+        # pattern on every run (a set's order changed with the hash seed)
+        self.global_exclusion_paths = list(dict.fromkeys(self.global_exclusion_paths))
 
     def add_ruleset(self, type: Type, paths: List[str] = []) -> None:
         self._validate_paths(paths)

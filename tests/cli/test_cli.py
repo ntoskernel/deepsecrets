@@ -1,10 +1,11 @@
 import pytest
 
-from deepsecrets.cli import DeepSecretsCliTool
+from deepsecrets.cli import DeepSecretsCliTool, ReturnCodes
 from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.rulesets.hashed_secrets import HashedSecretsRulesetBuilder
+from deepsecrets.core.utils.exceptions import FileNotFoundException
 from deepsecrets.core.utils.multiprocessing_setup import default_start_method
 
 
@@ -163,3 +164,46 @@ def test_deep_max_size_flag(extra, expected):
     config = tool.get_current_config()
 
     assert config.deep_max_size == expected
+
+
+def test_the_package_and_the_scanner_carry_the_same_version():
+    import tomllib
+
+    from deepsecrets.config import SCANNER_VERSION
+
+    with open('/app/pyproject.toml', 'rb') as f:
+        assert tomllib.load(f)['project']['version'] == SCANNER_VERSION
+
+
+def test_json_output_is_refused_before_the_scan(tmp_path):
+    report = tmp_path / 'report.json'
+    args = ['', '--target-dir', '/app/tests/fixtures/', '--outfile', str(report), '--outformat', 'json']
+    assert DeepSecretsCliTool(args=args).start() == ReturnCodes.ERROR
+    assert not report.exists()
+
+
+def test_hashed_values_without_a_value_disable_the_check():
+    # an empty ruleset would still keep the lexer on files over --deep-max-size, for nothing
+    tool = DeepSecretsCliTool(
+        args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif', '--hashed-values']
+    )
+    tool.parse_arguments()
+    assert HashedSecretEngine not in tool.get_current_config().engines
+
+
+def test_skip_bundles_applies_to_own_exclusion_files_too():
+    own = '/app/tests/fixtures/false_findings.json'
+    args = ['', '--target-dir', '/app/tests/fixtures/', '--outfile', '/tmp/x.sarif', '--excluded-paths', own, own]
+    tool = DeepSecretsCliTool(args=args + ['--skip-bundles'])
+    tool.parse_arguments()
+    # de-duplicated in order: the first file's patterns are matched first on every run
+    names = [path.rsplit('/', 1)[-1] for path in tool.get_current_config().global_exclusion_paths]
+    assert names == ['false_findings.json', 'excluded_bundles.json']
+
+
+def test_a_missing_report_directory_is_refused_before_the_scan(tmp_path):
+    tool = DeepSecretsCliTool(
+        args=['', '--target-dir', '/app/tests/fixtures/', '--outfile', str(tmp_path / 'no' / 'r.sarif')]
+    )
+    with pytest.raises(FileNotFoundException, match='does not exist'):
+        tool.parse_arguments()

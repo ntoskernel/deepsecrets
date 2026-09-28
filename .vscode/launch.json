@@ -110,7 +110,8 @@
                 "--outfile",
                 "./fdsafad.json",
                 "--outformat",
-                "json",
+                "sarif",
+                "--multiprocessing-context", "spawn",
                 "--process-count", "1",
                 "--max-file-size", "0",
                 "--disable-masking"

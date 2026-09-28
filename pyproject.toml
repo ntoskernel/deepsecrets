@@ -1,6 +1,6 @@
 [project]
 name = "deepsecrets"
-version = "2.1.1"
+version = "2.2.0"
 description = "A better tool for secrets scanning"
 license = { text = "MIT" }
 readme = "README.md"
@@ -15,7 +15,7 @@ maintainers = [
 
 keywords = ["security", "secrets", "credentials", "scanning", "appsec", "code", "search"]
 packages = [{include = "deepsecrets"}]
-requires-python = ">=3.10,<4.0.0"
+requires-python = ">=3.11,<4.0.0"
 
 classifiers = [
     "Programming Language :: Python :: 3",

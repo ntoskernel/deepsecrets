@@ -112,7 +112,7 @@ class CliScanMode(ScanMode):
         result.depth = 'deep' if deep else 'shallow'
 
         fct = FullContentTokenizer()
-        cheap_var_search = CheapVarSearchTokenizer()
+        cheap_var_search = CheapVarSearchTokenizer(lexed=deep)
         lex = LexerTokenizer(deep_token_inspection=True)
 
         # regex matches are candidates, judged as they are found (rules/regex_candidate_scoring_rules.json)

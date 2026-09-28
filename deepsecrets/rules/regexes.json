@@ -332,5 +332,240 @@
                 "type": "value"
             }
         }
+    },
+    {
+        "id": "S42",
+        "evidence": "shape",
+        "name": "SonarQube or SonarCloud token",
+        "confidence": 10,
+        "pattern": "((?:sonar[_.-]?(?:login|token))(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}((?:squ_|sqp_|sqa_)?[a-z0-9=_\\-]{40})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `sonar-api-token` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S43",
+        "evidence": "shape",
+        "name": "GitHub classic token under a GitHub name",
+        "confidence": 10,
+        "pattern": "((?:github[\\w.-]{0,20}?(?:token|pat|secret|key))(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-f0-9]{40})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "Forty hex characters assigned to a name such as GITHUB_TOKEN or GITHUB_OAUTH_KEY: the token format before the ghp_ prefixes. Written in the frame of gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S44",
+        "evidence": "shape",
+        "name": "Algolia API key",
+        "confidence": 10,
+        "pattern": "((?:algolia)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `algolia-api-key` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S45",
+        "evidence": "shape",
+        "name": "Algolia API key near its name",
+        "confidence": 10,
+        "pattern": "\\b(algolia\\w*(?:.|[\\n\\r]){0,32}?(?:secret|private|access|key|token|auth\\w*))(?:.|[\\n\\r]){0,32}?\\b([a-f0-9]{32})\\b",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format within a few characters of the provider's name and a secret word, as in a call argument; the frame of `bitly-access-token` from Betterleaks 1.8.1 (MIT)"
+    },
+    {
+        "id": "S46",
+        "evidence": "shape",
+        "name": "Flickr API key",
+        "confidence": 10,
+        "pattern": "((?:flickr)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `flickr-access-token` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S47",
+        "evidence": "shape",
+        "name": "Bitly access token",
+        "confidence": 10,
+        "pattern": "\\b(bitly\\w*(?:.|[\\n\\r]){0,32}?(?:secret|private|access|key|token|auth\\w*))(?:.|[\\n\\r]){0,32}?\\b([a-f0-9]{40})\\b",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format within a few characters of the provider's name and a secret word, as in a call argument; adapted from `bitly-access-token` of Betterleaks 1.8.1 (MIT)"
+    },
+    {
+        "id": "S48",
+        "evidence": "shape",
+        "name": "Okta API token",
+        "confidence": 10,
+        "pattern": "((?:okta)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}(00[\\w=\\-]{40})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `okta-access-token` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S49",
+        "evidence": "shape",
+        "name": "Snyk API token",
+        "confidence": 10,
+        "pattern": "((?:snyk[_.-]?(?:(?:api|oauth)[_.-]?)?(?:key|token))(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `snyk-api-token` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S50",
+        "evidence": "shape",
+        "name": "Telegram bot token under a Telegram name",
+        "confidence": 10,
+        "pattern": "((?:telegr)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([0-9]{5,16}:A[a-z0-9_\\-]{34})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `telegram-bot-api-token` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S51",
+        "evidence": "format",
+        "name": "Telegram bot token",
+        "confidence": 10,
+        "pattern": "\\b[0-9]{8,10}:AA[A-Za-z0-9_-]{33}\\b",
+        "case_sensitive": true,
+        "description": "A bot id, a colon, AA and 33 characters: the format proves the type"
+    },
+    {
+        "id": "S52",
+        "evidence": "format",
+        "name": "Slack webhook (workflows, triggers, without a scheme)",
+        "confidence": 10,
+        "pattern": "(?:https?://)?hooks\\.slack\\.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56}",
+        "description": "Widens S17 to the /workflows/ and /triggers/ URLs and to a URL without https://; `slack-webhook-url` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S53",
+        "evidence": "format",
+        "name": "Stripe secret or restricted key, any length",
+        "confidence": 10,
+        "pattern": "\\b(?:sk|rk)_(?:test|live|prod)_([a-zA-Z0-9]{10,99})\\b",
+        "case_sensitive": true,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        },
+        "description": "sk_ and rk_ keys of 10 to 99 characters and prod keys, where S36 needs 24 to 45; `stripe-access-token` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice). Its placeholders fall to the randomness rule"
+    },
+    {
+        "id": "S54",
+        "evidence": "shape",
+        "name": "Facebook app secret",
+        "confidence": 10,
+        "pattern": "((?:facebook)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-f0-9]{32})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `facebook-secret` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+    },
+    {
+        "id": "S55",
+        "evidence": "shape",
+        "name": "Dropbox app key",
+        "confidence": 10,
+        "pattern": "((?:dropbox)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-z0-9]{15})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `dropbox-api-token` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice). The app key is the client half of an app's credentials"
+    },
+    {
+        "id": "S56",
+        "evidence": "shape",
+        "name": "Amplitude API key",
+        "confidence": 10,
+        "pattern": "\\b(amplitude\\w*(?:.|[\\n\\r]){0,16}?(?:secret|private|access|key|token|auth\\w*))(?:.|[\\n\\r]){0,16}?\\b([a-f0-9]{32})\\b",
+        "target_group": 2,
+        "match_rules": {
+            "1": {
+                "type": "name"
+            },
+            "2": {
+                "type": "value"
+            }
+        },
+        "description": "A value in the provider's format within a few characters of the provider's name and a secret word, as in a call argument; adapted from `amplitude-secret-key` of Betterleaks 1.8.1 (MIT)"
     }
 ]

@@ -18,7 +18,7 @@ def test_1(file: File, regex_engine: RegexEngine):
         file=file,
     )
 
-    assert len(findings) == 13
+    assert len(findings) == 15
     assert findings[0].final_rule.id == 'S0'
     assert findings[1].final_rule.id == 'S0'
     assert findings[2].final_rule.id == 'S1'
@@ -32,6 +32,19 @@ def test_1(file: File, regex_engine: RegexEngine):
 
     assert findings[8].final_rule.id == 'S19'
     assert findings[8].detection == 'ridCNWnbTpavfVuJvWmS'
+
+    # S53 (any-length Stripe keys) matches the two placeholders S36's repeated-character pattern skips; unjudged here,
+    # they are rejected as far from random when the candidate rules judge them
+    assert [finding.final_rule.id for finding in findings[13:]] == ['S53', 'S53']
+    candidate_rules = (
+        RegexCandidateScoringRulesetBuilder()
+        .with_rules_from_file(get_path_inside_package('rules/regex_candidate_scoring_rules.json'))
+        .rules
+    )
+    judged = RegexEngine(ruleset=regex_engine.ruleset, candidate_rules=candidate_rules)
+    judged.rejected_log = []
+    regex_case(tokenizer=FullContentTokenizer(), engine=judged, file=file)
+    assert [entry['reason'] for entry in judged.rejected_log if entry['rule'] == 'S53'] == ['RC_NOT_RANDOM'] * 2
 
 
 @pytest.mark.fixture_file_path('extless/radius')
@@ -142,3 +155,51 @@ def test_s18_ignores_the_marker_and_placeholder_keys(regex_engine: RegexEngine):
         assert not [f for f in _scan(content, regex_engine) if 'S18' in {r.id for r in f.rules}]
 
 
+def _random(alphabet: str, length: int, seed: int) -> str:
+    import random
+
+    generator = random.Random(seed)
+    return ''.join(generator.choice(alphabet) for _ in range(length))
+
+
+HEX = '0123456789abcdef'
+ALNUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
+MIXED = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+PROVIDER_CASES = {
+    'S42': ('sonar.login={}', _random(ALNUM, 40, 1)),
+    'S43': ('GITHUB_OAUTH_KEY="{}"', _random(HEX, 40, 2)),
+    'S44': ("ALGOLIA_ADMIN_KEY: '{}'", _random(ALNUM, 32, 3)),
+    'S45': ("const algoliaSearchKey = client('APPID', '{}')", _random(HEX, 32, 4)),
+    'S46': ('flickr_api_key = "{}"', _random(ALNUM, 32, 5)),
+    'S47': ('bitly access token: {}', _random(HEX, 40, 6)),
+    'S48': ('okta.api-token={}', '00' + _random(MIXED, 40, 7)),
+    'S49': ('SNYK_TOKEN={}', '1f0c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b'),
+    'S50': ('TELEGRAM_TOKEN="{}"', '123456789:AA' + _random(MIXED, 33, 8)),
+    'S51': ('bot = Bot("{}")', '987654321:AA' + _random(MIXED, 33, 9)),
+    'S52': ('url: {}', 'hooks.slack.com/workflows/' + _random(MIXED, 46, 10)),
+    'S53': ('key = "{}"', 'sk_prod_' + _random(MIXED, 16, 11)),
+    'S54': ('facebook_app_secret = "{}"', _random(HEX, 32, 12)),
+    'S55': ('DROPBOX_APPKEY="{}"', _random(ALNUM, 15, 13)),
+    'S56': ('amplitude.init(key, "{}")', _random(HEX, 32, 14)),
+}
+
+
+@pytest.mark.parametrize('rule_id', PROVIDER_CASES)
+def test_provider_rules_find_their_tokens(regex_engine: RegexEngine, rule_id: str):
+    from deepsecrets.core.helpers.regex_candidate_evaluator import RegexCandidateEvaluator
+    from deepsecrets.core.model.regex_candidate import RegexCandidateContext
+
+    template, value = PROVIDER_CASES[rule_id]
+    line = template.format(value)
+    rule = next(rule for rule in regex_engine.ruleset if rule.id == rule_id)
+    [match] = rule.matches(line)
+    assert value.endswith(line[match.start : match.end]) or line[match.start : match.end] in value
+    candidate_rules = (
+        RegexCandidateScoringRulesetBuilder()
+        .with_rules_from_file(get_path_inside_package('rules/regex_candidate_scoring_rules.json'))
+        .rules
+    )
+    context = RegexCandidateContext.from_match(
+        rule, match.match, line[match.start : match.end], '/repo/src/settings.py'
+    )
+    assert not RegexCandidateEvaluator(candidate_rules).evaluate(context).rejected

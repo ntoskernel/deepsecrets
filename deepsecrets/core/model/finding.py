@@ -73,7 +73,8 @@ class Finding(BaseModel):
         return sha256(base.encode('utf-8')).hexdigest()
 
     def choose_final_rule(self) -> None:
-        self.final_rule = sorted(self.rules, key=lambda r: r.confidence, reverse=True)[0]
+        # highest confidence first; a tie goes to the earlier rule in its ruleset, then the id, never to set order
+        self.final_rule = min(self.rules, key=lambda r: (-r.confidence, r.rank, r.id))
 
     def __hash__(self) -> int:  # pragma: nocover
         if not self.file:

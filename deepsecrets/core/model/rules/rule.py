@@ -11,6 +11,9 @@ class Rule(BaseModel):
     enabled: bool = Field(default=True)
     confidence: int = Field(default=10)
     is_dynamic_confidence: bool = Field(default=False)
+    # breaks confidence ties when merged findings pick a final rule: a lower rank wins. Ruleset builders number rules
+    # in file order; rules made in code (S105, S106, S107) keep the default and lose ties to a typed rule
+    rank: int = Field(default=1_000_000)
     applicable_file_patterns: List[re.Pattern] = Field(default=[])
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

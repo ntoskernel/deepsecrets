@@ -21,6 +21,7 @@ class IRulesetBuilder:
             parsed_model: Rule = self.rule_model(**rule)
             if parsed_model.enabled is False:
                 continue
+            parsed_model.rank = len(self.rules)
             self.rules.append(parsed_model)
         return self
 

@@ -52,35 +52,19 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
 
     report: SarifLog
 
-    def _get_tier(self, confidence: int):
-        confidence_tiers = {
-            (9, float('inf')): {
-                'suffix': '-VERY-HIGH',
-                'precision': 'very-high',
-                'severity': '10.00',
-                'label': 'Very High',
-            },
-            (6, 9): {
-                'suffix': '-HIGH',
-                'precision': 'high',
-                'severity': '9.70',
-                'label': 'High',
-            },
-            (3, 6): {
-                'suffix': '-MEDIUM',
-                'precision': 'medium',
-                'severity': '9.40',
-                'label': 'Medium',
-            },
-            (float('-inf'), 3): {
-                'suffix': '-LOW',
-                'precision': 'low',
-                'severity': '9.10',
-                'label': 'Low',
-            },
-        }
+    # Severity is how bad a leak of the secret is, and it does not depend on how sure we are: every tier carries the
+    # same value, critical for GitHub (over 9.0), DefectDojo (9 or more) and GitLab alike. Confidence goes in the tier:
+    # the rule id suffix, GitHub's rule-level `precision`, and the result's `confidence` property.
+    SECURITY_SEVERITY = '10.00'
+    CONFIDENCE_TIERS = {
+        (9, float('inf')): {'suffix': '-VERY-HIGH', 'precision': 'very-high', 'label': 'Very High'},
+        (6, 9): {'suffix': '-HIGH', 'precision': 'high', 'label': 'High'},
+        (3, 6): {'suffix': '-MEDIUM', 'precision': 'medium', 'label': 'Medium'},
+        (float('-inf'), 3): {'suffix': '-LOW', 'precision': 'low', 'label': 'Low'},
+    }
 
-        for (start, end), value in confidence_tiers.items():
+    def _get_tier(self, confidence: int):
+        for (start, end), value in self.CONFIDENCE_TIERS.items():
             if start <= confidence < end:
                 return value
 
@@ -96,7 +80,7 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
             id=f'{base_rule_id}{suffix}',
             payload={
                 'shortDescription': {'text': f'{base_description} ({tier.get("label")} Confidence)'},
-                'properties': {'precision': tier.get("precision"), 'security-severity': tier.get("severity")},
+                'properties': {'precision': tier.get("precision"), 'security-severity': self.SECURITY_SEVERITY},
             },
         )
 

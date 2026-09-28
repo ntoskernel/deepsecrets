@@ -44,3 +44,23 @@ def test_1_finding(file: File, rule: Rule):
 
     assert new_finding.start_offset == TOKEN_SPAN[0] + FINDING_SPAN_INSIDE_TOKEN[0]
     assert new_finding.end_offset == TOKEN_SPAN[0] + FINDING_SPAN_INSIDE_TOKEN[1]
+
+
+def test_final_rule_tie_goes_to_the_earlier_rule_whatever_the_order():
+    # merged rules come out of a set, so their order depends on the hash seed (KI-DM-15)
+    typed = Rule(id='S18', confidence=10, rank=18)
+    generic = Rule(id='S26', confidence=10, rank=24)
+    semantic = Rule(id='S105', confidence=10)  # made in code: default rank, loses ties to ruleset rules
+    weaker = Rule(id='S0', confidence=9, rank=0)
+    for rules in ([typed, generic, semantic, weaker], [semantic, weaker, generic, typed], [generic, typed]):
+        finding = Finding(detection='x', start_offset=0, end_offset=1, rules=list(rules))
+        finding.choose_final_rule()
+        assert finding.final_rule.id == 'S18'
+
+
+def test_ruleset_builder_ranks_rules_in_file_order():
+    from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
+    from deepsecrets.core.utils.fs import get_path_inside_package
+
+    rules = RegexRulesetBuilder().with_rules_from_file(get_path_inside_package('rules/regexes.json')).rules
+    assert [r.rank for r in rules] == list(range(len(rules)))

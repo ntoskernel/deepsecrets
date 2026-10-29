@@ -189,6 +189,7 @@ PROVIDER_CASES = {
         _random(HEX, 32, 18),
     ),
     'S62': ("result = PastebinAPI().paste('{}', 'text')", _random(HEX, 32, 19)),
+    'S63': ("client = messagebird.Client('{}')", _random(MIXED, 25, 20)),
 }
 
 
@@ -229,6 +230,9 @@ PROVIDER_NEGATIVES = {
     ],
     'S62': [
         "result = PastebinAPI().paste(dev_key, 'text')",
+    ],
+    'S63': [
+        "client = messagebird.Client(os.environ['MESSAGEBIRD_ACCESS_KEY'])",
     ],
 }
 

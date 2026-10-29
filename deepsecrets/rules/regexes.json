@@ -658,5 +658,19 @@
             }
         },
         "description": "PastebinAPI().paste('<developer key>', ...), the first argument of the pastebin package's paste call. On SecretBench 2 matches, 2 real groups, 1 real unit the scanner did not find (2.3 design, R2)"
+    },
+    {
+        "id": "S63",
+        "evidence": "shape",
+        "name": "MessageBird access key in a client call",
+        "confidence": 10,
+        "pattern": "messagebird['\"]?\\)?(?:\\.client|client|::client\\.new)?\\s*\\(\\s*['\"]([A-Za-z0-9]{25})['\"]",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        },
+        "description": "A MessageBird client built with its access key: messagebird.Client('<key>'), require('messagebird')('<key>'), MessageBird::Client.new('<key>'), new MessageBirdClient(\"<key>\"). On SecretBench 2 matches, 2 real groups, 1 real unit the scanner did not find (2.3 design, R2)"
     }
 ]

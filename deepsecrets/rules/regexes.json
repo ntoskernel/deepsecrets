@@ -567,5 +567,19 @@
             }
         },
         "description": "A value in the provider's format within a few characters of the provider's name and a secret word, as in a call argument; adapted from `amplitude-secret-key` of Betterleaks 1.8.1 (MIT)"
+    },
+    {
+        "id": "S57",
+        "evidence": "format",
+        "name": "npm Access Token",
+        "description": "An npm registry token in an .npmrc line (//registry.npmjs.org/:_authToken=...): a legacy UUID token or an npm_ token. The frame belongs to .npmrc lines alone, so it needs no keyword",
+        "confidence": 10,
+        "pattern": ":_authToken=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|npm_[A-Za-z0-9]{36})\\b",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        }
     }
 ]

@@ -279,6 +279,14 @@ class VariableDetectionRules:
             },
             match_semantics={1: 'name_token', 2: 'value_token'},
         ),
+        # Dockerfile `ENV NAME value`, the space form: the instruction, then the name and the value as two texts to the
+        # end of the line. `ENV NAME=value` and `ARG NAME=value` are the ANY rule's
+        VariableDetector(
+            language=Language.DOCKER,
+            stream_pattern=re.compile('(u)(L)(L)(?:\n|$)'),
+            match_rules={1: Match(values=[re.compile('^ENV$', re.IGNORECASE)])},
+            match_semantics={2: 'name_token', 3: 'value_token'},
+        ),
     ]
 
     @classmethod

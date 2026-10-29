@@ -181,6 +181,7 @@ PROVIDER_CASES = {
     'S54': ('facebook_app_secret = "{}"', _random(HEX, 32, 12)),
     'S55': ('DROPBOX_APPKEY="{}"', _random(ALNUM, 15, 13)),
     'S56': ('amplitude.init(key, "{}")', _random(HEX, 32, 14)),
+    'S57': ('//registry.npmjs.org/:_authToken={}', 'npm_' + _random(MIXED, 36, 15)),
 }
 
 

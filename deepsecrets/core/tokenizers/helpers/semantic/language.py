@@ -22,6 +22,8 @@ class Language(MultiValueEnum):
     R = 'r'
     NIX = 'nix'
     RUBY = 'rb'
+    # Pygments' Docker lexer: its first file name pattern is Dockerfile, its aliases docker and dockerfile
+    DOCKER = 'Dockerfile', 'docker', 'dockerfile'
 
     ANY = 'any'
     UNKNOWN = 'unknown'

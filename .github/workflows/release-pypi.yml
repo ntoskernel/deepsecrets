@@ -1,0 +1,216 @@
+name: Release to PyPI
+
+# Admin only, by hand: builds and checks the release, runs the CI suite (run-tests.yml) on the same commit, uploads it
+# to PyPI by trusted publishing and then has release-docker.yml build the image from it. The upload job runs in the pypi
+# environment, which PyPI's trusted publisher is bound to and whose required reviewers live in the repository settings.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release; must equal the version in pyproject.toml
+        type: string
+        required: true
+      dry_run:
+        description: Build, check and test only, publish nothing
+        type: boolean
+        default: false
+      docker:
+        description: Registries to push the image to afterwards
+        type: choice
+        options: [ "both", "dockerhub", "ghcr", "none" ]
+        default: both
+      latest:
+        description: Also tag the image latest (turn this off when releasing an older line)
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      digests: ${{ steps.digests.outputs.digests }}
+    steps:
+      - name: Require an admin
+        # Here as well as in the publishing jobs, so a run nobody may publish from stops at once. $/ is the action at
+        # the commit being run: no checkout needed, and no earlier step can replace it
+        uses: $/.github/actions/require-admin
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Check the version
+        env:
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          release='^[0-9]+(\.[0-9]+)*((a|b|rc)[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?$'
+          if ! [[ $VERSION =~ $release ]]; then
+            echo "::error::The version must be a release version such as 2.2.0"
+            exit 1
+          fi
+          project=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if [ "$project" != "$VERSION" ]; then
+            echo "::error::pyproject.toml has version $project, not $VERSION: the wrong ref, or a version not bumped"
+            exit 1
+          fi
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 \
+            "https://pypi.org/pypi/deepsecrets/$VERSION/json") || true
+          case $status in
+            404) echo "deepsecrets $VERSION is not on PyPI yet" ;;
+            200)
+              if [ "$DRY_RUN" = true ]; then
+                echo "::warning::deepsecrets $VERSION is already on PyPI; a real run would fail at the upload"
+              else
+                echo "::error::deepsecrets $VERSION is already on PyPI"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Could not ask PyPI whether deepsecrets $VERSION exists (HTTP $status)"
+              exit 1
+              ;;
+          esac
+
+      - name: Build
+        run: |
+          python -m pip install build==1.6.1 twine==7.0.0
+          python -m build
+
+      - name: Check the files
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          python -m twine check --strict dist/*
+          # pyproject.toml excludes the diagnostics package from builds; the tracer must never ship
+          python - "dist/deepsecrets-$VERSION-py3-none-any.whl" <<'EOF'
+          import sys
+          import zipfile
+
+          names = zipfile.ZipFile(sys.argv[1]).namelist()
+          leaked = [name for name in names if name.startswith('deepsecrets/diagnostics/')]
+          if leaked:
+              print(f'::error::The wheel contains deepsecrets/diagnostics/: {", ".join(leaked)}')
+              sys.exit(1)
+          EOF
+
+      - name: Smoke-test the wheel
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          python -m venv "$RUNNER_TEMP/smoke"
+          "$RUNNER_TEMP/smoke/bin/pip" install --no-cache-dir "dist/deepsecrets-$VERSION-py3-none-any.whl"
+          # From outside the checkout, so nothing can import the source tree in place of the installed wheel
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/smoke/bin/deepsecrets" --target-dir "$GITHUB_WORKSPACE/tests/fixtures" \
+            --outfile "$RUNNER_TEMP/smoke.sarif" --outformat sarif
+          # The SARIF version comes from SCANNER_VERSION in deepsecrets/config.py. At least one result, never a count:
+          # the count depends on where the fixtures sit
+          python - "$RUNNER_TEMP/smoke.sarif" <<'EOF'
+          import json
+          import os
+          import sys
+
+          expected = os.environ['VERSION']
+          with open(sys.argv[1]) as report:
+              run = json.load(report)['runs'][0]
+          version = run['tool']['driver'].get('semanticVersion')
+          results = len(run.get('results') or [])
+          print(f'deepsecrets {version} found {results} secrets in tests/fixtures')
+          if version != expected:
+              print(f'::error::The scanner reports version {version}, not {expected}: was SCANNER_VERSION bumped?')
+              sys.exit(1)
+          if results < 1:
+              print('::error::The installed wheel found nothing in tests/fixtures')
+              sys.exit(1)
+          EOF
+
+      - name: Hash the files
+        id: digests
+        run: |
+          # Every file under dist/, in a fixed order; the publish job recomputes this with the same command
+          digests=$(cd dist && find . -type f -printf '%P\n' | LC_ALL=C sort | xargs -r -d '\n' sha256sum --)
+          echo "$digests"
+          {
+            echo "digests<<EOF"
+            echo "$digests"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  tests:
+    # The release's test gate: every Python the matrix covers must pass before anything is published
+    name: Tests
+    needs: build
+    permissions:
+      contents: read
+    uses: ./.github/workflows/run-tests.yml
+
+  publish:
+    name: Publish to PyPI
+    needs: [ build, tests ]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # trusted publishing, and signing the PEP 740 attestations
+    steps:
+      - name: Require an admin
+        uses: $/.github/actions/require-admin
+
+      - name: Download the build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - name: Check the files are the ones the build job hashed
+        # Any job of this run can write artifacts, so the upload is only what the build job produced: same files, same
+        # SHA-256, nothing extra
+        env:
+          DIGESTS: ${{ needs.build.outputs.digests }}
+        run: |
+          actual=$(cd dist && find . -type f -printf '%P\n' | LC_ALL=C sort | xargs -r -d '\n' sha256sum --)
+          if [ "$actual" != "$DIGESTS" ]; then
+            echo "::error::dist/ is not what the build job produced"
+            diff <(echo "$DIGESTS") <(echo "$actual") || true
+            exit 1
+          fi
+          echo "$actual"
+
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          attestations: true
+
+  docker:
+    name: Docker image
+    # After the upload the image installs from, so never in a dry run
+    needs: publish
+    if: ${{ inputs.docker != 'none' }}
+    permissions:
+      contents: read
+      packages: write # release-docker.yml pushes to GHCR with GITHUB_TOKEN
+    uses: ./.github/workflows/release-docker.yml
+    with:
+      version: ${{ inputs.version }}
+      latest: ${{ inputs.latest }}
+      registry: ${{ inputs.docker }}

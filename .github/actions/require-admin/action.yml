@@ -1,0 +1,41 @@
+name: Require an admin
+description: >-
+  Fails the job unless both github.actor and github.triggering_actor have the admin permission on the repository. A
+  re-run keeps the first and runs as the second, so both are checked. Any API failure denies.
+
+runs:
+  using: composite
+  steps:
+    - name: Check that both actors are repository admins
+      shell: bash
+      env:
+        # The collaborator permission endpoint needs only the metadata permission, which every GITHUB_TOKEN has
+        TOKEN: ${{ github.token }}
+        ACTOR: ${{ github.actor }}
+        TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        REPOSITORY: ${{ github.repository }}
+        API_URL: ${{ github.api_url }}
+      run: |
+        login='^[A-Za-z0-9-]+$'
+        for user in "$ACTOR" "$TRIGGERING_ACTOR"; do
+          # Logins are letters, digits and hyphens; anything else (a bot, an empty value) is denied without asking
+          if ! [[ $user =~ $login ]]; then
+            echo "::error::An actor of this run is not a user login; only repository admins may run this workflow"
+            exit 1
+          fi
+          if ! response=$(curl --fail --silent --show-error --max-time 30 \
+                --header "Authorization: Bearer $TOKEN" \
+                --header 'Accept: application/vnd.github+json' \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$API_URL/repos/$REPOSITORY/collaborators/$user/permission") ||
+              ! permission=$(python3 -c 'import json, sys; print(json.load(sys.stdin)["permission"])' <<< "$response")
+          then
+            echo "::error::Could not read the permission of $user on $REPOSITORY, so it is denied"
+            exit 1
+          fi
+          if [ "$permission" != admin ]; then
+            echo "::error::$user has $permission on $REPOSITORY, not admin; only admins may run this workflow"
+            exit 1
+          fi
+          echo "$user is an admin of $REPOSITORY"
+        done

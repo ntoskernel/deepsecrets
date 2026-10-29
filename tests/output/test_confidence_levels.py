@@ -46,6 +46,12 @@ def finding(rule_id, confidence, rejected=False, start=0):
         ('medium', ['medium', 'high', 'very-high']),
         ('high', ['high', 'very-high']),
         ('very-high', ['very-high']),
+        # --min-confidence N: any cut, and never the rejected candidates
+        (0, ['zero', 'low', 'four', 'medium', 'high', 'very-high']),
+        (3, ['four', 'medium', 'high', 'very-high']),
+        (4, ['four', 'medium', 'high', 'very-high']),
+        (7, ['very-high']),
+        (10, []),
     ],
 )
 def test_the_confidence_level_filters_the_report(level, expected):
@@ -60,7 +66,10 @@ def test_the_confidence_level_filters_the_report(level, expected):
         'very-high': finding('S105', 9, start=12),
     }
     config = Config()
-    config.set_confidence_level(level)
+    if isinstance(level, int):
+        config.set_min_confidence(level)
+    else:
+        config.set_confidence_level(level)
     kept = ScanMode.filter_by_confidence_level(SimpleNamespace(config=config), list(findings.values()))
     assert [name for name, f in findings.items() if f in kept] == expected
 
@@ -104,3 +113,42 @@ def test_the_flag_sets_the_level():
     tool = DeepSecretsCliTool(args=args[:-2])
     tool.parse_arguments()
     assert tool.get_current_config().confidence_level == 'low'
+
+
+def test_the_minimum_confidence_flag_sets_a_floor_of_its_own():
+    args = ['', '--target-dir', 'tests/fixtures', '--outfile', '/tmp/x.sarif', '--min-confidence', '7']
+    tool = DeepSecretsCliTool(args=args)
+    tool.parse_arguments()
+    config = tool.get_current_config()
+    # the level stays the default, so the workers do not report rejected candidates (report_rejected is level 'all')
+    assert (config.min_confidence, config.confidence_level) == (7, 'low')
+    tool = DeepSecretsCliTool(args=args[:-2])
+    tool.parse_arguments()
+    assert tool.get_current_config().min_confidence is None
+
+
+@pytest.mark.parametrize(
+    'extra',
+    [
+        ['--min-confidence', '5', '--confidence-level', 'high'],
+        ['--confidence-level', 'low', '--min-confidence', '0'],
+        ['--min-confidence', '11'],
+        ['--min-confidence', '-1'],
+        ['--min-confidence', 'high'],
+    ],
+    ids=['both flags', 'both flags, the other order', 'above 10', 'below 0', 'not a number'],
+)
+def test_a_minimum_confidence_is_0_to_10_and_excludes_a_level(extra, capsys):
+    tool = DeepSecretsCliTool(args=['', '--target-dir', 'tests/fixtures', '--outfile', '/tmp/x.sarif', *extra])
+    with pytest.raises(SystemExit) as exit:
+        tool.parse_arguments()
+    assert exit.value.code == 2
+    assert '--min-confidence' in capsys.readouterr().err
+
+
+def test_an_out_of_range_minimum_is_refused():
+    with pytest.raises(ValueError):
+        Config().set_min_confidence(11)
+    config = Config()
+    config.set_min_confidence(0)
+    assert config.min_confidence == 0

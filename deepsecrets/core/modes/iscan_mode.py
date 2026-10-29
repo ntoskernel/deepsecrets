@@ -590,8 +590,11 @@ class ScanMode:
 
     def filter_by_confidence_level(self, results: List[Finding]) -> List[Finding]:
         """--confidence-level: 'all' reports everything, rejected regex candidates included; the other levels drop those
-        and keep findings whose final rule has at least the level's confidence."""
-        minimum = CONFIDENCE_LEVELS.get(getattr(self.config, 'confidence_level', DEFAULT_CONFIDENCE_LEVEL))
+        and keep findings whose final rule has at least the level's confidence. --min-confidence gives that floor
+        itself, in place of the level's."""
+        minimum = getattr(self.config, 'min_confidence', None)
+        if minimum is None:
+            minimum = CONFIDENCE_LEVELS.get(getattr(self.config, 'confidence_level', DEFAULT_CONFIDENCE_LEVEL))
         if minimum is None:
             return results
 

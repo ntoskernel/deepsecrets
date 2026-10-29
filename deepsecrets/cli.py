@@ -9,6 +9,7 @@ from multiprocessing import get_all_start_methods
 from deepsecrets import MODULE_NAME, console
 from deepsecrets.config import (
     CONFIDENCE_LEVELS,
+    CONFIDENCE_RANGE,
     DEFAULT_CONFIDENCE_LEVEL,
     DEFAULT_DEEP_MAX_SIZE,
     SCANNER_VERSION,
@@ -43,7 +44,11 @@ from rich import box
 from rich.text import Text
 from rich.align import Align
 
-DISABLED = 'disabled'
+
+def with_built_in(paths: List[str], shipped: str) -> List[str]:
+    """A ruleset flag's paths, with 'built-in' standing for the file shipped at `shipped` inside the package."""
+    built_in = get_path_inside_package(shipped)
+    return [path.replace('built-in', built_in) for path in paths]
 
 
 class ReturnCodes:
@@ -199,7 +204,9 @@ class DeepSecretsCliTool:
             f'Default: {DEFAULT_DEEP_MAX_SIZE}. 0 gives every file the full analysis.\n',
         )
         floors = TIER_FLOORS
-        parser.add_argument(
+        # one cut or the other: a named level, or a number
+        cut = parser.add_mutually_exclusive_group()
+        cut.add_argument(
             '--confidence-level',
             type=str,
             default=DEFAULT_CONFIDENCE_LEVEL,
@@ -210,6 +217,17 @@ class DeepSecretsCliTool:
             'the findings of the SARIF tiers of the same names and above.\n'
             '"all" also reports the regex matches the scanner judged not to be secrets (placeholders, examples),\n'
             'at confidence 0 with an -INFO rule id.\n',
+        )
+        cut.add_argument(
+            '--min-confidence',
+            type=int,
+            default=None,
+            choices=CONFIDENCE_RANGE,
+            metavar='N',
+            help='Report findings of confidence N or more, '
+            f'N from {CONFIDENCE_RANGE[0]} to {CONFIDENCE_RANGE[-1]}: any cut, where --confidence-level\n'
+            'offers the floors of the tiers. Like every level but "all", it leaves out the regex matches the\n'
+            'scanner judged not to be secrets. Not together with --confidence-level.\n',
         )
         parser.add_argument(
             '--false-findings',
@@ -288,81 +306,67 @@ class DeepSecretsCliTool:
         self.argparser = parser
 
     def parse_arguments(self) -> None:
-        # a fresh config for every parse: nothing an earlier run set carries over (KI-CLI-12)
+        """Builds a fresh Config from the arguments, so nothing an earlier parse set carries over (KI-CLI-12). Paths
+        are checked here, before any scan starts."""
         config = self.config = Config()
+        args = self.argparser.parse_args(args=self.args[1:])
 
-        user_args = self.argparser.parse_args(args=self.args[1:])
-
-        if user_args.disable_masking:
-            config.set_disable_masking(True)
-
-        config.set_report_diagnostics(user_args.report_diagnostics)
-        config.set_confidence_level(user_args.confidence_level)
-
-        if user_args.benchmarking_mode:
-            config._set_benchmarking_mode(True)
+        config.set_disable_masking(args.disable_masking)
+        config.set_report_diagnostics(args.report_diagnostics)
+        config.set_confidence_level(args.confidence_level)
+        config.set_min_confidence(args.min_confidence)
+        config._set_benchmarking_mode(args.benchmarking_mode)
+        config.return_code_if_findings = args.reflect_findings_in_return_code
 
         self.say_hello()
 
-        config.set_workdir(user_args.target_dir)
-        config.set_oneshot_path(user_args.oneshot)
-        config.set_max_file_size(user_args.max_file_size)
-        config.set_deep_max_size(user_args.deep_max_size)
-        config.set_process_count(user_args.process_count)
-        config.set_mp_context(user_args.multiprocessing_context or default_start_method())
-        config.set_ci_mode(is_ci_environment() if user_args.ci is None else user_args.ci)
-        config.set_verbose(user_args.verbose)
-        config.output = Output(type=user_args.outformat, path=user_args.outfile)
+        config.set_workdir(args.target_dir)
+        config.set_oneshot_path(args.oneshot)
+        config.set_max_file_size(args.max_file_size)
+        config.set_deep_max_size(args.deep_max_size)
+        config.set_process_count(args.process_count)
+        config.set_mp_context(args.multiprocessing_context or default_start_method())
+        config.set_ci_mode(is_ci_environment() if args.ci is None else args.ci)
+        config.set_verbose(args.verbose)
+        config.output = Output(type=args.outformat, path=args.outfile)
         # checked now, not when the report is written after the whole scan
-        report_dir = os.path.dirname(get_abspath(user_args.outfile))
+        report_dir = os.path.dirname(get_abspath(args.outfile))
         if not os.path.isdir(report_dir):
             raise FileNotFoundException(f'--outfile: the directory {report_dir} does not exist')
 
-        if user_args.reflect_findings_in_return_code:
-            config.return_code_if_findings = True
+        self._add_engines_and_rulesets(config, args)
 
-        EXCLUDE_PATHS_BUILTIN = get_path_inside_package('rules/excluded_paths.json')
-        if user_args.excluded_paths is not None:
-            rules = [rule.replace('built-in', EXCLUDE_PATHS_BUILTIN) for rule in user_args.excluded_paths]
-            if user_args.skip_bundles and 'disable' not in user_args.excluded_paths:
-                rules.append(get_path_inside_package('rules/excluded_bundles.json'))
-            config.set_global_exclusion_paths(rules)
+    @staticmethod
+    def _add_engines_and_rulesets(config: Config, args: argparse.Namespace) -> None:
+        """The engines the flags turn on, and the rule files each ruleset reads."""
+        if args.excluded_paths is not None:
+            paths = with_built_in(args.excluded_paths, 'rules/excluded_paths.json')
+            if args.skip_bundles and 'disable' not in args.excluded_paths:
+                paths.append(get_path_inside_package('rules/excluded_bundles.json'))
+            config.set_global_exclusion_paths(paths)
 
-        REGEX_BUILTIN_RULESET = get_path_inside_package('rules/regexes.json')
-        if user_args.regex_rules is not None:
-            rules = [rule.replace('built-in', REGEX_BUILTIN_RULESET) for rule in user_args.regex_rules]
+        if args.regex_rules is not None:
             config.engines.append(RegexEngine)
-            config.add_ruleset(RegexRulesetBuilder, rules)
-
-            CANDIDATE_BUILTIN_RULESET = get_path_inside_package('rules/regex_candidate_scoring_rules.json')
-            if user_args.regex_candidate_scoring_rules is not None:
-                rules = [
-                    rule.replace('built-in', CANDIDATE_BUILTIN_RULESET)
-                    for rule in user_args.regex_candidate_scoring_rules
-                ]
+            config.add_ruleset(RegexRulesetBuilder, with_built_in(args.regex_rules, 'rules/regexes.json'))
+            if args.regex_candidate_scoring_rules is not None:
+                rules = with_built_in(args.regex_candidate_scoring_rules, 'rules/regex_candidate_scoring_rules.json')
                 config.add_ruleset(RegexCandidateScoringRulesetBuilder, rules)
 
-        conf_semantic_analysis = user_args.semantic_analysis
-        if conf_semantic_analysis is not None and conf_semantic_analysis != DISABLED:
+        # the help's 'disable' is not honoured: the engine is on whatever the flag lists (KI-CLI-02)
+        if args.semantic_analysis is not None:
             config.engines.append(SemanticEngine)
-
-            VARIABLE_SCORING_RULESET = get_path_inside_package('rules/variable_scoring_rules.json')
-            if user_args.variable_scoring_rules is not None:
-                rules = [
-                    rule.replace('built-in', VARIABLE_SCORING_RULESET) for rule in user_args.variable_scoring_rules
-                ]
+            if args.variable_scoring_rules is not None:
+                rules = with_built_in(args.variable_scoring_rules, 'rules/variable_scoring_rules.json')
                 config.add_ruleset(VariableScoringRulesetBuilder, rules)
 
-        conf_hashed_ruleset = user_args.hashed_values
         # the flag without a value disables the check, as its help says; an empty ruleset would only keep the lexer on
         # every file for nothing (the hashed engine lexes files over --deep-max-size too)
-        if conf_hashed_ruleset and conf_hashed_ruleset != DISABLED:
+        if args.hashed_values:
             config.engines.append(HashedSecretEngine)
-            config.add_ruleset(HashedSecretsRulesetBuilder, conf_hashed_ruleset)
+            config.add_ruleset(HashedSecretsRulesetBuilder, args.hashed_values)
 
-        conf_false_findings_ruleset = user_args.false_findings
-        if conf_false_findings_ruleset is not None:
-            config.add_ruleset(FalseFindingsBuilder, conf_false_findings_ruleset)
+        if args.false_findings is not None:
+            config.add_ruleset(FalseFindingsBuilder, args.false_findings)
 
     def get_current_config(self) -> Config:
         return self.config

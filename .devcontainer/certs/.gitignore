@@ -1,0 +1,4 @@
+# Root CAs the container trusts, never committed: initialize.sh copies the host's whole trust store here as
+# host-ca-bundle.pem before every build, and any other PEM file you put here (one certificate or a bundle) goes in too
+*
+!.gitignore

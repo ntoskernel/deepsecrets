@@ -60,6 +60,8 @@ pytest*
 /benchmarker/
 /tests/fixtures/problem_files/
 /*.json
+# the multi-root workspace .devcontainer/workspace.sh writes
+/*.code-workspace
 
 # Agent docs: a private repository that maintainers with access clone here (see AGENTS.md)
 /docs/private/

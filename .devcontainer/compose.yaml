@@ -1,0 +1,39 @@
+# The dev container's service. Every place but the repository is optional: .devcontainer/.env (see .env.example)
+# names the host directories, and an unset or empty variable gives a named volume with dsbench's fixed name instead,
+# so this container and dsbench's own share it and the container starts without any of them.
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      # `host` on an IPv6-only network, where Docker's default bridge has no route out
+      network: ${DSBENCH_NETWORK:-default}
+    network_mode: host #${DSBENCH_NETWORK:-bridge}
+    command: sleep infinity
+    environment:
+      # Claude Code keeps its login, settings, transcripts and .claude.json in this one directory, the host's own
+      CLAUDE_CONFIG_DIR: ${HOME}/.claude
+      DISABLE_AUTOUPDATER: "1"
+    # ide/ holds lock files with a pid and a port, meaningless across PID namespaces. The short form is what honours
+    # mode=1777: a `type: tmpfs` volume comes up root's with mode 700 and the user cannot write to it
+    tmpfs:
+      - ${HOME}/.claude/ide:mode=1777
+    volumes:
+      - ..:/app:cached
+      # at the host's own path, so absolute paths recorded inside hold on both sides
+      - ${HOME}/.claude:${HOME}/.claude
+      - ${DSBENCH_DATA_DIR:-dsbench-data}:/bench/data:ro
+      - ${DSBENCH_HOME_DIR:-dsbench-home}:/bench/home
+      - ${DSBENCH_REPO_DIR:-dsbench-repo}:/workspaces/dsbench
+      - dsbench-cache:/cache
+
+volumes:
+  dsbench-data:
+    name: dsbench-data
+  dsbench-home:
+    name: dsbench-home
+  dsbench-repo:
+    name: dsbench-repo
+  dsbench-cache:
+    name: dsbench-cache

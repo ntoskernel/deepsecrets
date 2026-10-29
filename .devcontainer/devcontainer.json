@@ -1,12 +1,42 @@
 {
 	"name": "DeepSecrets Devcontainer",
-	"build": {
-		"context": "..",
-		"dockerfile": "Dockerfile"
-	},
-	
-	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=delegated",
+
+	// The tests and tools assume the repository at /app
+	"dockerComposeFile": "compose.yaml",
+	"service": "dev",
 	"workspaceFolder": "/app",
+
+	// On the host, before every build and start: the ide/ mount source and the host's root CAs
+	"initializeCommand": "sh .devcontainer/initialize.sh",
+
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2.7.1": {
+			"username": "vscode",
+			"userUid": "automatic",
+			"userGid": "automatic",
+			"installZsh": false,
+			"installOhMyZsh": false,
+			"configureZshAsDefaultShell": false,
+			"upgradePackages": false
+		},
+		// Without it the claude-code feature installs Node 18 from NodeSource, and npm settles on the last CLI
+		// release that supports 18
+		"ghcr.io/devcontainers/features/node:2.1.1": {
+			"version": "22"
+		},
+		// The CLI, and the VS Code extension through the feature's own customizations
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+	},
+
+	// The user takes the host user's uid, and is also the container's own user, so `docker exec` is not root
+	"remoteUser": "vscode",
+	"containerUser": "vscode",
+	"updateRemoteUserUID": true,
+
+	"containerEnv": {
+		"NODE_OPTIONS": "--use-openssl-ca"
+	},
+
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -18,6 +48,6 @@
 			]
 		}
 	},
-	"postCreateCommand": "poetry install --no-root --with test,dev",
+	"postCreateCommand": "sh .devcontainer/post-create.sh",
 	"shutdownAction": "none"
 }

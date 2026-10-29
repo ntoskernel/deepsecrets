@@ -1,0 +1,19 @@
+{
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {
+      "version": "1.0.5",
+      "resolved": "ghcr.io/anthropics/devcontainer-features/claude-code@sha256:cfc2e7d3e9fd3b9b01f8d5cb158508a884c8c0ede2e23ed10f32dea5d4ffe69a",
+      "integrity": "sha256:cfc2e7d3e9fd3b9b01f8d5cb158508a884c8c0ede2e23ed10f32dea5d4ffe69a"
+    },
+    "ghcr.io/devcontainers/features/common-utils:2.7.1": {
+      "version": "2.7.1",
+      "resolved": "ghcr.io/devcontainers/features/common-utils@sha256:e76a6a8a35d1ad824daad1540725e0ec9f8ed2dc00d2850e990a9830013c7d08",
+      "integrity": "sha256:e76a6a8a35d1ad824daad1540725e0ec9f8ed2dc00d2850e990a9830013c7d08"
+    },
+    "ghcr.io/devcontainers/features/node:2.1.1": {
+      "version": "2.1.1",
+      "resolved": "ghcr.io/devcontainers/features/node@sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956",
+      "integrity": "sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956"
+    }
+  }
+}

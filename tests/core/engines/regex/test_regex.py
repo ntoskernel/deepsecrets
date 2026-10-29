@@ -183,6 +183,7 @@ PROVIDER_CASES = {
     'S56': ('amplitude.init(key, "{}")', _random(HEX, 32, 14)),
     'S57': ('//registry.npmjs.org/:_authToken={}', 'npm_' + _random(MIXED, 36, 15)),
     'S59': ("const client = algoliasearch('Q4XK2M7BTW', '{}');", _random(HEX, 32, 16)),
+    'S60': ('  provider :facebook, "5820193746281", "{}"', _random(HEX, 32, 17)),
 }
 
 
@@ -212,6 +213,10 @@ PROVIDER_NEGATIVES = {
     'S59': [
         "algoliasearch('Q4XK2M7BTW', 'YOUR_SEARCH_ONLY_API_KEY')",
         'algoliasearch(process.env.APP_ID, process.env.SEARCH_KEY)',
+    ],
+    'S60': [
+        'provider :facebook, ENV["FACEBOOK_KEY"], ENV["FACEBOOK_SECRET"]',
+        "provider :facebook, 'APP_ID', 'APP_SECRET'",
     ],
 }
 

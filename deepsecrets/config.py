@@ -74,6 +74,8 @@ class Config:
         self.confidence_level = DEFAULT_CONFIDENCE_LEVEL
         # --min-confidence: a floor of its own, in place of the level's
         self.min_confidence: Optional[int] = None
+        # --exclude-tags: findings that carry any of these are not reported (core/helpers/finding_tags.py)
+        self.excluded_tags: List[str] = []
         self.disable_masking = False
         self.report_diagnostics = False
         self.return_code_if_findings = False
@@ -113,6 +115,9 @@ class Config:
         if minimum is not None and minimum not in CONFIDENCE_RANGE:
             raise ValueError(f'a minimum confidence is {CONFIDENCE_RANGE[0]} to {CONFIDENCE_RANGE[-1]}')
         self.min_confidence = minimum
+
+    def set_excluded_tags(self, tags: Optional[Sequence[str]]) -> None:
+        self.excluded_tags = list(dict.fromkeys(tags or ()))
 
     def set_workdir(self, path: str) -> None:
         if not path_exists(path):

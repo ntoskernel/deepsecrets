@@ -41,6 +41,8 @@ class RegexCandidateContext(Context):
 
     rule: str = ''
     evidence: str = ''
+    # the text the rule reports: the value with what the rule matched around it (S36's value group leaves pk_live_ out)
+    match: str = ''
     user: str = ''
     host: str = ''
     kind: str = ''
@@ -88,6 +90,7 @@ class RegexCandidateContext(Context):
             filepath=filepath,
             rule=rule.id,
             evidence=rule.evidence.value if rule.evidence is not None else '',
+            match=reported or '',
             user=group(GroupType.USER),
             host=group(GroupType.HOST),
             kind=group(GroupType.KIND),

@@ -70,6 +70,7 @@ The `--help` command is always ready to guide you, but here are the key flags yo
 * `--skip-bundles`: Skip minified JavaScript, source maps and bundles (`*.min.js`, `*.map`, `*.bundle.js`) entirely, on top of the other path exclusions.
 * `--confidence-level {all,low,medium,high,very-high}`: The lowest confidence to report (default `low`, every finding). `medium`, `high` and `very-high` keep confidence 5, 6 and 9 or more, the findings of the SARIF tiers of the same names and above; `all` also reports the regex matches the scanner judged not to be secrets (placeholders, examples), with an `-INFO` rule id.
 * `--min-confidence N`: Report findings of confidence `N` or more, `N` from 0 to 10: any cut, where `--confidence-level` offers the floors of the tiers. Like every level but `all`, it leaves out the regex matches judged not to be secrets. Use one flag or the other, not both.
+* `--exclude-tags TAG [TAG ...]`: Leave out the findings that carry any of these tags. A tag says what sort of secret a finding is, where its confidence says how likely it is one: `weak-password` (a weak value under a password-like name), `publishable` (a key made to ship to clients: reCAPTCHA and other site keys, Stripe `pk_` keys, Mapbox `pk.` tokens) and `test-context` (a test, spec, fixture, mock, example or sample path, relative to the target directory). Every finding is still reported by default; e.g. `--exclude-tags test-context` when you hunt live secrets.
 * `--report-diagnostics`: Add every file found under the target to the SARIF report, with its status, scan time, skip reason and analysis depth.
 * `--regex-candidate-scoring-rules /path/to/rules.json`: Supply your own rules for judging regex matches before they are reported. Give the flag no value to report regex matches unjudged.
 * `--multiprocessing-context {forkserver,spawn,fork}`: How worker processes start. The default is `forkserver` where the platform has it (Linux, macOS): workers share the scanner already loaded in a server process. Windows uses `spawn`. All three give the same findings.
@@ -126,6 +127,8 @@ Every finding gets a confidence score. However, different security platforms par
 * **Virtual Subrules (`rules[]`)**: Dynamically generates rules by confidence tier, from `S105-LOW` (confidence 0 to 4) through `-MEDIUM` (5) and `-HIGH` (6 to 8) to `S105-VERY-HIGH` (9 and 10), and `-INFO` for the rejected matches `--confidence-level all` reports. This forces GitHub Security and DefectDojo to map semantic precision variance properly without breaking native parsers.
 
 * **Deterministic Result Level**: The tool always explicitly sets `level: error` in the `results[]` model. This acts as a universal fallback for CI/CD pipelines and older SAST parsers, ensuring that exposed secrets reliably break builds or block Pull Requests regardless of individual rule interpretations.
+
+* **Tags**: Each result carries its tags, if it has any, in SARIF's standard `properties.tags` array (`weak-password`, `publishable`, `test-context`). Rule ids, severity and fingerprints do not depend on them.
 
 * **Contextual Messages**: Injects the raw numeric confidence score natively into `result.message.text` so security analysts see it immediately on their dashboards.
 

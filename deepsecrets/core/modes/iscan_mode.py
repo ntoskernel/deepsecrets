@@ -16,8 +16,9 @@ import tempfile
 from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-from deepsecrets import PROFILER_ON, console
+from deepsecrets import console
 from deepsecrets.config import CONFIDENCE_LEVELS, DEFAULT_CONFIDENCE_LEVEL, Config
+from deepsecrets.core.helpers.finding_tags import tag_test_context
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
@@ -341,13 +342,22 @@ class ScanMode:
         )
 
     def run(self) -> Tuple[List[Finding], Dict[str, List[str]], Dict[str, int]]:
-        final: List[Finding] = []
-
+        """Analyses every file in a pool of workers, then merges, tags and filters what they found. Returns the
+        findings, and per file the errors and the time taken."""
         bundle = self.analyzer_bundle()
-        proc_count = self._get_process_count_for_runner()
-        if proc_count == 0:
-            return final, self.per_file_errors(), self.per_file_timings()
+        processes = self._get_process_count_for_runner()
+        if processes == 0:
+            return [], self.per_file_errors(), self.per_file_timings()
 
+        self._analyse_in_pool(bundle, processes)
+        found = self._collect_results()
+        # the summary's count, from the outcomes: the same in CI mode (which counts only jobs that raised while it
+        # runs) and with the live display (which counts what the workers report)
+        self.stats.failed_files = sum(1 for outcome in self.files.values() if outcome.status in ('error', 'unreadable'))
+        return self._merge_tag_and_filter(found), self.per_file_errors(), self.per_file_timings()
+
+    def _analyse_in_pool(self, bundle: AnalyzerBundle, processes: int) -> None:
+        """Submits one job per file and polls until every job has finished, failed or been lost."""
         overall_progress_task = None
         if self.progress_bar is not None:
             overall_progress_task = self.progress_bar.add_task(
@@ -360,118 +370,108 @@ class ScanMode:
         ci_mode = self.config.ci_mode
         self._last_plain_progress = time.monotonic()
 
-        if PROFILER_ON:
-            for file in self.filepaths:
-                final.extend(
-                    self._per_file_analyzer(
-                        file=file, bundle=bundle, task_id=0, task_reporter=self.task_reporter
-                    ).findings
-                )
-        else:
-            try:
-                # the bundle and the reporter proxy reach each worker once, not with every file; the bundle as a
-                # path, because in initargs it would make spawned workers start one at a time (KI-CLI-32)
-                with (
-                    tempfile.TemporaryDirectory(prefix='deepsecrets-') as staging,
-                    self.pool_engine(
-                        processes=proc_count,
-                        initializer=init_worker,
-                        initargs=(stage_bundle(bundle, staging), self.active_task_reporter, self._new_task_pids()),
-                    ) as pool,
-                ):
-                    # the live display starts after the pool has created its workers: under fork they are then forked
-                    # from a process without the display's refresh thread
-                    if self.progress_bar is not None:
-                        self.progress_bar.start()
-                    tid = 0
-                    for file in self.filepaths:
-                        tid += 1
-                        result = pool.apply_async(
-                            pool_wrapper,
-                            (self._per_file_analyzer, tid, file),
-                            callback=partial(self._on_job_done, tid) if ci_mode else None,
-                            error_callback=partial(self._on_job_error, tid),
-                        )
-                        self.file_results.append(result)
-                        self.file_jobs[tid] = FileJob(name=file, internal_id=tid, pb_task_id=None, result_holder=result)
-                    pool.close()
+        try:
+            # the bundle and the reporter proxy reach each worker once, not with every file; the bundle as a
+            # path, because in initargs it would make spawned workers start one at a time (KI-CLI-32)
+            with (
+                tempfile.TemporaryDirectory(prefix='deepsecrets-') as staging,
+                self.pool_engine(
+                    processes=processes,
+                    initializer=init_worker,
+                    initargs=(stage_bundle(bundle, staging), self.active_task_reporter, self._new_task_pids()),
+                ) as pool,
+            ):
+                # the live display starts after the pool has created its workers: under fork they are then forked
+                # from a process without the display's refresh thread
+                if self.progress_bar is not None:
+                    self.progress_bar.start()
+                for tid, file in enumerate(self.filepaths, start=1):
+                    result = pool.apply_async(
+                        pool_wrapper,
+                        (self._per_file_analyzer, tid, file),
+                        callback=partial(self._on_job_done, tid) if ci_mode else None,
+                        error_callback=partial(self._on_job_error, tid),
+                    )
+                    self.file_results.append(result)
+                    self.file_jobs[tid] = FileJob(name=file, internal_id=tid, pb_task_id=None, result_holder=result)
+                pool.close()
 
-                    self.stats.total_files = len(self.file_jobs.keys())
-                    while self.stats.finished < self.stats.total_files:
-                        # a worker that cannot load the bundle would fail every file it takes: stop, don't poll
-                        # for results that cannot come (KI-DM-30)
-                        if self.startup_error is not None:
-                            raise WorkerStartupError(self.startup_error)
-                        keep_bundle_staged(bundle, staging)
-                        self.refresh_jobs_progress_bars()
-                        self.reap_done_jobs()
-                        self.reap_lost_jobs(pool)
-                        self.reap_failed_jobs()
-                        self.refresh_overall_progress_bar(overall_progress_task)
-                        if ci_mode:
-                            self.report_plain_progress()
-                        time.sleep(0.1)
-                        # self.refresh_overall_debug_progress_bar(overall_debug)
-                    self.stop_progress_bar(overall_progress_task)
+                self.stats.total_files = len(self.file_jobs.keys())
+                while self.stats.finished < self.stats.total_files:
+                    # a worker that cannot load the bundle would fail every file it takes: stop, don't poll
+                    # for results that cannot come (KI-DM-30)
+                    if self.startup_error is not None:
+                        raise WorkerStartupError(self.startup_error)
+                    keep_bundle_staged(bundle, staging)
+                    self.refresh_jobs_progress_bars()
+                    self.reap_done_jobs()
+                    self.reap_lost_jobs(pool)
+                    self.reap_failed_jobs()
+                    self.refresh_overall_progress_bar(overall_progress_task)
                     if ci_mode:
-                        self.report_plain_progress(force=True)
-                    console.print('[*] Collecting results..')
-                    pool.join()
+                        self.report_plain_progress()
+                    time.sleep(0.1)
+                self.stop_progress_bar(overall_progress_task)
+                if ci_mode:
+                    self.report_plain_progress(force=True)
+                console.print('[*] Collecting results..')
+                pool.join()
 
-            except KeyboardInterrupt:
-                if getattr(self, 'progress_bar', None):
-                    self.stop_progress_bar(overall_progress_task)
+        except KeyboardInterrupt:
+            if getattr(self, 'progress_bar', None):
+                self.stop_progress_bar(overall_progress_task)
 
-                console.print(
-                    "\n[bold red][!] Scan abort request was received (Ctrl+C).\n    Intermediate results will NOT be saved.\n    Shutting down workers...[/bold red]"
-                )
+            console.print(
+                "\n[bold red][!] Scan abort request was received (Ctrl+C).\n    Intermediate results will NOT be saved.\n    Shutting down workers...[/bold red]"
+            )
 
-                if 'pool' in locals():
-                    pool.terminate()
-                    pool.join()
+            if 'pool' in locals():
+                pool.terminate()
+                pool.join()
 
-                if getattr(self, '_mp_manager', None):
-                    self._mp_manager.shutdown()
+            if getattr(self, '_mp_manager', None):
+                self._mp_manager.shutdown()
 
-                raise
+            raise
 
-            for job in self.file_jobs.values():
-                outcome = self.files.setdefault(job.name, FileOutcome(path=job.name))
-                try:
-                    analysis_result: PerFileAnalysisResult = job.result_holder.get(timeout=1000)
-                except Exception as e:
-                    # reported as a failed file, like a file that cannot be opened
-                    logger.error(f'Analysis of {job.name} failed: {type(e).__name__}: {e}')
-                    outcome.status = 'error'
-                    outcome.errors = [f'{type(e).__name__}: {e}']
-                    continue
+    def _collect_results(self) -> List[Finding]:
+        """Records each job's result in its file's outcome and returns the findings of all of them. A job that
+        raised fails its file, like a file that cannot be opened."""
+        found: List[Finding] = []
+        for job in self.file_jobs.values():
+            outcome = self.files.setdefault(job.name, FileOutcome(path=job.name))
+            try:
+                analysis_result: PerFileAnalysisResult = job.result_holder.get(timeout=1000)
+            except Exception as e:
+                logger.error(f'Analysis of {job.name} failed: {type(e).__name__}: {e}')
+                outcome.status = 'error'
+                outcome.errors = [f'{type(e).__name__}: {e}']
+                continue
 
-                self._oneshot_file = analysis_result._file
-                outcome.collected = True
-                outcome.time_ms = analysis_result.processing_time_ms
-                outcome.depth = analysis_result.depth
-                self.stats.tokens_processed += analysis_result.tokens_processed
-                outcome.errors = analysis_result.errors
-                # a file that logged an error is reported as failed even when the analysis returned
-                status = analysis_result.status
-                outcome.status = 'error' if status == 'ok' and analysis_result.errors else status
+            self._oneshot_file = analysis_result._file
+            outcome.collected = True
+            outcome.time_ms = analysis_result.processing_time_ms
+            outcome.depth = analysis_result.depth
+            self.stats.tokens_processed += analysis_result.tokens_processed
+            outcome.errors = analysis_result.errors
+            # a file that logged an error is reported as failed even when the analysis returned
+            status = analysis_result.status
+            outcome.status = 'error' if status == 'ok' and analysis_result.errors else status
+            found.extend(analysis_result.findings or [])
+        return found
 
-                if analysis_result.findings is None or len(analysis_result.findings) == 0:
-                    continue
-                final.extend(analysis_result.findings)
-
-        # the summary's count, from the outcomes: the same in CI mode (which counts only jobs that raised while it
-        # runs) and with the live display (which counts what the workers report)
-        self.stats.failed_files = sum(1 for outcome in self.files.values() if outcome.status in ('error', 'unreadable'))
-
+    def _merge_tag_and_filter(self, found: List[Finding]) -> List[Finding]:
+        """One finding per span, tagged test-context by its relative path, then the user's filters: the false-finding
+        patterns, the confidence level or minimum, the excluded tags."""
         console.line()
         console.print('[*] Merging similar findings..')
-        fin = FindingMerger(final).merge()
+        findings = FindingMerger(found).merge()
+        tag_test_context(findings)
 
         console.print('[*] Filtering predefined false Findings..')
-        fin = self.filter_false_positives(fin)
-        fin = self.filter_by_confidence_level(fin)
-        return fin, self.per_file_errors(), self.per_file_timings()
+        findings = self.filter_false_positives(findings)
+        findings = self.filter_by_confidence_level(findings)
+        return self.filter_by_tags(findings)
 
     def dispose(self):
         self.task_reporter = None
@@ -606,6 +606,13 @@ class ScanMode:
             if finding.final_rule.confidence >= minimum:
                 kept.append(finding)
         return kept
+
+    def filter_by_tags(self, results: List[Finding]) -> List[Finding]:
+        """--exclude-tags: drops the findings that carry any of the excluded tags."""
+        excluded = set(getattr(self.config, 'excluded_tags', None) or ())
+        if not excluded:
+            return results
+        return [finding for finding in results if excluded.isdisjoint(finding.tags)]
 
     def filter_false_positives(self, results: List[Finding]) -> List[Finding]:
         false_finding_rules = self.rulesets.get(FalseFindingsBuilder.ruleset_name)

@@ -23,6 +23,9 @@ class EvaluationResult:
     # a fired rule allows a value with no entropy score to be reported: people choose passwords, not API keys
     allows_low_entropy: bool = False
 
+    # the tags of the fired rules that carry one, in rule order
+    tags: List[str] = field(default_factory=list)
+
     # < 3: 0
     # 3-4: 0 -> 35
 
@@ -71,6 +74,7 @@ class VariableEvaluator:
         naming_and_content_score = 0
         matched_rules = []
         allows_low_entropy = False
+        tags: List[str] = []
 
         for index, rule in enumerate(self.rules):
             fired = self._fires(index, rule, context)
@@ -78,12 +82,15 @@ class VariableEvaluator:
                 naming_and_content_score += rule.score
                 matched_rules.append(rule.id)
                 allows_low_entropy = allows_low_entropy or rule.allows_low_entropy
+                if rule.tag is not None and rule.tag not in tags:
+                    tags.append(rule.tag)
 
             if naming_and_content_score <= HOPELESS_THRESHOLD:
                 return EvaluationResult(
                     total_score=naming_and_content_score,
                     is_dangerous=False,
                     matched_rules=matched_rules,
+                    tags=tags,
                 )
 
         entropy = EntropyHelper.get_for_string(context.value)
@@ -95,6 +102,7 @@ class VariableEvaluator:
                 entropy=entropy,
                 entropy_score=entropy_score,
                 matched_rules=matched_rules,
+                tags=tags,
             )
 
         nonsense_value_score = (
@@ -111,6 +119,7 @@ class VariableEvaluator:
             nonsence_value_score=nonsense_value_score,
             is_dangerous=naming_and_content_score > DANGER_THRESHOLD,
             allows_low_entropy=allows_low_entropy,
+            tags=tags,
         )
 
         result.export_confidence = self.confidence_from_evaluation_result(result)

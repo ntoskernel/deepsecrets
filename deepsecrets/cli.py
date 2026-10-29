@@ -20,6 +20,7 @@ from deepsecrets.config import (
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
+from deepsecrets.core.helpers.finding_tags import PUBLISHABLE, TAGS, TEST_CONTEXT, WEAK_PASSWORD
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
@@ -230,6 +231,18 @@ class DeepSecretsCliTool:
             'scanner judged not to be secrets. Not together with --confidence-level.\n',
         )
         parser.add_argument(
+            '--exclude-tags',
+            nargs='+',
+            choices=TAGS,
+            metavar='TAG',
+            help='Leave out the findings that carry any of these tags. A tag says what sort of secret a finding is:\n'
+            f'"{WEAK_PASSWORD}": a weak value under a password-like name (S106);\n'
+            f'"{PUBLISHABLE}": a key made to ship to clients (a site key, a Stripe pk_ key, a Mapbox pk. token);\n'
+            f'"{TEST_CONTEXT}": in a test, spec, fixture, mock, example or sample path, relative to --target-dir.\n'
+            'The SARIF report carries the tags of each result in its "tags" property.\n'
+            f'e.g. --exclude-tags {TEST_CONTEXT} {PUBLISHABLE}\n',
+        )
+        parser.add_argument(
             '--false-findings',
             nargs='*',
             type=str,
@@ -315,6 +328,7 @@ class DeepSecretsCliTool:
         config.set_report_diagnostics(args.report_diagnostics)
         config.set_confidence_level(args.confidence_level)
         config.set_min_confidence(args.min_confidence)
+        config.set_excluded_tags(args.exclude_tags)
         config._set_benchmarking_mode(args.benchmarking_mode)
         config.return_code_if_findings = args.reflect_findings_in_return_code
 

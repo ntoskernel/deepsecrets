@@ -189,5 +189,24 @@
         "pattern": "(passw|pwd|pass$|secret)",
         "score": 0,
         "allows_low_entropy": true
+    },
+    {
+        "id": "SEM_VAR_TAG_PUBLISHABLE",
+        "name": "Tag keys made to ship to clients",
+        "description": "Scores nothing: tags the variable's finding publishable when its name says the key is public by design (reCAPTCHA and other site keys, public keys, Stripe publishable keys, Gigya, Algolia search-only and DocSearch keys, Application Insights instrumentation keys). Not when the name also says secret or private",
+        "target": "NAME_NORMALIZED",
+        "pattern": "sitekey|publickey|pubkey|publishable|clientkey|recaptcha|captcha|gigya|searchkey|searchonly|docsearch|instrumentationkey",
+        "score": 0,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "secret|private"}],
+        "tag": "publishable"
+    },
+    {
+        "id": "SEM_VAR_TAG_PUBLISHABLE_VALUE",
+        "name": "Tag publishable keys by their value",
+        "description": "Scores nothing: tags the variable's finding publishable when its value is a Stripe publishable key (pk_test_, pk_live_) or a Mapbox public token (pk.ey...), whatever the name. The copy of RC_TAG_PUBLISHABLE for variables: a regex match covering a variable the semantic engine reports is not judged as a candidate, so only this rule can tag it",
+        "target": "VALUE",
+        "pattern": "^pk_(test|live)_|^pk\\.ey",
+        "score": 0,
+        "tag": "publishable"
     }
 ]

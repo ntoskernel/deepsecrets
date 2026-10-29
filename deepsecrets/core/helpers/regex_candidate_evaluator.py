@@ -25,6 +25,8 @@ class CandidateVerdict:
     fired: Dict[str, Optional[str]] = field(default_factory=dict)
     # for a rejected candidate: the fired rule that took the most points
     reason: Optional[str] = None
+    # the tags of the fired rules that carry one, in rule order
+    tags: List[str] = field(default_factory=list)
 
     def summary(self) -> dict:
         return {
@@ -33,6 +35,7 @@ class CandidateVerdict:
             'total': self.total,
             'fired': self.fired,
             'reason': self.reason,
+            'tags': list(self.tags),
         }
 
 
@@ -50,6 +53,7 @@ class RegexCandidateEvaluator:
         total = 0
         fired: Dict[str, Optional[str]] = {}
         contributions: List[tuple] = []
+        tags: List[str] = []
         for rule in self.rules:
             if not rule.fires(context):
                 continue
@@ -58,15 +62,17 @@ class RegexCandidateEvaluator:
             total += points
             fired[rule.id] = case.name if case is not None else None
             contributions.append((points, rule.id))
+            if rule.tag is not None and rule.tag not in tags:
+                tags.append(rule.tag)
 
         if total <= REJECT_AT:
             reason = min(contributions)[1] if contributions else None
-            return CandidateVerdict(rejected=True, confidence=0, total=total, fired=fired, reason=reason)
+            return CandidateVerdict(rejected=True, confidence=0, total=total, fired=fired, reason=reason, tags=tags)
         if context.evidence != Evidence.SHAPE.value:
-            return CandidateVerdict(rejected=False, confidence=None, total=total, fired=fired)
+            return CandidateVerdict(rejected=False, confidence=None, total=total, fired=fired, tags=tags)
         corroboration = min(max(CORROBORATION + total, 0), CORROBORATION)
         randomness = randomness_points(
             entropy_score(context.value_entropy), 1 - context.value_normalized_naturalness_score
         )
         confidence = round(min(corroboration + randomness, 10))
-        return CandidateVerdict(rejected=False, confidence=confidence, total=total, fired=fired)
+        return CandidateVerdict(rejected=False, confidence=confidence, total=total, fired=fired, tags=tags)

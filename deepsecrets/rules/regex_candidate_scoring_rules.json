@@ -184,5 +184,14 @@
         "target": "FILEPATH",
         "pattern": "(.*\\.min\\.js$|/test/|/tests/|/spec/|/mock/|_test\\.)",
         "score": -1
+    },
+    {
+        "id": "RC_TAG_PUBLISHABLE",
+        "name": "Tag keys made to ship to clients",
+        "description": "Scores nothing: tags the finding publishable when the match is a Stripe publishable key (pk_test_, pk_live_) or a Mapbox public token (pk.ey...). S36 still reports pk_ keys. It reads the match, not the value: S36's value group leaves the pk_live_ prefix out",
+        "target": "MATCH",
+        "pattern": "^pk_(test|live)_|^pk\\.ey",
+        "score": 0,
+        "tag": "publishable"
     }
 ]

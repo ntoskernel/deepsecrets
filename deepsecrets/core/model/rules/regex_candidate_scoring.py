@@ -14,6 +14,7 @@ class CandidateTarget(str, Enum):
     NAME_SPACED = 'NAME_SPACED'
     NAME_NORMALIZED = 'NAME_NORMALIZED'
     VALUE = 'VALUE'
+    MATCH = 'MATCH'  # the text the regex rule reports, prefixes its value group leaves out included (pk_live_...)
     VALUE_NORMALIZED = 'VALUE_NORMALIZED'
     VALUE_LENGTH = 'VALUE_LENGTH'
     VALUE_NORMALIZED_NATURALNESS_SCORE = 'VALUE_NORMALIZED_NATURALNESS_SCORE'
@@ -134,6 +135,9 @@ class RegexCandidateScoringRule(Rule, CandidateTest):
     when: List[CandidateCondition] = Field(default=[])
     score: int = 0
     cases: List[CandidateCase] = Field(default=[])
+    # when the rule fires, the candidate's finding carries this tag (core/helpers/finding_tags.py). A rule meant only to
+    # tag scores 0, so tagging never changes what is reported
+    tag: Optional[str] = None
 
     def fires(self, context: Any) -> bool:
         return all(condition.holds(context) for condition in self.when) and self.holds(context)

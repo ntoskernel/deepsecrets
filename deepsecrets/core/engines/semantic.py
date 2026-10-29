@@ -5,6 +5,7 @@ from deepsecrets.core.helpers.variable_evaluator import EvaluationResult, Variab
 from deepsecrets.core.utils.log import logger
 from deepsecrets.core.engines.iengine import IEngine
 from deepsecrets.core.helpers.content_analyzer import ContentAnalyzer
+from deepsecrets.core.helpers.finding_tags import WEAK_PASSWORD
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.rules.rule import Rule
 from deepsecrets.core.model.token import SemanticType, Token
@@ -73,7 +74,9 @@ class SemanticEngine(IEngine):
             result = self.variable_evaluator.evaluate(semantic.payload)
             rule = variable_rule(result)
             if rule is not None:
-                findings.append(whole_token_finding(token, rule, {'var': semantic.name} | result.summary()))
+                # the tags of the rules that fired; an S106 finding is a weak password too
+                tags = [*result.tags, WEAK_PASSWORD] if rule.id == 'S106' else result.tags
+                findings.append(whole_token_finding(token, rule, {'var': semantic.name} | result.summary(), tags))
         except Exception as e:
             logger.error(f'Problem during variable evaluation {e}')
         return findings
@@ -102,11 +105,14 @@ def variable_rule(result: EvaluationResult) -> Optional[Rule]:
     return None
 
 
-def whole_token_finding(token: Token, rule: Rule, internal_score: Optional[dict] = None) -> Finding:
+def whole_token_finding(
+    token: Token, rule: Rule, internal_score: Optional[dict] = None, tags: Optional[List[str]] = None
+) -> Finding:
     return Finding(
         detection=token.content,
         start_offset=0,
         end_offset=len(token.content),
         rules=[rule],
         internal_score=internal_score if internal_score is not None else {},
+        tags=list(dict.fromkeys(tags or [])),
     )

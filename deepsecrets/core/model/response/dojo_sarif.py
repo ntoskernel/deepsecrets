@@ -151,6 +151,10 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
             rules.append((finding.final_rule, finding.rejected))
             rule_meta = self._sarif_rule_meta_from_rule(finding.final_rule, finding.rejected)
             properties = {'confidence': finding.final_rule.confidence}
+            # SARIF's own property-bag array: what sort of finding it is. Rule ids, fingerprints and severity do not
+            # depend on it, and the rule descriptors carry no tags, since one rule id mixes tagged and untagged results
+            if finding.tags:
+                properties['tags'] = sorted(finding.tags)
             text = f'[Confidence {finding.final_rule.confidence}/10] Secret in code: {finding.final_rule.name}'
             if finding.rejected:
                 properties['rejected'] = True

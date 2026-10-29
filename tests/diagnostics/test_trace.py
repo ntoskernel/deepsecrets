@@ -206,3 +206,52 @@ def test_regex_candidate_rejected_by_its_evaluation(tmp_path):
     assert t['verdict']['stage'] == 'evaluation' and t['verdict']['component'] == 'regex_candidate_evaluator'
     assert t['verdict']['detail'] == 'S19: rejected at -8 points, mostly RC_NATURAL_LANGUAGE (shape)'
     assert t['candidate_evaluation'][0]['rejected'] is True
+
+
+def test_traces_record_the_tags(tmp_path):
+    # schema 6: the tags an evaluation gives a variable's finding, and those the reported finding carries, test-context
+    # (read from the relative path) included
+    path = tmp_path / 'settings.py'
+    path.write_text(f'password = "nacc6opq"\nrecaptcha_site_key = "6Lc{TOKEN}{TOKEN}"\napi_token = "{TOKEN}"\n')
+    spans = [
+        dict(
+            case_id=name,
+            line=line,
+            end_line=line,
+            start_col=len(name) + 5,
+            end_col=len(name) + 5 + len(value),
+            value=value,
+        )
+        for line, name, value in (
+            (1, 'password', 'nacc6opq'),
+            (2, 'recaptcha_site_key', f'6Lc{TOKEN}{TOKEN}'),
+            (3, 'api_token', TOKEN),
+        )
+    ]
+    traces = {t['case_id']: t for t in trace_file(str(path), 'tests/settings.py', spans)}
+    assert all(t['schema'] == 6 for t in traces.values())
+
+    password = traces['password']
+    assert password['evaluations'][0]['tags'] == ['weak-password']
+    assert password['production']['findings'][0]['tags'] == ['test-context', 'weak-password']
+    site_key = traces['recaptcha_site_key']
+    assert site_key['evaluations'][0]['tags'] == ['publishable']
+    assert site_key['production']['findings'][0]['tags'] == ['publishable', 'test-context']
+    token = traces['api_token']
+    assert token['evaluations'][0]['tags'] == []
+    assert token['production']['findings'][0]['tags'] == ['test-context']
+
+
+def test_a_rejected_candidate_records_its_tags(tmp_path):
+    path = tmp_path / 'settings.py'
+    # a Stripe publishable key holding an ascending run: rejected (RC_SEQUENCE), and still tagged
+    value = 'pk_live_abcdefgh7Rt2Yb9NcF4sHd6JgA1e'
+    path.write_text(f'# {value}\n')
+    [t] = trace_file(
+        str(path),
+        'src/settings.py',
+        [dict(case_id='k', line=1, end_line=1, start_col=3, end_col=3 + len(value), value=value)],
+    )
+    rejected = t['candidate_evaluation'][0]
+    assert rejected['rule'] == 'S36' and rejected['reason'] == 'RC_SEQUENCE'
+    assert rejected['tags'] == ['publishable']

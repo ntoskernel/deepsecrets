@@ -71,6 +71,9 @@ class VariableScoringRule(RegexRule):
     unless: List[ScoringCondition] = Field(default=[])
     # when the rule fires, a dangerous variable is reported even if its value earns no entropy score (S106)
     allows_low_entropy: bool = False
+    # when the rule fires, a reported finding of the variable carries this tag (core/helpers/finding_tags.py). A rule
+    # meant only to tag scores 0, so tagging never changes what is reported
+    tag: Optional[str] = None
 
     def _is_threshold_type(self):
         return self.threshold is not None and self.method is not None

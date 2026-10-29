@@ -174,7 +174,7 @@ PROVIDER_CASES = {
     'S47': ('bitly access token: {}', _random(HEX, 40, 6)),
     'S48': ('okta.api-token={}', '00' + _random(MIXED, 40, 7)),
     'S49': ('SNYK_TOKEN={}', '1f0c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b'),
-    'S50': ('TELEGRAM_TOKEN="{}"', '123456789:AA' + _random(MIXED, 33, 8)),
+    'S50': ('TELEGRAM_TOKEN="{}"', '583920174:AA' + _random(MIXED, 33, 8)),
     'S51': ('bot = Bot("{}")', '987654321:AA' + _random(MIXED, 33, 9)),
     'S52': ('url: {}', 'hooks.slack.com/workflows/' + _random(MIXED, 46, 10)),
     'S53': ('key = "{}"', 'sk_prod_' + _random(MIXED, 16, 11)),

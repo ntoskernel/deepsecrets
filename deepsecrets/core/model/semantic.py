@@ -39,7 +39,7 @@ class Context:
     value_spaced: str = field(default_factory=str, repr=False)
     value_length: int = field(default_factory=int, repr=False)
     value_normalized_naturalness_score: float = field(default_factory=float, repr=False)
-    # flags of what the value's shape says it holds: 'file_name', 'version' (core/helpers/value_shape.py)
+    # flags of what the value's shape says it holds: 'file_name', 'version', 'sequence' (core/helpers/value_shape.py)
     value_shape: str = field(default_factory=str, repr=False)
 
     def __post_init__(self):

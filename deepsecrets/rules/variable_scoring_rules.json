@@ -63,6 +63,15 @@
         "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
     },
     {
+        "id": "SEM_VAR_SEQUENCE_VALUES",
+        "name": "Ignore variable values that hold an ascending run",
+        "description": "123456, abcdef, ABCDEF: 6 or more characters each one code point above the previous, all digits or all letters of one case. Such a run has the highest entropy its length allows, so the entropy score cannot see it. Not under a password name: 123456 there is a weak password, S106's business",
+        "pattern": "\\bsequence\\b",
+        "target": "VALUE_SHAPE",
+        "score": -100,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
+    },
+    {
         "id": "SEM_VAR_FILE_PATHS",
         "enabled": true,
         "description": "Slightly reduce score for test/mock/minified files",

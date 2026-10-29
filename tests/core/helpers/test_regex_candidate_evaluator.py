@@ -305,8 +305,31 @@ def test_a_wif_key_needs_its_checksum(candidate_rules, rules):
 def test_a_placeholder_token_is_far_from_random(candidate_rules, rules):
     _, verdict = judge(candidate_rules, rules['S0'], 'token = "xoxb-XXXXXXXXXX-XXXXXXXXXX-XXXXXXXXXXXX"')
     assert verdict.rejected and verdict.reason == 'RC_NOT_RANDOM'
-    _, kept = judge(candidate_rules, rules['S0'], 'token = "xoxb-123456789012-123456789012-Zk3pQ9rT2mX7vB1nW4yL8hJd"')
+    _, kept = judge(candidate_rules, rules['S0'], 'token = "xoxb-284716395021-509318274660-Zk3pQ9rT2mX7vB1nW4yL8hJd"')
     assert not kept.rejected
+
+
+@pytest.mark.parametrize(
+    'rule, text',
+    [
+        ('S0', 'token = "xoxb-123456789012-123456789012-Zk3pQ9rT2mX7vB1nW4yL8hJd"'),
+        ('S36', "k = 'sk_live_abcdefgh7Rt2Yb9NcF4sHd6JgA1e'"),
+        ('S19', 'db = "postgres://app:Tq7X123456bR2m@db.billing-prod.net/x"'),
+    ],
+    ids=['format, digits', 'format, letters', 'shape'],
+)
+def test_an_ascending_run_is_rejected(candidate_rules, rules, rule, text):
+    # a run has the highest entropy its length allows: RC_NOT_RANDOM cannot see it, the value's shape can
+    context, verdict = judge(candidate_rules, rules[rule], text)
+    assert 'sequence' in context.value_shape.split()
+    assert verdict.rejected and verdict.reason == 'RC_SEQUENCE'
+
+
+def test_an_ascending_run_is_reported_only_at_all(candidate_rules, rules):
+    text = 'token = "xoxb-123456789012-123456789012-Zk3pQ9rT2mX7vB1nW4yL8hJd"'
+    assert scan(RegexEngine(ruleset=[rules['S0']], candidate_rules=candidate_rules), text) == []
+    (finding,) = scan(RegexEngine(ruleset=[rules['S0']], candidate_rules=candidate_rules, report_rejected=True), text)
+    assert finding.rejected and finding.internal_score['candidate']['reason'] == 'RC_SEQUENCE'
 
 
 def test_a_comparison_on_a_text_field_is_refused_when_the_rules_load():

@@ -21,6 +21,7 @@ class CandidateTarget(str, Enum):
     VALUE_RANDOMNESS = 'VALUE_RANDOMNESS'  # entropy over a random string's of the same length and alphabet: ~1 random
     VALUE_FOREIGN_SHARE = 'VALUE_FOREIGN_SHARE'  # share of the value outside its declared encoding's alphabet
     VALUE_CHECKSUM = 'VALUE_CHECKSUM'  # valid, invalid, or none (no checksummed encoding declared)
+    VALUE_SHAPE = 'VALUE_SHAPE'  # 'file_name version sequence' flags, as for variables (core/helpers/value_shape.py)
     FILEPATH = 'FILEPATH'
     USER = 'USER'
     HOST = 'HOST'

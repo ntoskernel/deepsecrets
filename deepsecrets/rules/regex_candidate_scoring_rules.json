@@ -33,6 +33,14 @@
         "score": -100
     },
     {
+        "id": "RC_SEQUENCE",
+        "name": "A value that holds an ascending run",
+        "description": "6 or more characters each one code point above the previous, all digits or all letters of one case (xoxb-123456789012-..., sk_live_abcdef...): a placeholder or a made-up value. Such a run has the highest entropy its length allows, so RC_NOT_RANDOM cannot see it",
+        "target": "VALUE_SHAPE",
+        "pattern": "\\bsequence\\b",
+        "score": -100
+    },
+    {
         "id": "RC_NOT_RANDOM",
         "name": "Far from random",
         "description": "The value has under 75% of the entropy a random string of its length and alphabet is expected to have: a placeholder, a repeated character, a run of digits (xoxb-XXXXXXXX-..., AKIAAAAAAAAAAAAAAAAA)",

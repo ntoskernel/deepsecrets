@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from deepsecrets.cli import DeepSecretsCliTool
-from deepsecrets.config import Config
+from deepsecrets.config import CONFIDENCE_LEVELS, TIER_FLOORS, Config
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.model.rules.rule import Rule
@@ -41,26 +41,54 @@ def finding(rule_id, confidence, rejected=False, start=0):
 @pytest.mark.parametrize(
     'level, expected',
     [
-        ('all', ['rejected', 'zero', 'low', 'medium', 'high', 'very-high']),
-        ('low', ['zero', 'low', 'medium', 'high', 'very-high']),
+        ('all', ['rejected', 'zero', 'low', 'four', 'medium', 'high', 'very-high']),
+        ('low', ['zero', 'low', 'four', 'medium', 'high', 'very-high']),
         ('medium', ['medium', 'high', 'very-high']),
         ('high', ['high', 'very-high']),
         ('very-high', ['very-high']),
     ],
 )
 def test_the_confidence_level_filters_the_report(level, expected):
+    # 2.3: MEDIUM starts at 5, so 4 is LOW
     findings = {
         'rejected': finding('S19', 0, rejected=True, start=0),
         'zero': finding('S106', 0, start=2),
         'low': finding('S105', 2, start=4),
-        'medium': finding('S105', 3, start=6),
-        'high': finding('S105', 6, start=8),
-        'very-high': finding('S105', 9, start=10),
+        'four': finding('S105', 4, start=6),
+        'medium': finding('S105', 5, start=8),
+        'high': finding('S105', 6, start=10),
+        'very-high': finding('S105', 9, start=12),
     }
     config = Config()
     config.set_confidence_level(level)
     kept = ScanMode.filter_by_confidence_level(SimpleNamespace(config=config), list(findings.values()))
     assert [name for name, f in findings.items() if f in kept] == expected
+
+
+def test_the_tiers_are_low_0_to_4_medium_5_high_6_to_8_and_very_high_9_and_10():
+    tiers = [meta(Rule(id='S105', confidence=c, is_dynamic_confidence=True)).id for c in range(11)]
+    assert tiers == ['S105-LOW'] * 5 + ['S105-MEDIUM'] + ['S105-HIGH'] * 3 + ['S105-VERY-HIGH'] * 2
+
+
+@pytest.mark.parametrize('confidence', range(11))
+def test_the_sarif_tier_is_the_highest_level_whose_floor_the_confidence_reaches(confidence):
+    # one table: the level filter and the rule-id suffix cannot disagree
+    level = max((name for name, floor in TIER_FLOORS.items() if confidence >= floor), key=TIER_FLOORS.get)
+    rule_meta = meta(Rule(id='S105', confidence=confidence, is_dynamic_confidence=True))
+    assert rule_meta.id == f'S105-{level.upper()}'
+    assert rule_meta.payload['properties']['precision'] == level
+    # and that level is the highest whose filter keeps the finding
+    kept_at = []
+    for name in TIER_FLOORS:
+        config = Config()
+        config.set_confidence_level(name)
+        if ScanMode.filter_by_confidence_level(SimpleNamespace(config=config), [finding('S105', confidence)]):
+            kept_at.append(name)
+    assert kept_at[-1] == level
+
+
+def test_the_levels_are_the_tiers_and_all():
+    assert CONFIDENCE_LEVELS == {'all': None, 'low': 0, 'medium': 5, 'high': 6, 'very-high': 9}
 
 
 def test_an_unknown_level_is_refused():

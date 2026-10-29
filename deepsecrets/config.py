@@ -11,9 +11,14 @@ from deepsecrets.core.utils.multiprocessing_setup import default_start_method
 
 FALLBACK_PROCESS_COUNT = 4
 
+# The confidence tiers, by the lowest confidence each holds: a finding is in the highest tier whose floor it reaches.
+# The one table both the SARIF tiers (the rule-id suffix, DojoSarifResponseBuilder) and --confidence-level read, so the
+# two cannot disagree. LOW 0-4, MEDIUM 5, HIGH 6-8, VERY-HIGH 9-10: confidence 3 and 4 hold fewer secrets than 2 does,
+# and 5 is the best-F1 cut (docs/private/research/2.3-design.md, P3)
+TIER_FLOORS = {'low': 0, 'medium': 5, 'high': 6, 'very-high': 9}
 # --confidence-level: the lowest confidence a reported finding may have. 'all' also reports the regex candidates their
 # evaluation rejected (confidence 0); 'low', the default, reports every finding the scanner keeps
-CONFIDENCE_LEVELS = {'all': None, 'low': 0, 'medium': 3, 'high': 6, 'very-high': 9}
+CONFIDENCE_LEVELS = {'all': None, **TIER_FLOORS}
 DEFAULT_CONFIDENCE_LEVEL = 'low'
 
 # files larger than this many bytes get the shallow analysis: the regex rules and the cheap variable search, no lexer.

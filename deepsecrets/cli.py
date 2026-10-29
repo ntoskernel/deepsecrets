@@ -12,6 +12,7 @@ from deepsecrets.config import (
     DEFAULT_CONFIDENCE_LEVEL,
     DEFAULT_DEEP_MAX_SIZE,
     SCANNER_VERSION,
+    TIER_FLOORS,
     Config,
     Output,
 )
@@ -95,86 +96,93 @@ class DeepSecretsCliTool:
         console.line(2)
 
     def _build_argparser(self) -> None:
+        """The command line. Every ruleset flag takes a list of files, where 'built-in' stands for the shipped one."""
         parser = argparse.ArgumentParser(
             prog=MODULE_NAME,
             description='DeepSecrets - a better tool for secrets search',
             formatter_class=RawTextHelpFormatter,
         )
 
+        def ruleset_help(purpose: str, flag: str, example: str, *extra: str) -> str:
+            lines = [
+                purpose,
+                *extra,
+                '- Leave the flag out to use the built-in ruleset.',
+                "- Your own files replace the built-in ruleset; list 'built-in' among them to add it back",
+                f'e.g. {flag} built-in /root/{example}.json',
+            ]
+            return '\n'.join(lines) + '\n'
+
         parser.add_argument(
             '--target-dir',
             required=True,
             type=str,
-            help="Path to the directory with code you'd like to analyze",
+            help='The directory to scan',
         )
-
         parser.add_argument(
             '--regex-rules',
             nargs='*',
             type=str,
-            help='Paths to your Regex Rulesets.\n'
-            "- Set 'disable' to turn off regex checks\n"
-            '- Ignore this argument to use the built-in ruleset.\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
-            'eq. --regex-rules built-in /root/my_regex_rules.json\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Regex rulesets to match.',
+                '--regex-rules',
+                'my_regex_rules',
+                "- Set 'disable' to turn the regex checks off",
+            ),
         )
-
         parser.add_argument(
             '--regex-candidate-scoring-rules',
             nargs='*',
             type=str,
-            help='Controls rules for judging regex matches (candidates) before they are reported: placeholders,\n'
-            'language-like values, hosts, test paths. Used by regex rules that declare an "evidence" class.\n'
-            '- Ignore this argument to use the built-in ruleset\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
-            'eq. --regex-candidate-scoring-rules built-in /root/my_candidate_rules.json\n'
-            '- Give it no value to report regex matches unjudged, as before 2.2\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Rules that judge a regex match (a candidate) before it is reported: placeholders, values that\n'
+                'read as language, hosts, test paths. They judge the matches of regex rules with an "evidence" class.',
+                '--regex-candidate-scoring-rules',
+                'my_candidate_rules',
+            )
+            + '- Give the flag no value to report regex matches unjudged, as before 2.2\n',
         )
-
         parser.add_argument(
             '--hashed-values',
             nargs='*',
             type=str,
-            help='Path to your Hashed Values set.\n'
-            'Leave the flag out, or give it no value, to disable these checks\n',
+            help='A set of hashed values to look for.\nThe check is off when the flag is left out or has no value\n',
         )
-
         parser.add_argument(
             '--semantic-analysis',
             nargs='*',
             type=str,
-            help='Controls semantic checks (enabled by default)\n'
-            "- Set 'disable' to turn off semantic checks (not recommended)\n"
-            'eq. --semantic-analysis disable\n'
-            'Uses "--variable-scoring-rules" under the hood',
             default=['built-in'],
+            help='Semantic checks: variables judged by their names and values (on by default).\n'
+            "- Set 'disable' to turn them off (not recommended)\n"
+            'e.g. --semantic-analysis disable\n'
+            'The rules come from --variable-scoring-rules',
         )
-
         parser.add_argument(
             '--variable-scoring-rules',
             nargs='*',
             type=str,
-            help='Controls rules for assessing variables as dangerous based on names, values, langs and filenames\n'
-            '- Ignore this argument to use the built-in (mature and robust) ruleset\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
-            'eq. --variable-scoring-rules built-in /root/my_var_scoring_rules.json\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Rules that judge whether a variable holds a secret, by its name, its value and its file path.',
+                '--variable-scoring-rules',
+                'my_var_scoring_rules',
+            ),
         )
-
         parser.add_argument(
             '--excluded-paths',
             nargs='*',
             type=str,
-            help='Paths to your Excluded Paths file.\n'
-            "- Set 'disable' to scan everything (may affect performance)\n"
-            '- Ignore this argument to use the built-in ruleset.\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to enable it\n"
-            'eq. --excluded-paths built-in /root/my_excluded_paths.json\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Files of path patterns to skip.',
+                '--excluded-paths',
+                'my_excluded_paths',
+                "- Set 'disable' to scan everything (slower)",
+            ),
         )
-
         parser.add_argument(
             '--skip-bundles',
             action='store_true',
@@ -182,7 +190,6 @@ class DeepSecretsCliTool:
             "--excluded-paths lists (except 'disable'). Most of them are larger than --deep-max-size and get the\n"
             'fast analysis anyway.\n',
         )
-
         parser.add_argument(
             '--deep-max-size',
             type=int,
@@ -191,60 +198,49 @@ class DeepSecretsCliTool:
             'without the language lexer, which costs most of the scan time on big files and rarely finds more there.\n'
             f'Default: {DEFAULT_DEEP_MAX_SIZE}. 0 gives every file the full analysis.\n',
         )
-
+        floors = TIER_FLOORS
         parser.add_argument(
             '--confidence-level',
             type=str,
             default=DEFAULT_CONFIDENCE_LEVEL,
             choices=list(CONFIDENCE_LEVELS),
-            help='The lowest confidence to report, from all to very-high (default: low).\n'
-            '"low" reports every finding; "medium", "high" and "very-high" keep confidence 3, 6 and 9 or more.\n'
+            help=f'The lowest confidence to report, from all to very-high (default: {DEFAULT_CONFIDENCE_LEVEL}).\n'
+            f'"low" reports every finding; "medium", "high" and "very-high" keep confidence {floors["medium"]}, '
+            f'{floors["high"]} and {floors["very-high"]} or more,\n'
+            'the findings of the SARIF tiers of the same names and above.\n'
             '"all" also reports the regex matches the scanner judged not to be secrets (placeholders, examples),\n'
             'at confidence 0 with an -INFO rule id.\n',
         )
-
         parser.add_argument(
             '--false-findings',
             nargs='*',
             type=str,
-            help='Paths to your False Findings file.\n'
-            'Use to filter findings you sure are false positives\n'
-            'File syntax is the same as in regex rules\n'
-            'eq. --false-findings /root/my_false_findings.json\n',
+            help='Files of patterns for findings you know are false positives: a finding whose value matches\n'
+            'one is dropped. The syntax is that of the regex rules\n'
+            'e.g. --false-findings /root/my_false_findings.json\n',
         )
-
-        parser.add_argument(
-            '-v',
-            '--verbose',
-            action='store_true',
-            help='Verbose mode',
-        )
-
+        parser.add_argument('-v', '--verbose', action='store_true', help='Verbose mode')
         parser.add_argument(
             '--reflect-findings-in-return-code',
             action='store_true',
-            help='Return code of 66 if any findings are detected during scan',
+            help='Exit with code 66 when the scan reports any finding',
         )
-
         parser.add_argument(
             '--process-count',
             type=int,
             default=0,
-            help='Number of processes in a pool for file analysis (one process per file)\n'
-            'Default: number of processor cores of your machine or cpu limit of your container from cgroup.\n'
-            'If all checks are failed the fallback value is 4',
+            help='How many worker processes analyse files, one file each at a time.\n'
+            "Default: the machine's processor count, or the CPU limit of the container (cgroup);\n"
+            '4 when neither can be read',
         )
-
         parser.add_argument(
             '--max-file-size',
             type=int,
             default=0,
-            help='Maximum size of a file (in bytes) the tool should analyze,\n'
-            'files with exceeding size will be ingored.\n'
-            'Big files (more than 5M) may contain useless blobs and cause performance degradation\n'
-            'Default: 0, which means "no limit".\n',
+            help='Skip files larger than this many bytes.\n'
+            'Very big files (over 5 MB) are mostly blobs and slow the scan down.\n'
+            'Default: 0, no limit.\n',
         )
-
         parser.add_argument(
             '--multiprocessing-context',
             type=str,
@@ -254,7 +250,6 @@ class DeepSecretsCliTool:
             help='How worker processes start. Default: forkserver where available (Linux, macOS), spawn elsewhere.\n'
             'forkserver workers share the scanner already loaded in the server instead of loading it again.\n',
         )
-
         parser.add_argument(
             '--ci',
             action=argparse.BooleanOptionalAction,
@@ -263,8 +258,7 @@ class DeepSecretsCliTool:
             'Default: on inside a CI service (CI, GITHUB_ACTIONS, GITLAB_CI and similar variables) or when the\n'
             'output is not a terminal; --no-ci forces the live display.\n',
         )
-
-        parser.add_argument('--outfile', required=True, type=str)
+        parser.add_argument('--outfile', required=True, type=str, help='Where to write the report')
         parser.add_argument(
             '--outformat',
             default='sarif',
@@ -274,14 +268,12 @@ class DeepSecretsCliTool:
             '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n'
             '"json": the old internal format, removed in 2.2.0 (exits with an error)',
         )
-
         parser.add_argument(
             '--disable-masking',
             action='store_true',
-            help='Secrets are rendered MASKED inside the report by default.\n'
-            'Use this flag if you want to render found secrets in plaintext but be extremely careful.',
+            help='Write the secrets found into the report in plain text. They are masked by default;\n'
+            'be extremely careful with a report written with this flag.',
         )
-
         parser.add_argument(
             '--report-diagnostics',
             action='store_true',
@@ -289,7 +281,7 @@ class DeepSecretsCliTool:
             'run.artifacts (scan time in ms, status, skip reason, analysis depth) and per-file errors in\n'
             'run.invocations.\n',
         )
-
+        # for in-process callers and the benchmark harness
         parser.add_argument('--benchmarking-mode', help=argparse.SUPPRESS, action='store_true')
         parser.add_argument('--oneshot', help=argparse.SUPPRESS, type=str, default=None)
 

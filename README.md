@@ -255,3 +255,9 @@ Steps:
 2. Open the cloned folder with VSCode
 3. Select "Reopen in Container" when prompted
 4. Wait for the automated environment build to complete. You are ready to develop.
+
+## History and license
+
+DeepSecrets was created by Nikolai Khechumov at Avito in 2022 and open-sourced in April 2023 at
+[avito-tech/deepsecrets](https://github.com/avito-tech/deepsecrets). It has been an OWASP project since 2023 and has
+been developed in this repository since November 2023. It is released under the MIT license: see [LICENSE](LICENSE).

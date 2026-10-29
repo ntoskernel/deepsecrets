@@ -188,6 +188,7 @@ PROVIDER_CASES = {
         'url = "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key={}&format=json"',
         _random(HEX, 32, 18),
     ),
+    'S62': ("result = PastebinAPI().paste('{}', 'text')", _random(HEX, 32, 19)),
 }
 
 
@@ -225,6 +226,9 @@ PROVIDER_NEGATIVES = {
     'S61': [
         'https://api.flickr.com/services/rest/?api_key={your api key}',
         'see flickr: api_key is required',
+    ],
+    'S62': [
+        "result = PastebinAPI().paste(dev_key, 'text')",
     ],
 }
 

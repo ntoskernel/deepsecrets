@@ -644,5 +644,19 @@
             }
         },
         "description": "flickr_proxy_new(\"<key>\", \"<secret>\") and the api_key parameter of a flickr.com URL: only these frames, since a bare keyword-near form is 45% precise. Starts with the literal so it costs no more than its neighbours. On SecretBench 23 matches, 20 real groups and no look-alike, 3 real units the scanner did not find (2.3 design, R2)"
+    },
+    {
+        "id": "S62",
+        "evidence": "shape",
+        "name": "Pastebin developer key in a paste call",
+        "confidence": 10,
+        "pattern": "\\bpastebin\\w{0,10}\\(\\s*\\)\\.paste\\(\\s*['\"]([a-f0-9]{32})['\"]",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        },
+        "description": "PastebinAPI().paste('<developer key>', ...), the first argument of the pastebin package's paste call. On SecretBench 2 matches, 2 real groups, 1 real unit the scanner did not find (2.3 design, R2)"
     }
 ]

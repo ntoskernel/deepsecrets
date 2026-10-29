@@ -182,6 +182,7 @@ PROVIDER_CASES = {
     'S55': ('DROPBOX_APPKEY="{}"', _random(ALNUM, 15, 13)),
     'S56': ('amplitude.init(key, "{}")', _random(HEX, 32, 14)),
     'S57': ('//registry.npmjs.org/:_authToken={}', 'npm_' + _random(MIXED, 36, 15)),
+    'S59': ("const client = algoliasearch('Q4XK2M7BTW', '{}');", _random(HEX, 32, 16)),
 }
 
 
@@ -204,3 +205,20 @@ def test_provider_rules_find_their_tokens(regex_engine: RegexEngine, rule_id: st
         rule, match.match, line[match.start : match.end], '/repo/src/settings.py'
     )
     assert not RegexCandidateEvaluator(candidate_rules).evaluate(context).rejected
+
+
+# 2.3 (R2): the call forms report a value only in their frame
+PROVIDER_NEGATIVES = {
+    'S59': [
+        "algoliasearch('Q4XK2M7BTW', 'YOUR_SEARCH_ONLY_API_KEY')",
+        'algoliasearch(process.env.APP_ID, process.env.SEARCH_KEY)',
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    'rule_id, line', [(rule_id, line) for rule_id, lines in PROVIDER_NEGATIVES.items() for line in lines]
+)
+def test_provider_call_forms_need_their_frame(regex_engine: RegexEngine, rule_id: str, line: str):
+    rule = next(rule for rule in regex_engine.ruleset if rule.id == rule_id)
+    assert rule.matches(line) == []

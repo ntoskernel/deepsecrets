@@ -595,5 +595,23 @@
                 "encoding": "base64"
             }
         }
+    },
+    {
+        "id": "S59",
+        "evidence": "shape",
+        "name": "Algolia API key in an algoliasearch call",
+        "confidence": 10,
+        "case_sensitive": true,
+        "pattern": "\\balgoliasearch\\s*\\(\\s*(['\"`])([A-Z0-9]{10})\\1\\s*,\\s*(['\"`])([a-f0-9]{32})\\3",
+        "target_group": 4,
+        "match_rules": {
+            "2": {
+                "type": "user"
+            },
+            "4": {
+                "type": "value"
+            }
+        },
+        "description": "algoliasearch('<application id>', '<key>'), any quote style, across lines: the client call names the provider and the argument position names the key. Search-only keys are public and a value cannot tell them from admin keys. On SecretBench 20 matches, 17 real groups and 2 look-alike groups (89%), 5 real units the scanner did not find and no new look-alike (2.3 design, R2)"
     }
 ]

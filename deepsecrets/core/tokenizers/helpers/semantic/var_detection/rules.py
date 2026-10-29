@@ -486,6 +486,15 @@ class CheapVariableDetectionRules(VariableDetectionRules):
             match_rules={},
             match_semantics={1: 'name', 2: 'value'},
         ),
+        # a C or Objective-C constant: #define NAME "value", #define NAME @"value". Pygments lexes the whole line as
+        # Comment.Preproc, and comments are dropped, so no lexer rule sees it
+        CheapVariableDetector(
+            language=Language.ANY,
+            stream_pattern=re.compile(r'^[ \t]*#[ \t]*define[ \t]+(\w+)[ \t]+@?"([^"\n]{6,300})"', re.MULTILINE),
+            overlapped=False,
+            match_rules={},
+            match_semantics={1: 'name', 2: 'value'},
+        ),
         # Searching key-value escaped (JSON inside JSON)
         CheapVariableDetector(
             language=Language.JSON,

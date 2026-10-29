@@ -50,3 +50,35 @@ def test_a_reused_tokenizer_returns_only_the_current_files_tokens(tmp_path):
     tokenizer = CheapVarSearchTokenizer(lexed=True)
     assert tokenizer.tokenize(File(path=str(first)))
     assert tokenizer.tokenize(File(path=str(second))) == []
+
+
+DEFINES = (
+    '#include <stdio.h>\n'
+    '#define FLICKR_KEY "Hk3vQ9ZpL2mXw7RtYb4NcF8aZk3pQ9rT"\n'
+    '  #  define API_SECRET @"Tq7XbR2mKp9LvZ4wNc8F"\n'
+    '#define SHORT "abc12"\n'
+    '#define WITH_QUOTE "abc"def"\n'
+    'int x = 1; #define NOT_AT_LINE_START "Zk3pQ9rT2mX7vB1n"\n'
+    '#define NUMBER 42\n'
+)
+
+
+@pytest.mark.parametrize('lexed', [True, False])
+def test_a_define_is_a_variable(lexed):
+    # 2.3 (R4): the lexer reads a #define line as a comment, so only the cheap search sees the constant
+    tokens = CheapVarSearchTokenizer(lexed=lexed).tokenize(
+        File(path='/tmp/keys.h', relative_path='keys.h', content=DEFINES)
+    )
+    pairs = {(t.semantic.payload.name, t.content) for t in tokens}
+    assert ('FLICKR_KEY', 'Hk3vQ9ZpL2mXw7RtYb4NcF8aZk3pQ9rT') in pairs
+    assert ('API_SECRET', 'Tq7XbR2mKp9LvZ4wNc8F') in pairs  # Objective-C's @"..."
+    assert not {name for name, _ in pairs} & {'SHORT', 'WITH_QUOTE', 'NOT_AT_LINE_START', 'NUMBER'}
+
+
+def test_a_define_is_reported_once_scanned(tmp_path):
+    from tests.case_helpers import semantic_case_with_cheap_var_search
+
+    path = tmp_path / 'keys.m'
+    path.write_text(DEFINES)
+    findings, _, _ = semantic_case_with_cheap_var_search(File(path=str(path), relative_path='keys.m'))
+    assert {f.internal_score['var'] for f in findings} == {'FLICKR_KEY', 'API_SECRET'}

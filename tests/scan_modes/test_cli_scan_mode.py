@@ -1,13 +1,14 @@
 from unittest.mock import Mock
 import pytest
 
+from deepsecrets import BASE_DIR
 from deepsecrets.config import Config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.scan_modes.cli import CliScanMode
 
-FP_TO_BE_EXCLUDED = '/app/tests/fixtures/service.postman_collection.json'
+FP_TO_BE_EXCLUDED = f'{BASE_DIR}/tests/fixtures/service.postman_collection.json'
 
 
 @pytest.fixture()

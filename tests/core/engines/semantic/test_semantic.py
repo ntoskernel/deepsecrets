@@ -146,3 +146,22 @@ def test_low_entropy_values_are_reported_only_under_names_people_choose(tmp_path
         ('password', 'S106'),
         ('refresh_token', 'S105'),
     ]
+
+
+def test_s106_stays_in_the_low_tier(tmp_path):
+    from deepsecrets.config import TIER_FLOORS, WEAK_VALUE_MAX_CONFIDENCE
+
+    assert WEAK_VALUE_MAX_CONFIDENCE == TIER_FLOORS['medium'] - 1 == 4
+    path = tmp_path / 'settings.py'
+    path.write_text(
+        'password = "sunshine"\n'  # a dictionary word: confidence 1 before the cap
+        'db_password = "nacc6opq"\n'  # 2.75 bits under a strong name: 7, HIGH, before the cap
+        'refresh_token = "Hk3vQ9ZpL2mXw7Rt"\n'  # S105 is not capped
+    )
+    findings, _, _ = semantic_case(File(path=str(path), relative_path='settings.py'))
+    reported = {f.internal_score['var']: f for f in findings}
+    assert (reported['password'].final_rule.id, reported['password'].final_rule.confidence) == ('S106', 1)
+    assert (reported['db_password'].final_rule.id, reported['db_password'].final_rule.confidence) == ('S106', 4)
+    assert reported['refresh_token'].final_rule.id == 'S105' and reported['refresh_token'].final_rule.confidence > 4
+    # the cap is the engine's: the evaluator, and so the tracer's evaluation record, keeps the naming confidence
+    assert reported['db_password'].internal_score['conf'] == 7

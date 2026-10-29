@@ -16,6 +16,9 @@ FALLBACK_PROCESS_COUNT = 4
 # two cannot disagree. LOW 0-4, MEDIUM 5, HIGH 6-8, VERY-HIGH 9-10: confidence 3 and 4 hold fewer secrets than 2 does,
 # and 5 is the best-F1 cut (docs/private/research/2.3-design.md, P3)
 TIER_FLOORS = {'low': 0, 'medium': 5, 'high': 6, 'very-high': 9}
+# S106, a weak value under a name people choose a value for, has no value evidence: its confidence is the name's alone,
+# so it stays in the LOW tier. The order among S106 findings survives up to this cap (2.3 design, P2)
+WEAK_VALUE_MAX_CONFIDENCE = TIER_FLOORS['medium'] - 1
 # --confidence-level: the lowest confidence a reported finding may have. 'all' also reports the regex candidates their
 # evaluation rejected (confidence 0); 'low', the default, reports every finding the scanner keeps
 CONFIDENCE_LEVELS = {'all': None, **TIER_FLOORS}

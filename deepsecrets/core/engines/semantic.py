@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional
 
+from deepsecrets.config import WEAK_VALUE_MAX_CONFIDENCE
 from deepsecrets.core.helpers.variable_evaluator import EvaluationResult, VariableEvaluator
 from deepsecrets.core.utils.log import logger
 from deepsecrets.core.engines.iengine import IEngine
@@ -54,74 +55,58 @@ class SemanticEngine(IEngine):
         return findings
 
     def _evaluate_semantics(self, token: Token) -> List[Finding]:
-        """S107 for a dangerous condition, S105 or S106 for a variable the evaluator scores as dangerous."""
-        findings: List[Finding] = []
+        """S107 for a dangerous condition; S105 or S106 for a variable the evaluator scores as dangerous. A variable
+        whose evaluation raises is logged and skipped, not the file (KI-ENG-03)."""
+        semantic = token.semantic
+        if semantic is None:
+            return []
 
-        if token.semantic is None:
+        findings = []
+        if semantic.creds_probability == 9:
+            findings.append(whole_token_finding(token, Rule(id='S107', name='Dangerous condition', confidence=10)))
+
+        # a single character, or several words: not a value a secret is assigned as
+        if semantic.type != SemanticType.VARIABLE or len(token.content) == 1 or ' ' in token.content:
             return findings
 
-        if token.semantic.creds_probability == 9:
-            findings.append(
-                Finding(
-                    detection=token.content,
-                    start_offset=0,
-                    end_offset=len(token.content),
-                    rules=[Rule(id='S107', name='Dangerous condition', confidence=10)],
-                )
-            )
-
-        if token.semantic.type == SemanticType.VARIABLE:
-            try:
-
-                if len(token.content) == 1:
-                    return findings
-
-                if len(token.content.split(' ')) > 1:
-                    return findings
-
-                evaluation_result: EvaluationResult = self.variable_evaluator.evaluate(token.semantic.payload)
-                dangerous_variable = evaluation_result.is_dangerous
-
-                if not dangerous_variable:
-                    return findings
-
-                if evaluation_result.entropy_score > 0:
-                    findings.append(
-                        Finding(
-                            detection=token.content,
-                            start_offset=0,
-                            end_offset=len(token.content),
-                            rules=[
-                                Rule(
-                                    id='S105',
-                                    name='High Entropy and Variable Naming',
-                                    confidence=evaluation_result.export_confidence,
-                                    is_dynamic_confidence=True,
-                                )
-                            ],
-                            internal_score={'var': token.semantic.name} | evaluation_result.summary(),
-                        )
-                    )
-                elif evaluation_result.allows_low_entropy:
-                    # 3 bits or less: a password someone chose, or else a placeholder, an id or a map key
-                    findings.append(
-                        Finding(
-                            detection=token.content,
-                            start_offset=0,
-                            end_offset=len(token.content),
-                            rules=[
-                                Rule(
-                                    id='S106',
-                                    name='Variable Naming',
-                                    confidence=evaluation_result.export_confidence,
-                                    is_dynamic_confidence=True,
-                                )
-                            ],
-                            internal_score={'var': token.semantic.name} | evaluation_result.summary(),
-                        )
-                    )
-
-            except Exception as e:
-                logger.error(f'Problem during variable evaluation {e}')
-
+        try:
+            result = self.variable_evaluator.evaluate(semantic.payload)
+            rule = variable_rule(result)
+            if rule is not None:
+                findings.append(whole_token_finding(token, rule, {'var': semantic.name} | result.summary()))
+        except Exception as e:
+            logger.error(f'Problem during variable evaluation {e}')
         return findings
+
+
+def variable_rule(result: EvaluationResult) -> Optional[Rule]:
+    """The rule a variable is reported under, or None. S105 when its value earns an entropy score. S106 when it earns
+    none (3 bits or less) but a rule allowed a low-entropy value: a password someone chose, else a placeholder, an id
+    or a map key. S106 has no value evidence, so its confidence is capped in the LOW tier."""
+    if not result.is_dangerous:
+        return None
+    if result.entropy_score > 0:
+        return Rule(
+            id='S105',
+            name='High Entropy and Variable Naming',
+            confidence=result.export_confidence,
+            is_dynamic_confidence=True,
+        )
+    if result.allows_low_entropy:
+        return Rule(
+            id='S106',
+            name='Variable Naming',
+            confidence=min(result.export_confidence, WEAK_VALUE_MAX_CONFIDENCE),
+            is_dynamic_confidence=True,
+        )
+    return None
+
+
+def whole_token_finding(token: Token, rule: Rule, internal_score: Optional[dict] = None) -> Finding:
+    return Finding(
+        detection=token.content,
+        start_offset=0,
+        end_offset=len(token.content),
+        rules=[rule],
+        internal_score=internal_score if internal_score is not None else {},
+    )

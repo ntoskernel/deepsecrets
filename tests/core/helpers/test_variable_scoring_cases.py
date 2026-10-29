@@ -95,6 +95,10 @@ DANGEROUS = [
     pytest.param('db_pass', 'nacc6opq', CODE, id='db_pass-short-random'),
     pytest.param('smtp_pass', PASSWORD_RANDOM, CODE, id='smtp_pass-random'),
     pytest.param('SLOBS_STREAM_KEY', 'live_137546668_M4qFRbcNbYwEzVP5Ljgrexq2lZ5BX6', CODE, id='stream_key'),
+    # people put dots and version numbers in passwords: the shape rules do not apply under a password name
+    pytest.param('db_password', 'Kx9.pQ2.vL7', CODE, id='db_password-dotted'),
+    pytest.param('smtp_passwd', 'Tq7XbR2m.Kp9LvZ4w.png', CODE, id='smtp_passwd-file-name-shaped'),
+    pytest.param('admin_pwd', 'Zr8wQ3.1.7.4kLm', CODE, id='admin_pwd-version-shaped'),
 ]
 
 
@@ -145,6 +149,12 @@ NOT_DANGEROUS = [
     pytest.param('secret_arn', ALNUM_24, CODE, id='secret_arn'),
     pytest.param('pwd_dir', ALNUM_24, CODE, id='pwd_dir'),
     pytest.param('token_expiry', ALNUM_24, CODE, id='token_expiry'),
+    # file names, paths, object keys and versions (2.2.1)
+    pytest.param('key', 'disk-diskurls-solution-Tq7XbR2mKp9LvZ4w-3.0.17-jpss9/main.log', CODE, id='key-object-key'),
+    pytest.param('secret_key_file', '/srv/tls/Tq7XbR2mKp9LvZ4w.key', CODE, id='secret_key_file-path'),
+    pytest.param('api_token', 'Tq7XbR2mKp9LvZ4wNc8F.json', CODE, id='api_token-file-name'),
+    pytest.param('access_key', 'IMG_2041.JPG', CODE, id='access_key-image-name'),
+    pytest.param('auth_token', 'Tq7XbR2mKp9-2.14.1-rc1', CODE, id='auth_token-version'),
 ]
 
 

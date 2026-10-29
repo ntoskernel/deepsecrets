@@ -45,6 +45,24 @@
         "when": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
     },
     {
+        "id": "SEM_VAR_FILE_NAME_VALUES",
+        "name": "Ignore variable values that are file names, paths or object keys",
+        "description": "main.log, IMG_2041.JPG, /srv/tls/server.key, backups/x/main.log: a name, a dot and a one-case extension, alone or after a path. Not under a password name: people put dots in passwords",
+        "pattern": "\\bfile_name\\b",
+        "target": "VALUE_SHAPE",
+        "score": -100,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
+    },
+    {
+        "id": "SEM_VAR_VERSION_VALUES",
+        "name": "Ignore variable values that carry a version number",
+        "description": "3.0.17, 2.14.1-rc1: a version, a build or an artifact name. An IP address has four numbers and does not count. Not under a password name",
+        "pattern": "\\bversion\\b",
+        "target": "VALUE_SHAPE",
+        "score": -100,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
+    },
+    {
         "id": "SEM_VAR_FILE_PATHS",
         "enabled": true,
         "description": "Slightly reduce score for test/mock/minified files",

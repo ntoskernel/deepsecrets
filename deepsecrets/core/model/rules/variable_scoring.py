@@ -16,6 +16,7 @@ class Target(str, Enum):
     VALUE_NORMALIZED = 'VALUE_NORMALIZED'
     VALUE_LENGTH = 'VALUE_LENGTH'
     VALUE_NORMALIZED_NATURALNESS_SCORE = 'VALUE_NORMALIZED_NATURALNESS_SCORE'
+    VALUE_SHAPE = 'VALUE_SHAPE'  # "file_name version": flags computed from the value (core/helpers/value_shape.py)
 
 
 target_to_fields = {
@@ -26,6 +27,7 @@ target_to_fields = {
     Target.VALUE_NORMALIZED: 'value_normalized',
     Target.VALUE_LENGTH: 'value_length',
     Target.VALUE_NORMALIZED_NATURALNESS_SCORE: 'value_normalized_naturalness_score',
+    Target.VALUE_SHAPE: 'value_shape',
 }
 
 ops = {

@@ -63,7 +63,7 @@
         "evidence": "format",
         "name": "PGP private key block",
         "confidence": 10,
-        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
+        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----[^-]([\\s\\S]{50,15000}?)[^-](?:(?<=\\n)-)?-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
         "match_rules": {
             "1": {
                 "type": "value",
@@ -176,7 +176,7 @@
         "evidence": "format",
         "name": "Custom private key",
         "confidence": 10,
-        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
+        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----[^-]([\\s\\S]{50,15000}?)[^-](?:(?<=\\n)-)?-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
         "match_rules": {
             "1": {
                 "type": "value",
@@ -579,6 +579,20 @@
         "match_rules": {
             "1": {
                 "type": "value"
+            }
+        }
+    },
+    {
+        "id": "S58",
+        "evidence": "format",
+        "name": "Private key without an END marker",
+        "description": "A BEGIN ... PRIVATE KEY line followed by at least three full base64 lines (60 to 76 characters) where the file ends or the block breaks off, with no private-key END marker in the next 15,000 characters: a truncated .pem, a PGP block cut short. A key with its END marker is the other private-key rules' (S1 to S5, S26)",
+        "confidence": 10,
+        "pattern": "-----BEGIN[ ](?:[A-Z0-9]+[ ]){0,3}PRIVATE[ ]KEY(?:[ ]BLOCK)?-----[ \\t]*\\r?\\n(?:[A-Za-z][\\w-]{0,30}:[ ][^\\r\\n]{0,200}\\r?\\n){0,8}(?:[ \\t]*\\r?\\n)?((?:[ \\t]*[A-Za-z0-9+/]{60,76}[ \\t]*\\r?\\n){3,}+)(?![\\s\\S]{0,15000}?-----END[ ](?:[A-Z0-9]+[ ]){0,3}PRIVATE[ ]KEY)",
+        "match_rules": {
+            "1": {
+                "type": "value",
+                "encoding": "base64"
             }
         }
     }

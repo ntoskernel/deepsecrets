@@ -260,4 +260,9 @@ Steps:
 
 DeepSecrets was created by Nikolai Khechumov at Avito in 2022 and open-sourced in April 2023 at
 [avito-tech/deepsecrets](https://github.com/avito-tech/deepsecrets). It has been an OWASP project since 2023 and has
-been developed in this repository since November 2023. It is released under the MIT license: see [LICENSE](LICENSE).
+been developed in this repository since November 2023.
+
+From version 2.3.0 DeepSecrets is licensed under the [Apache License 2.0](LICENSE). Code from the original release
+and contributions made before 2.3.0 remain available under the MIT License, whose text is at the end of
+[LICENSE](LICENSE); [NOTICE](NOTICE) says which is which. Releases up to and including 2.2.0 were published under the
+MIT License.

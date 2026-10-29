@@ -1,0 +1,10 @@
+DeepSecrets
+Copyright 2023-2026 Nikolai Khechumov
+
+Licensed under the Apache License, Version 2.0, from version 2.3.0; see LICENSE.
+
+This product includes software written by Nikolai Khechumov at Avito and first
+released at https://github.com/avito-tech/deepsecrets, Copyright (c) 2023 Avito,
+and contributions made to the project before version 2.3.0. Those portions are
+licensed under the MIT License, whose text is at the end of LICENSE. Releases up
+to and including 2.2.0 were published under the MIT License alone.

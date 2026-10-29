@@ -2,7 +2,7 @@
 name = "deepsecrets"
 version = "2.2.0"
 description = "A better tool for secrets scanning"
-license = { text = "MIT" }
+license = { text = "Apache-2.0 AND MIT" }
 readme = "README.md"
 authors = [
     { name = "Nikolai Khechumov", email = "khechumov@gmail.com" },
@@ -19,6 +19,7 @@ requires-python = ">=3.11,<4.0.0"
 
 classifiers = [
     "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Environment :: Console",

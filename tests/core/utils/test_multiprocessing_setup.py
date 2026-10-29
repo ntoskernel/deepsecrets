@@ -1,3 +1,4 @@
+import multiprocessing.util
 import os
 import subprocess
 import sys
@@ -37,7 +38,8 @@ def test_a_long_tmpdir_no_longer_breaks_the_manager_or_the_forkserver(tmp_path: 
         text=True,
         timeout=120,
     )
-    if sys.version_info < (3, 14):  # 3.14 picks a short directory itself (multiprocessing.util._get_base_temp_dir)
+    # 3.14, and 3.13 since a patch release (absent in 3.13.1, present in 3.13.18), pick a short directory themselves
+    if not hasattr(multiprocessing.util, '_get_base_temp_dir'):
         assert broken.returncode != 0 and 'EOFError' in broken.stderr  # what used to happen to every scan
 
     fixed = subprocess.run([sys.executable, '-c', SCRIPT], env=env, capture_output=True, text=True, timeout=120)

@@ -184,6 +184,10 @@ PROVIDER_CASES = {
     'S57': ('//registry.npmjs.org/:_authToken={}', 'npm_' + _random(MIXED, 36, 15)),
     'S59': ("const client = algoliasearch('Q4XK2M7BTW', '{}');", _random(HEX, 32, 16)),
     'S60': ('  provider :facebook, "5820193746281", "{}"', _random(HEX, 32, 17)),
+    'S61': (
+        'url = "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key={}&format=json"',
+        _random(HEX, 32, 18),
+    ),
 }
 
 
@@ -217,6 +221,10 @@ PROVIDER_NEGATIVES = {
     'S60': [
         'provider :facebook, ENV["FACEBOOK_KEY"], ENV["FACEBOOK_SECRET"]',
         "provider :facebook, 'APP_ID', 'APP_SECRET'",
+    ],
+    'S61': [
+        'https://api.flickr.com/services/rest/?api_key={your api key}',
+        'see flickr: api_key is required',
     ],
 }
 

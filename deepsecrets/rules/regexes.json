@@ -630,5 +630,19 @@
             }
         },
         "description": "OmniAuth's provider :facebook, \"<app id>\", \"<app secret>\" (Devise's config.omniauth too). S54 covers assignments only. On SecretBench 12 matches, 7 real groups and no look-alike, 3 real units the scanner did not find; its 3 unlabelled matches were judged app secrets (2.3 design, R2)"
+    },
+    {
+        "id": "S61",
+        "evidence": "shape",
+        "name": "Flickr API key in a Flickr call or URL",
+        "confidence": 10,
+        "pattern": "\\bflickr(?:_proxy_new\\s*\\(\\s*['\"]|\\.com/[^\\s'\"<>?]{0,80}\\?(?:[^\\s'\"<>&]{0,120}&(?:amp;)?){0,12}api_key=)([a-f0-9]{32})\\b",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        },
+        "description": "flickr_proxy_new(\"<key>\", \"<secret>\") and the api_key parameter of a flickr.com URL: only these frames, since a bare keyword-near form is 45% precise. Starts with the literal so it costs no more than its neighbours. On SecretBench 23 matches, 20 real groups and no look-alike, 3 real units the scanner did not find (2.3 design, R2)"
     }
 ]

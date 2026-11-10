@@ -523,7 +523,7 @@
         "evidence": "shape",
         "name": "Facebook app secret",
         "confidence": 10,
-        "pattern": "((?:facebook)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-f0-9]{32})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "pattern": "((?:facebook)(?![\\w.-]{0,20}?\\.(?:js|css|png|jpe?g|gif|svg|html?|json|swf|php|py|rb|java|m|h)\\b)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-f0-9]{32})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
         "target_group": 2,
         "match_rules": {
             "1": {
@@ -533,7 +533,7 @@
                 "type": "value"
             }
         },
-        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `facebook-secret` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `facebook-secret` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice). Not when the name is a file name (`facebook-sdk.js`, `facebook.png`): a map of file names to MD5 checksums, 22 units beyond SecretBench's labels and none a secret"
     },
     {
         "id": "S55",

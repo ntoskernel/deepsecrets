@@ -259,3 +259,12 @@ def test_s12_takes_a_key_near_its_keyword_only():
     assert rule.match(_token(f"heroku config:set API_TOKEN='{key}'"))
     # a policy or a log line that names herokuapp.com and carries an unrelated UUID further on
     assert rule.match(_token(f"connect-src https://*.herokuapp.com https://cdn.example.com; report-uri /r/{key}")) == []
+
+
+def test_s54_skips_checksum_maps_keyed_by_file_names():
+    rule = _shipped_rule('S54')
+    digest = '0123456789abcdef0123456789abcdef'
+    assert rule.match(_token(f'facebook_app_secret = "{digest}"'))
+    assert rule.match(_token(f'FACEBOOK_SECRET: {digest}'))
+    assert rule.match(_token(f'"facebook-sdk.js": "{digest}",')) == []
+    assert rule.match(_token(f'"images/facebook.png": "{digest}",')) == []

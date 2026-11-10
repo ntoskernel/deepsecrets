@@ -8,9 +8,12 @@ from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.helpers.finding_tags import (
     PUBLISHABLE,
+    RECORDED_TRAFFIC,
     TAGS,
     TEST_CONTEXT,
     WEAK_PASSWORD,
+    apply_path_context,
+    in_recorded_traffic,
     in_test_context,
     tag_test_context,
 )
@@ -53,7 +56,7 @@ def s36():
 
 
 def test_the_tags_are_three():
-    assert TAGS == ('weak-password', 'publishable', 'test-context')
+    assert TAGS == ('weak-password', 'publishable', 'test-context', 'recorded-traffic')
 
 
 def test_a_tagging_variable_rule_adds_its_tag_and_no_score(variable_rules):
@@ -237,3 +240,47 @@ def test_test_context_reads_the_relative_path():
     ]
     tag_test_context(findings)
     assert [f.tags for f in findings] == [[], [TEST_CONTEXT], [PUBLISHABLE, TEST_CONTEXT]]
+
+
+@pytest.mark.parametrize(
+    'path, recorded',
+    [
+        ('spec/fixtures/vcr_cassettes/login.yml', True),
+        ('spec/cassettes/Projects/get.yml', True),
+        ('tests/recordings/test_upload.json', True),
+        ('sdk/tests/SessionRecords/Keys/List.json', True),
+        ('capture.har', True),
+        ('src/vcr.py', False),  # a module, not a directory of recordings
+        ('lib/cassette.rb', False),
+        ('fixtures/users.json', False),
+    ],
+)
+def test_recorded_traffic_paths(path, recorded):
+    assert in_recorded_traffic(path) is recorded
+
+
+def _variable_finding(relative_path: str, *rules: Rule) -> Finding:
+    file = File(path=f'/srv/repo/{relative_path}', relative_path=relative_path, content='token: "x"\n')
+    finding = Finding(file=file, detection='x', start_offset=8, end_offset=9, rules=list(rules))
+    finding.choose_final_rule()
+    return finding
+
+
+def test_recorded_traffic_lowers_s105_into_low_and_tags_it():
+    s105 = Rule(id='S105', name='High Entropy and Variable Naming', confidence=8, is_dynamic_confidence=True)
+    recorded = _variable_finding('spec/cassettes/login.yml', s105)
+    elsewhere = _variable_finding('src/settings.py', s105)
+    apply_path_context([recorded, elsewhere])
+    assert (recorded.final_rule.id, recorded.final_rule.confidence) == ('S105', 4)
+    assert recorded.tags == [TEST_CONTEXT, RECORDED_TRAFFIC]  # spec/ is a test path too
+    assert (elsewhere.final_rule.confidence, elsewhere.tags) == (8, [])
+    assert s105.confidence == 8  # the rule object other findings share is left alone
+
+
+def test_a_typed_rule_in_recorded_traffic_keeps_its_confidence():
+    s105 = Rule(id='S105', name='High Entropy and Variable Naming', confidence=9, is_dynamic_confidence=True)
+    typed = Rule(id='S38', name='Google API Key', confidence=7)
+    finding = _variable_finding('tests/recordings/maps.json', s105, typed)
+    apply_path_context([finding])
+    assert (finding.final_rule.id, finding.final_rule.confidence) == ('S38', 7)
+    assert finding.tags == [TEST_CONTEXT, RECORDED_TRAFFIC]

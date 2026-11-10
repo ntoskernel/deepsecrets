@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from deepsecrets import console
 from deepsecrets.config import CONFIDENCE_LEVELS, DEFAULT_CONFIDENCE_LEVEL, Config
-from deepsecrets.core.helpers.finding_tags import tag_test_context
+from deepsecrets.core.helpers.finding_tags import apply_path_context
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.internal.processing import AnalyzerBundle, PerFileAnalysisResult
@@ -461,12 +461,12 @@ class ScanMode:
         return found
 
     def _merge_tag_and_filter(self, found: List[Finding]) -> List[Finding]:
-        """One finding per span, tagged test-context by its relative path, then the user's filters: the false-finding
-        patterns, the confidence level or minimum, the excluded tags."""
+        """One finding per span, tagged by its relative path (test-context, recorded-traffic, which also lowers S105),
+        then the user's filters: the false-finding patterns, the confidence level or minimum, the excluded tags."""
         console.line()
         console.print('[*] Merging similar findings..')
         findings = FindingMerger(found).merge()
-        tag_test_context(findings)
+        apply_path_context(findings)
 
         console.print('[*] Filtering predefined false Findings..')
         findings = self.filter_false_positives(findings)

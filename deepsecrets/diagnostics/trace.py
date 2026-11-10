@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE, deep_analysis
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine, filenames_ignorelist, variable_rule
-from deepsecrets.core.helpers.finding_tags import WEAK_PASSWORD, tag_test_context
+from deepsecrets.core.helpers.finding_tags import WEAK_PASSWORD, apply_path_context
 from deepsecrets.core.helpers.variable_evaluator import HOPELESS_THRESHOLD, VariableEvaluator
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.token import SemanticType, Token
@@ -306,8 +306,8 @@ class FileReplay:
         tokenizers = [LexerTokenizer(deep_token_inspection=True)] if self.deep else []
         analyzer.add_engine(semantic_engine, tokenizers + [CheapVarSearchTokenizer(lexed=self.deep)])
         self.findings = FindingMerger(analyzer.process()).merge()
-        # as ScanMode tags the merged findings of a scan
-        tag_test_context(self.findings)
+        # as ScanMode tags (and, in recorded traffic, lowers) the merged findings of a scan
+        apply_path_context(self.findings)
         self.decisions = analyzer.decisions
         return self
 

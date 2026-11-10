@@ -6,13 +6,16 @@ Where each tag is set:
 - `weak-password`: by SemanticEngine on every S106 finding, a weak value under a name people choose a value for;
 - `publishable`: by scoring rules that carry `"tag": "publishable"` (SEM_VAR_TAG_PUBLISHABLE on a variable's name,
   RC_TAG_PUBLISHABLE and SEM_VAR_TAG_PUBLISHABLE_VALUE on a value): keys made to ship to clients;
+- `identifier`: by RC_TAG_IDENTIFIER and SEM_VAR_TAG_IDENTIFIER_VALUE: an AWS id of a user, role, group, instance
+  profile or policy (AIDA..., AROA...), which names a principal and grants nothing;
 - `test-context`: by ScanMode, on the merged findings, from the path relative to the target directory
   (tag_test_context below);
-- `recorded-traffic`: the same way, for recorded HTTP traffic (VCR cassettes, session recordings, HAR files).
+- `recorded-traffic`: the same way, for recorded HTTP traffic (VCR cassettes, session recordings, HAR files);
+- `web-page`: the same way, for an HTML page, whose contents every visitor's browser receives.
 
 The recorded-traffic context also lowers S105, the one place a path changes a confidence (apply_path_context)."""
 
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Tuple
 
 import regex as re
 
@@ -23,8 +26,10 @@ WEAK_PASSWORD = 'weak-password'
 PUBLISHABLE = 'publishable'
 TEST_CONTEXT = 'test-context'
 RECORDED_TRAFFIC = 'recorded-traffic'
+IDENTIFIER = 'identifier'
+WEB_PAGE = 'web-page'
 # the names --exclude-tags accepts
-TAGS = (WEAK_PASSWORD, PUBLISHABLE, TEST_CONTEXT, RECORDED_TRAFFIC)
+TAGS = (WEAK_PASSWORD, PUBLISHABLE, TEST_CONTEXT, RECORDED_TRAFFIC, IDENTIFIER, WEB_PAGE)
 
 # A test, spec, fixture, mock, example or sample path: one of those words as a directory or as a word of the file
 # name, delimited by / \ . _ or - (tests/, __mocks__/, integration-tests/, client_test.go, user.spec.ts, fixtures.json,
@@ -49,12 +54,21 @@ RECORDED_TRAFFIC_PATH = re.compile(
 )
 
 
+# An HTML page, saved or written by hand: beyond SecretBench's labels 19% of 2.3's units there are secrets, against 52%
+# in source and configuration; the labels still hold real secrets in pages, so it is a tag, not a lower confidence
+WEB_PAGE_PATH = re.compile(r'\.(?:html?|xhtml|shtml|mht(?:ml)?)$', re.IGNORECASE)
+
+
 def in_test_context(relative_path: str) -> bool:
     return TEST_CONTEXT_PATH.search(relative_path) is not None
 
 
 def in_recorded_traffic(relative_path: str) -> bool:
     return RECORDED_TRAFFIC_PATH.search(relative_path) is not None
+
+
+def in_web_page(relative_path: str) -> bool:
+    return WEB_PAGE_PATH.search(relative_path) is not None
 
 
 def tag_test_context(findings: Iterable[Finding]) -> None:
@@ -71,18 +85,21 @@ def tag_test_context(findings: Iterable[Finding]) -> None:
 
 
 def apply_path_context(findings: Iterable[Finding]) -> None:
-    """What a finding's relative path says: `test-context`, and `recorded-traffic` with S105 lowered into the LOW tier.
-    A typed rule on the same span (a regex match) keeps its confidence and may then name the finding."""
+    """What a finding's relative path says: `test-context`, `web-page`, and `recorded-traffic` with S105 lowered into the
+    LOW tier. A typed rule on the same span (a regex match) keeps its confidence and may then name the finding."""
     findings = list(findings)
     tag_test_context(findings)
-    answers: Dict[str, bool] = {}
+    answers: Dict[str, Tuple[bool, bool]] = {}
     for finding in findings:
         path = finding.file.relative_path if finding.file is not None else None
         if not path:
             continue
         if path not in answers:
-            answers[path] = in_recorded_traffic(path)
-        if not answers[path]:
+            answers[path] = (in_web_page(path), in_recorded_traffic(path))
+        web_page, recorded = answers[path]
+        if web_page:
+            finding.add_tag(WEB_PAGE)
+        if not recorded:
             continue
         finding.add_tag(RECORDED_TRAFFIC)
         # rules compare by id, so the change is tracked, not found by comparing lists

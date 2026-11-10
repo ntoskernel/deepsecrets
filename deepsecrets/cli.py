@@ -20,7 +20,15 @@ from deepsecrets.config import (
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
-from deepsecrets.core.helpers.finding_tags import PUBLISHABLE, RECORDED_TRAFFIC, TAGS, TEST_CONTEXT, WEAK_PASSWORD
+from deepsecrets.core.helpers.finding_tags import (
+    IDENTIFIER,
+    PUBLISHABLE,
+    RECORDED_TRAFFIC,
+    TAGS,
+    TEST_CONTEXT,
+    WEAK_PASSWORD,
+    WEB_PAGE,
+)
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
@@ -240,7 +248,9 @@ class DeepSecretsCliTool:
             f'"{PUBLISHABLE}": a key made to ship to clients (a site key, a Stripe pk_ key, a Mapbox pk. token);\n'
             f'"{TEST_CONTEXT}": in a test, spec, fixture, mock, example or sample path, relative to --target-dir;\n'
             f'"{RECORDED_TRAFFIC}": in recorded HTTP traffic (VCR cassettes, session recordings, HAR files), where\n'
-            'a variable is reported at LOW unless a typed rule finds it.\n'
+            'a variable is reported at LOW unless a typed rule finds it;\n'
+            f'"{IDENTIFIER}": an AWS id of a user, role, group or policy (AIDA..., AROA...), which grants nothing;\n'
+            f'"{WEB_PAGE}": in an HTML page, whose contents every browser that opens it receives.\n'
             'The SARIF report carries the tags of each result in its "tags" property.\n'
             f'e.g. --exclude-tags {TEST_CONTEXT} {PUBLISHABLE}\n',
         )

@@ -7,14 +7,17 @@ import pytest
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
 from deepsecrets.core.helpers.finding_tags import (
+    IDENTIFIER,
     PUBLISHABLE,
     RECORDED_TRAFFIC,
     TAGS,
     TEST_CONTEXT,
     WEAK_PASSWORD,
+    WEB_PAGE,
     apply_path_context,
     in_recorded_traffic,
     in_test_context,
+    in_web_page,
     tag_test_context,
 )
 from deepsecrets.core.helpers.regex_candidate_evaluator import RegexCandidateEvaluator
@@ -55,8 +58,8 @@ def s36():
     return next(rule for rule in rules if rule.id == 'S36')
 
 
-def test_the_tags_are_three():
-    assert TAGS == ('weak-password', 'publishable', 'test-context', 'recorded-traffic')
+def test_the_tags():
+    assert TAGS == ('weak-password', 'publishable', 'test-context', 'recorded-traffic', 'identifier', 'web-page')
 
 
 def test_a_tagging_variable_rule_adds_its_tag_and_no_score(variable_rules):
@@ -111,6 +114,14 @@ def test_a_stripe_publishable_key_is_tagged_and_a_secret_key_is_not(candidate_ru
         ('RECAPTCHA_SITE_KEY', '6Lc' + BODY + BODY[:13], True),
         ('algolia_search_only_key', 'e3b8a1f9c4d72605b9e18a3fc2d4706b', True),
         ('stripePublishableKey', BODY, True),
+        # the families 2.3's judging found publishable, none of them a secret
+        ('jwplayer.key', BODY, True),
+        ('PUSHER_APP_KEY', 'e3b8a1f9c4d72605b9e1', True),
+        ('NEXT_PUBLIC_MAPBOX_TOKEN', BODY, True),
+        ('sentryPublicApiKey', 'e3b8a1f9c4d72605b9e18a3fc2d4706b', True),
+        ('google_geocode_key', BODY, True),
+        ('pusher.api.privatekey', 'e3b8a1f9c4d72605b9e1', False),
+        ('geocode_secret', BODY, False),
         # a name that says secret or private is not publishable
         ('RECAPTCHA_SECRET_KEY', '6Lc' + BODY + BODY[:13], False),
         ('captcha_private_key', BODY, False),
@@ -147,10 +158,11 @@ def test_tags_change_nothing_but_the_tags(variable_rules, tmp_path):
     path = tmp_path / 'settings.py'
     path.write_text(
         f'recaptcha_site_key = "6Lc{BODY}{BODY[:13]}"\nstripe_key = "pk_live_{BODY}"\npassword = "sunshine"\n'
+        'aws_principal_id = "AIDAJQABLZS4A3QDU576"\n'
     )
     file = File(path=str(path), relative_path='settings.py')
     untagged_rules = [rule for rule in variable_rules if rule.tag is None]
-    assert len(untagged_rules) == len(variable_rules) - 2
+    assert len(untagged_rules) == len(variable_rules) - 3
 
     def report(rules):
         from deepsecrets.core.tokenizers.lexer import LexerTokenizer
@@ -284,3 +296,46 @@ def test_a_typed_rule_in_recorded_traffic_keeps_its_confidence():
     apply_path_context([finding])
     assert (finding.final_rule.id, finding.final_rule.confidence) == ('S38', 7)
     assert finding.tags == [TEST_CONTEXT, RECORDED_TRAFFIC]
+
+
+@pytest.fixture(scope='module')
+def s35():
+    rules = RegexRulesetBuilder().with_rules_from_file(get_path_inside_package('rules/regexes.json')).rules
+    return next(rule for rule in rules if rule.id == 'S35')
+
+
+@pytest.mark.parametrize(
+    'value, tagged',
+    [
+        ('AIDAJQABLZS4A3QDU576', True),  # a user's unique id
+        ('AROAJQABLZS4A3QDU576', True),  # a role's
+        ('AKIAJQABLZS4A3QDU576', False),  # an access key id
+        ('ASIAJQABLZS4A3QDU576', False),  # a temporary one
+    ],
+)
+def test_an_aws_principal_id_is_tagged_identifier_and_still_reported(
+    candidate_rules, variable_rules, s35, value, tagged
+):
+    (finding,) = scan_regex(RegexEngine(ruleset=[s35], candidate_rules=candidate_rules), f'id: {value}\n')
+    assert finding.rules[0].id == 'S35' and not finding.rejected
+    assert (IDENTIFIER in finding.tags) is tagged
+    # and when a variable holds it, which the semantic engine reports without judging the match as a candidate
+    result = VariableEvaluator(variable_rules).evaluate(Context(name='principal_id', value=value, filepath=CODE))
+    assert (IDENTIFIER in result.tags) is tagged
+
+
+@pytest.mark.parametrize(
+    'path, page',
+    [('site/index.html', True), ('docs/page.HTM', True), ('tests/cache/saved.xhtml', True), ('archive.mhtml', True)]
+    + [('src/app.js', False), ('templates/index.html.j2', False), ('htmlparser.py', False)],
+)
+def test_web_page_paths(path, page):
+    assert in_web_page(path) is page
+
+
+def test_a_finding_in_a_web_page_is_tagged_web_page():
+    page = _variable_finding('site/index.html', Rule(id='S105', name='x', confidence=8, is_dynamic_confidence=True))
+    code = _variable_finding('src/app.js', Rule(id='S105', name='x', confidence=8, is_dynamic_confidence=True))
+    apply_path_context([page, code])
+    assert (page.tags, page.final_rule.confidence) == ([WEB_PAGE], 8)
+    assert code.tags == []

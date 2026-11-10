@@ -193,9 +193,9 @@
     {
         "id": "SEM_VAR_TAG_PUBLISHABLE",
         "name": "Tag keys made to ship to clients",
-        "description": "Scores nothing: tags the variable's finding publishable when its name says the key is public by design (reCAPTCHA and other site keys, public keys, Stripe publishable keys, Gigya, Algolia search-only and DocSearch keys, Application Insights instrumentation keys). Not when the name also says secret or private",
+        "description": "Scores nothing: tags the variable's finding publishable when its name says the key is public by design (reCAPTCHA and other site keys, public keys, Stripe publishable keys, Gigya, Algolia search-only and DocSearch keys, Application Insights instrumentation keys; since 2.3's judging, JW Player and Brightcove player keys, Sentry public keys, Segment write keys, Branch and Pusher app keys, Maps, geocoding and Street View keys, Bugsnag notifier keys and Next.js NEXT_PUBLIC_ variables, each family judged publishable beyond SecretBench's labels with no secret among them). Not when the name also says secret or private",
         "target": "NAME_NORMALIZED",
-        "pattern": "sitekey|publickey|pubkey|publishable|clientkey|recaptcha|captcha|gigya|searchkey|searchonly|docsearch|instrumentationkey",
+        "pattern": "sitekey|publickey|pubkey|publishable|clientkey|recaptcha|captcha|gigya|searchkey|searchonly|docsearch|instrumentationkey|jwplayer|playerkey|sentrypublic|writekey|branchkey|branchiokey|pusherappkey|pusherapikey|nextpublic|mapsapikey|geocode|streetview|bugsnag",
         "score": 0,
         "unless": [{"target": "NAME_NORMALIZED", "pattern": "secret|private"}],
         "tag": "publishable"
@@ -208,5 +208,14 @@
         "pattern": "^pk_(test|live)_|^pk\\.ey",
         "score": 0,
         "tag": "publishable"
+    },
+    {
+        "id": "SEM_VAR_TAG_IDENTIFIER_VALUE",
+        "name": "Tag AWS principal ids",
+        "description": "Scores nothing: tags the variable's finding identifier when its value is the unique id of an AWS user, role, group, instance profile or policy (AIDA, AROA, AGPA, AIPA, ANPA, ANVA), which names a principal and grants nothing. SecretBench labels such ids real, so they stay reported. The copy of RC_TAG_IDENTIFIER for variables",
+        "target": "VALUE",
+        "pattern": "^(AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[A-Z0-9]{16,17}$",
+        "score": 0,
+        "tag": "identifier"
     }
 ]

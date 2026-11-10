@@ -32,7 +32,7 @@ class Finding(BaseModel):
     internal_score: Optional[dict] = Field(default_factory=dict)
     # a regex candidate its evaluation rejected: reported only at --confidence-level all, with confidence 0
     rejected: bool = Field(default=False)
-    # what sort of finding it is: weak-password, publishable, test-context, recorded-traffic
+    # what sort of finding it is: weak-password, publishable, test-context, recorded-traffic, identifier, web-page
     # (core/helpers/finding_tags.py). A tag never changes what is reported; --exclude-tags filters on it, and SARIF
     # carries it
     tags: List[str] = Field(default_factory=list)

@@ -193,5 +193,14 @@
         "pattern": "^pk_(test|live)_|^pk\\.ey",
         "score": 0,
         "tag": "publishable"
+    },
+    {
+        "id": "RC_TAG_IDENTIFIER",
+        "name": "Tag AWS principal ids",
+        "description": "Scores nothing: tags an S35 match identifier when its prefix makes it the unique id of an AWS user, role, group, instance profile or policy (AIDA, AROA, AGPA, AIPA, ANPA, ANVA): it names a principal and grants nothing. Beyond SecretBench's labels they were 32 of S35's 72 units and none a secret; the labels count them real, so they stay reported",
+        "target": "KIND",
+        "pattern": "^(AGPA|AIDA|AROA|AIPA|ANPA|ANVA)$",
+        "score": 0,
+        "tag": "identifier"
     }
 ]

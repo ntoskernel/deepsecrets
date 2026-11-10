@@ -40,6 +40,10 @@ on:
       dry_run:
         type: boolean
         default: false
+    secrets:
+      # A secret of the docker environment, which the caller must still pass (release-pypi.yml does, by name)
+      DOCKERHUB_TOKEN:
+        required: false
 
 permissions: {}
 
@@ -114,6 +118,25 @@ jobs:
             if [ "$ghcr" = true ]; then echo ghcr.io/ntoskernel/deepsecrets; fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Check the Docker Hub token
+        # Before the build, so a missing token fails in seconds rather than at the login, and a dry run warns of it. Only
+        # whether the secret is set reaches this step, never the token
+        if: ${{ steps.registry.outputs.dockerhub == 'true' }}
+        env:
+          TOKEN_SET: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          missing='DOCKERHUB_TOKEN is empty in this job: it must be a secret of the docker environment'
+          missing="$missing (Settings > Environments > docker) and, in a calling workflow, passed under secrets:"
+          if [ "$TOKEN_SET" = true ]; then
+            echo "DOCKERHUB_TOKEN is set"
+          elif [ "$DRY_RUN" = true ]; then
+            echo "::warning::$missing; a real run would fail at the Docker Hub login"
+          else
+            echo "::error::$missing"
+            exit 1
+          fi
 
       - name: Image tags and labels
         id: meta

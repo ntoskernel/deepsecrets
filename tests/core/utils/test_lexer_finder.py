@@ -58,7 +58,6 @@ def find(tmp_path, name: str, content: str):
         ('Product.wxs', '<Wix/>\n', 'HTML'),
         ('Directory.Build.props', '<Project/>\n', 'HTML'),
         ('Build.targets', '<Project/>\n', 'HTML'),
-        ('debug.launch', '<launch/>\n', 'HTML'),
         # Markdown dialects
         ('page.mdx', '# Title\n', 'Markdown'),
         ('report.Rmd', '# Title\n', 'Markdown'),
@@ -107,5 +106,7 @@ def test_lexer_selection_is_unchanged_elsewhere(tmp_path):
     assert find(tmp_path, 'notes.local', 'x\n') is None
     # user-interface markup: its attributes are look-alikes, and lexing it is slow
     assert find(tmp_path, 'Main.xaml', '<Window Title="x"/>\n') is None
+    # Eclipse launch configurations: their `key` attributes hold setting names, never values
+    assert find(tmp_path, 'debug.launch', '<booleanAttribute key="org.eclipse.debug.core.x" value="false"/>\n') is None
     # a file built with an explicit extension (an embedded region) keeps it
     assert LexerFinder().find(File(path=None, content='a: 1\n', extension='yaml')).name == 'YAML'

@@ -16,7 +16,8 @@ WRAPPER_SUFFIXES = frozenset({'example', 'sample', 'dist', 'template', 'tpl', 'o
 # Extensions no Pygments lexer claims, and what the finder reads them as. 'xml' goes on to the guesser, whose HTML swap
 # yields attributes (web.config's decryptionKey="...") as variables. Not .xaml: user-interface markup whose attributes
 # are look-alikes, and which the HTML lexer reads about 50 times slower than no lexer (2 s for 100 KB), measured on the
-# 3,000-file SecretBench sample
+# 3,000-file SecretBench sample. Not Eclipse's .launch: its `key` attributes hold setting names
+# (`<booleanAttribute key="…" value="false"/>`), 11 units beyond SecretBench's labels and none of them a secret
 EXTENSION_ALIASES = {
     'config': 'xml',
     'csproj': 'xml',
@@ -24,7 +25,6 @@ EXTENSION_ALIASES = {
     'wxs': 'xml',
     'props': 'xml',
     'targets': 'xml',
-    'launch': 'xml',
     'mdx': 'md',
     'rmd': 'md',
 }

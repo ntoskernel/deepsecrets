@@ -14,19 +14,36 @@ In our LLM-hype era, DeepSecrets still runs entirely on your machine — giving 
 Most existing scanners don't actually "understand" code. Instead, they just parse texts and have bad coverage.
 
 DeepSecrets bridges the gap between classic regex scanners and full-scale commercial SAST tools. It extends the classic regex-based scanning strategy by heavily relying on semantic code analysis, dangerous variable detection, and context-aware entropy analysis.
-This means secret candidates are always semantically correct. We achieve true code understanding across 500+ languages and formats using lexing and parsing techniques.
+Secret candidates come from what the code says, its names, assignments and calls, not from text alone. DeepSecrets reads code with lexers for about 600 languages and formats (Pygments), and finds variables with detection rules for 14 languages and a generic rule for the rest.
 
 DeepSecrets also introduces a new way to find credentials with zero knowledge: the HashedSecret Engine. Just provide the hashed values of your known production secrets, and the tool will find them exposed in plain text within your code.
 
 ### Performance & Benchmarks (SecretBench)
 
-DeepSecrets v2.0 was evaluated (June 2026) against the **SecretBench** benchmark outperforming traditional flat-text scanners:
+DeepSecrets 2.3 was evaluated (November 2026) on the **SecretBench** benchmark: every file scanned, every labelled row counted.
 
-* **93% Recall** 
-* **8% False Positive Rate** on SecretBench scope
-* **~9K Extra Findings** *outside* the SecretBench scope
+* **93% Recall** and **91% Precision** (2.2: 93% and 86%)
+* **1.6% False Positive Rate** on SecretBench scope (2.2: 2.7%)
+* About **2,000 more secrets** that SecretBench does not label, among its findings outside the labels
 
-*(You can read the full under-the-hood story and benchmark breakdown in my HackerNoon article [here]())*
+Counted the way the June 2026 evaluation counted, on its own set of rows, 2.3 has 94% recall and 85% precision (2.0 in June 2026: 93% and 67%).
+
+#### Reproduce these numbers
+
+The figures come from [dsbench](https://github.com/ntoskernel/dsbench), an open-source benchmark harness that runs a scanner as a black box over a labelled corpus and counts what it reports. With SecretBench (available from [its authors](https://github.com/setu1421/SecretBench) on request) and dsbench, anyone can reproduce the per-row figures above and the comparison below:
+
+```bash
+dsbench prepare                        # load SecretBench's labels and the corpus listing
+dsbench run --tool-ref v2.3.0          # DeepSecrets 2.3.0 from its tag, in a venv from its own poetry.lock
+dsbench tools fetch                    # the pinned gitleaks and Betterleaks releases, checked by SHA-256
+dsbench run --tool gitleaks
+dsbench run --tool betterleaks
+dsbench compare RUN RUN ...            # side by side, with 95% intervals
+```
+
+Every run scans every file, with each tool's path exclusions turned off. The June-way figures also need the June 2026 evaluation's table of rows, and the count of secrets beyond the labels needs our judged verdicts; neither is published, because both point at leaked credentials.
+
+*(You can read the full under-the-hood story and benchmark breakdown in my HackerNoon article [here](https://hackernoon.com/deepsecrets-20-catching-93percent-of-secretbenchs-valids-while-filtering-92percent-of-noise-and-10k-extra))*
 
 
 # Quick Start Guide
@@ -70,7 +87,7 @@ The `--help` command is always ready to guide you, but here are the key flags yo
 * `--skip-bundles`: Skip minified JavaScript, source maps and bundles (`*.min.js`, `*.map`, `*.bundle.js`) entirely, on top of the other path exclusions.
 * `--confidence-level {all,low,medium,high,very-high}`: The lowest confidence to report (default `low`, every finding). `medium`, `high` and `very-high` keep confidence 5, 6 and 9 or more, the findings of the SARIF tiers of the same names and above; `all` also reports the regex matches the scanner judged not to be secrets (placeholders, examples), with an `-INFO` rule id.
 * `--min-confidence N`: Report findings of confidence `N` or more, `N` from 0 to 10: any cut, where `--confidence-level` offers the floors of the tiers. Like every level but `all`, it leaves out the regex matches judged not to be secrets. Use one flag or the other, not both.
-* `--exclude-tags TAG [TAG ...]`: Leave out the findings that carry any of these tags. A tag says what sort of secret a finding is, where its confidence says how likely it is one: `weak-password` (a weak value under a password-like name), `publishable` (a key made to ship to clients: reCAPTCHA and other site keys, Stripe `pk_` keys, Mapbox `pk.` tokens) and `test-context` (a test, spec, fixture, mock, example or sample path, relative to the target directory). Every finding is still reported by default; e.g. `--exclude-tags test-context` when you hunt live secrets.
+* `--exclude-tags TAG [TAG ...]`: Leave out the findings that carry any of these tags. A tag says what sort of secret a finding is, where its confidence says how likely it is one: `weak-password` (a weak value under a password-like name), `publishable` (a key made to ship to clients: reCAPTCHA and other site keys, Stripe `pk_` keys, Mapbox `pk.` tokens, player, analytics and maps keys), `test-context` (a test, spec, fixture, mock, example or sample path, relative to the target directory), `recorded-traffic` (VCR cassettes, session recordings, HAR files), `identifier` (an AWS id of a user, role or policy, which grants nothing) and `web-page` (an HTML page). Every finding is still reported by default; e.g. `--exclude-tags test-context` when you hunt live secrets.
 * `--report-diagnostics`: Add every file found under the target to the SARIF report, with its status, scan time, skip reason and analysis depth.
 * `--regex-candidate-scoring-rules /path/to/rules.json`: Supply your own rules for judging regex matches before they are reported. Give the flag no value to report regex matches unjudged.
 * `--multiprocessing-context {forkserver,spawn,fork}`: How worker processes start. The default is `forkserver` where the platform has it (Linux, macOS): workers share the scanner already loaded in a server process. Windows uses `spawn`. All three give the same findings.
@@ -128,7 +145,7 @@ Every finding gets a confidence score. However, different security platforms par
 
 * **Deterministic Result Level**: The tool always explicitly sets `level: error` in the `results[]` model. This acts as a universal fallback for CI/CD pipelines and older SAST parsers, ensuring that exposed secrets reliably break builds or block Pull Requests regardless of individual rule interpretations.
 
-* **Tags**: Each result carries its tags, if it has any, in SARIF's standard `properties.tags` array (`weak-password`, `publishable`, `test-context`). Rule ids, severity and fingerprints do not depend on them.
+* **Tags**: Each result carries its tags, if it has any, in SARIF's standard `properties.tags` array (`weak-password`, `publishable`, `test-context`, `recorded-traffic`, `identifier`, `web-page`). Rule ids, severity and fingerprints do not depend on them.
 
 * **Contextual Messages**: Injects the raw numeric confidence score natively into `result.message.text` so security analysts see it immediately on their dashboards.
 
@@ -178,21 +195,23 @@ While other tools scan only what they know, DeepSecrets leverages lexers. This a
 
 #### Tool comparison based on SecretBench Results
 
-| Feature / Capability | **DeepSecrets 2.2** | **Gitleaks** | **TruffleHog** | **Semgrep Secrets** |
-| :--- | :---: | :---: | :---: | :---: |
-| **SecretBench Accuracy** | **93% Recall<br>79% Precision** | 88% Recall<br>46% Precision | 52% Recall<br>6% Precision | *Not Evaluated* |
-| **Price & Licensing** | **Free / Open-Source** | Free / Open-Source | Free / Open-Source | Commercial / Paid |
-| **Analysis Type** | **Semantic / Regex** | Flat-text Regex / Entropy | Flat-text Regex / Entropy | Semantic |
-| **Language Support** | **500+** | Context-agnostic (Text) | Context-agnostic (Text) | Limited subset |
-| **Pre-hashed Validation** | **Yes (via Hashed Engine)** | No | No | No |
-| **Context-Aware Entropy**| **Yes (Assigned values)** | No (Entire file text) | No (Entire file text) | Yes |
-| **Advanced SARIF Output**| **Yes (Dynamic Confidence)** | Basic | Basic | Yes |
+| Feature / Capability | **DeepSecrets 2.3** | **Gitleaks 8.30** | **Betterleaks 1.8** | **TruffleHog** | **Semgrep Secrets** |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **SecretBench Accuracy** | **93% Recall<br>91% Precision** | 85% Recall<br>70% Precision | 85% Recall<br>61% Precision | *Not re-measured* | *Not Evaluated* |
+| **Price & Licensing** | **Free / Open-Source** | Free / Open-Source | Free / Open-Source | Free / Open-Source | Commercial / Paid |
+| **Analysis Type** | **Semantic / Regex** | Flat-text Regex / Entropy | Flat-text Regex / Entropy | Flat-text Regex / Entropy | Semantic |
+| **Language Support** | **~600 lexed<br>(variables in 14)** | Context-agnostic (Text) | Context-agnostic (Text) | Context-agnostic (Text) | Limited subset |
+| **Pre-hashed Validation** | **Yes (via Hashed Engine)** | No | No | No | No |
+| **Context-Aware Entropy**| **Yes (Assigned values)** | No (Entire file text) | No (Entire file text) | No (Entire file text) | Yes |
+| **Advanced SARIF Output**| **Yes (Confidence tiers and tags)** | Basic | Basic | Basic | Yes |
+
+_SecretBench, every file scanned, every labelled row counted, with [dsbench](https://github.com/ntoskernel/dsbench) (see [Reproduce these numbers](#reproduce-these-numbers)). DeepSecrets 2.3, Gitleaks 8.30.1 and Betterleaks 1.8.1 measured on the same harness in October and November 2026, Gitleaks and Betterleaks with their default rules and their global path allowlist removed so that every file is scanned, as for DeepSecrets. TruffleHog was measured in June 2026 by another method (52% recall, 6% precision) and not since._
 
 
 
 > Why don't you build true abstract syntax trees? It's academically more correct!
 
-DeepSecrets tries to keep a balance between complexity and effectiveness. Building a true AST across 500+ languages is incredibly complex and simply overkill for the secrets detection. The tool follows the generic SAST approach to code analysis but optimizes the AST stage for maximum speed and width.
+DeepSecrets tries to keep a balance between complexity and effectiveness. Building a true AST across hundreds of languages is incredibly complex and simply overkill for the secrets detection. The tool follows the generic SAST approach to code analysis but optimizes the AST stage for maximum speed and width.
 
 > I'd like to build my own semantic rules. How do I do that?
 

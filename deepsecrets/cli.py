@@ -213,12 +213,13 @@ class DeepSecretsCliTool:
             f'Default: {DEFAULT_DEEP_MAX_SIZE}. 0 gives every file the full analysis.\n',
         )
         floors = TIER_FLOORS
-        # one cut or the other: a named level, or a number
+        # one cut or the other: a named level, or a number. Neither has a default here: Python 3.11's argparse counts
+        # an option for the group only when its value is not the default object, so an interned 'low' slipped by
         cut = parser.add_mutually_exclusive_group()
         cut.add_argument(
             '--confidence-level',
             type=str,
-            default=DEFAULT_CONFIDENCE_LEVEL,
+            default=None,
             choices=list(CONFIDENCE_LEVELS),
             help=f'The lowest confidence to report, from all to very-high (default: {DEFAULT_CONFIDENCE_LEVEL}).\n'
             f'"low" reports every finding; "medium", "high" and "very-high" keep confidence {floors["medium"]}, '
@@ -338,7 +339,7 @@ class DeepSecretsCliTool:
 
         config.set_disable_masking(args.disable_masking)
         config.set_report_diagnostics(args.report_diagnostics)
-        config.set_confidence_level(args.confidence_level)
+        config.set_confidence_level(args.confidence_level or DEFAULT_CONFIDENCE_LEVEL)
         config.set_min_confidence(args.min_confidence)
         config.set_excluded_tags(args.exclude_tags)
         config._set_benchmarking_mode(args.benchmarking_mode)

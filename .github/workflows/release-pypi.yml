@@ -1,8 +1,9 @@
 name: Release to PyPI
 
-# Admin only, by hand: builds and checks the release, runs the CI suite (run-tests.yml) on the same commit, uploads it
-# to PyPI by trusted publishing and then has release-docker.yml build the image from it. The upload job runs in the pypi
-# environment, which PyPI's trusted publisher is bound to and whose required reviewers live in the repository settings.
+# Admin only, by hand: builds and checks the release, runs the CI suite (run-tests.yml) on the same commit unless it
+# already passed on the same code, uploads it to PyPI by trusted publishing and then has release-docker.yml build the
+# image from it. The upload job runs in the pypi environment, which PyPI's trusted publisher is bound to and whose
+# required reviewers live in the repository settings.
 
 on:
   workflow_dispatch:
@@ -24,6 +25,10 @@ on:
         description: Also tag the image latest (turn this off when releasing an older line)
         type: boolean
         default: true
+      retest:
+        description: Run the test suite even if it already passed on this code
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -33,8 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read # the earlier runs that may have tested this code
     outputs:
       digests: ${{ steps.digests.outputs.digests }}
+      tested_by: ${{ steps.tested.outputs.tested_by }}
     steps:
       - name: Require an admin
         # Here as well as in the publishing jobs, so a run nobody may publish from stops at once. $/ is the action at
@@ -83,6 +90,75 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Look for a passing test run of this code
+        # The suite needs one pass per tree, not per run. The tree covers every file, the workflows and poetry.lock
+        # included, so a pass on the same tree ran the same tests on the same code: a push run of run-tests.yml, or an
+        # earlier run of this workflow whose test jobs all passed. Pull-request runs test a merge with the base, not
+        # their head commit, and do not count. Anything the lookup cannot answer runs the suite
+        id: tested
+        env:
+          TOKEN: ${{ github.token }}
+          API_URL: ${{ github.api_url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RETEST: ${{ inputs.retest }}
+        run: |
+          if [ "$RETEST" = true ]; then
+            echo "retest is on, so the suite runs"
+            exit 0
+          fi
+          tree=$(git rev-parse 'HEAD^{tree}')
+          python - "$tree" <<'EOF'
+          import json
+          import os
+          import sys
+          import urllib.request
+
+          tree = sys.argv[1]
+          base = f'{os.environ["API_URL"]}/repos/{os.environ["REPOSITORY"]}'
+
+
+          def get(path):
+              headers = {
+                  'Authorization': f'Bearer {os.environ["TOKEN"]}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              }
+              with urllib.request.urlopen(urllib.request.Request(f'{base}/{path}', headers=headers), timeout=30) as r:
+                  return json.load(r)
+
+
+          def same_tree(run):
+              return (run.get('head_commit') or {}).get('tree_id') == tree
+
+
+          def find():
+              for run in get('actions/workflows/run-tests.yml/runs?event=push&status=success&per_page=100')['workflow_runs']:
+                  if same_tree(run):
+                      return run
+              for run in get('actions/workflows/release-pypi.yml/runs?per_page=100')['workflow_runs']:
+                  if run['id'] == int(os.environ['RUN_ID']) or not same_tree(run):
+                      continue
+                  jobs = get(f'actions/runs/{run["id"]}/jobs?per_page=100')['jobs']
+                  tests = [job for job in jobs if job['name'].startswith('Tests / ')]
+                  if tests and all(job['conclusion'] == 'success' for job in tests):
+                      return run
+              return None
+
+
+          try:
+              run = find()
+          except Exception as error:
+              print(f'::warning::Could not look for an earlier test run ({error}), so the suite runs')
+              sys.exit(0)
+          if run:
+              print(f'::notice::The suite passed on this code (tree {tree}) in {run["html_url"]}; it does not run again')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                  print(f'tested_by={run["html_url"]}', file=output)
+          else:
+              print(f'The suite has not passed on tree {tree} yet, so it runs')
+          EOF
 
       - name: Build
         run: |
@@ -157,9 +233,12 @@ jobs:
           if-no-files-found: error
 
   tests:
-    # The release's test gate: every Python the matrix covers must pass before anything is published
+    # The release's test gate: every Python the matrix covers must pass before anything is published, in this run or,
+    # on the same code, in an earlier one (the build job's tested_by). Later runs find these jobs by their "Tests / "
+    # names, so keep the name
     name: Tests
     needs: build
+    if: ${{ needs.build.outputs.tested_by == '' }}
     permissions:
       contents: read
     uses: ./.github/workflows/run-tests.yml
@@ -167,7 +246,11 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: [ build, tests ]
-    if: ${{ !inputs.dry_run }}
+    # A skipped tests job would skip this one too, so the results are spelled out: the suite passed here, or it was
+    # skipped because it had passed on this code before
+    if: >-
+      ${{ !cancelled() && !inputs.dry_run && needs.build.result == 'success' && (needs.tests.result == 'success' ||
+      (needs.tests.result == 'skipped' && needs.build.outputs.tested_by != '')) }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -203,9 +286,10 @@ jobs:
 
   docker:
     name: Docker image
-    # After the upload the image installs from, so never in a dry run
+    # After the upload the image installs from, so never in a dry run. The result is spelled out because a skipped tests
+    # job upstream would otherwise skip this one
     needs: publish
-    if: ${{ inputs.docker != 'none' }}
+    if: ${{ !cancelled() && needs.publish.result == 'success' && inputs.docker != 'none' }}
     permissions:
       contents: read
       packages: write # release-docker.yml pushes to GHCR with GITHUB_TOKEN
@@ -214,3 +298,7 @@ jobs:
       version: ${{ inputs.version }}
       latest: ${{ inputs.latest }}
       registry: ${{ inputs.docker }}
+    # A called workflow gets only the secrets its caller passes, environment secrets included: unpassed, the token is
+    # empty there even in the docker environment. Passed by name, it still resolves only in the job that runs in docker
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

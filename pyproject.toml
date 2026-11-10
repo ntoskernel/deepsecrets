@@ -1,6 +1,6 @@
 [project]
 name = "deepsecrets"
-version = "2.2.0"
+version = "2.3.0"
 description = "Offline secrets scanner that understands code: credentials found by variable names, entropy and provider formats, with confidence tiers, tags and SARIF output"
 readme = "README.md"
 # Apache-2.0 from 2.3.0; the code of the original release and contributions made before 2.3.0 stay under MIT (NOTICE)

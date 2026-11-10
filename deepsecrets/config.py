@@ -41,7 +41,7 @@ def deep_analysis(size: int, deep_max_size: int) -> bool:
 
 
 SCANNER_NAME = "DeepSecrets"
-SCANNER_VERSION = "2.2.0"
+SCANNER_VERSION = "2.3.0"
 SCANNER_URL = "https://github.com/ntoskernel/deepsecrets"
 
 MAX_LINE_LENGTH_FOR_CONTEXT = 300

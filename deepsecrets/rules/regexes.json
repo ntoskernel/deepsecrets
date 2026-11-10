@@ -98,7 +98,8 @@
         "evidence": "format",
         "name": "Heroku API Key",
         "confidence": 10,
-        "pattern": "(?i)heroku.*?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        "pattern": "(?i)heroku.{0,34}?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        "description": "A UUID within 34 characters after the word heroku, as in `HEROKU_API_KEY=` or `heroku config:set KEY=`. Unbounded, the rule took any UUID later on the line: 24 units beyond SecretBench's labels, none a secret, most of them Content Security Policy text naming herokuapp.com"
     },
     {
         "id": "S17",

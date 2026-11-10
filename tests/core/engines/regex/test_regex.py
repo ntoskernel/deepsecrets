@@ -4,6 +4,7 @@ from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.model.token import Token
+from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.rulesets.regex_candidate_scoring import RegexCandidateScoringRulesetBuilder
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.utils.fs import get_path_inside_package
@@ -243,3 +244,18 @@ PROVIDER_NEGATIVES = {
 def test_provider_call_forms_need_their_frame(regex_engine: RegexEngine, rule_id: str, line: str):
     rule = next(rule for rule in regex_engine.ruleset if rule.id == rule_id)
     assert rule.matches(line) == []
+
+
+def _shipped_rule(rule_id: str) -> RegexRule:
+    builder = RegexRulesetBuilder()
+    builder.with_rules_from_file(get_path_inside_package('rules/regexes.json'))
+    return next(r for r in builder.rules if r.id == rule_id)
+
+
+def test_s12_takes_a_key_near_its_keyword_only():
+    rule = _shipped_rule('S12')
+    key = '01234567-89ab-cdef-0123-456789abcdef'
+    assert rule.match(_token(f'HEROKU_API_KEY={key}'))
+    assert rule.match(_token(f"heroku config:set API_TOKEN='{key}'"))
+    # a policy or a log line that names herokuapp.com and carries an unrelated UUID further on
+    assert rule.match(_token(f"connect-src https://*.herokuapp.com https://cdn.example.com; report-uri /r/{key}")) == []

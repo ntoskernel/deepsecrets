@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE, deep_analysis
 from deepsecrets.core.engines.regex import RegexEngine
-from deepsecrets.core.engines.semantic import SemanticEngine, filenames_ignorelist
+from deepsecrets.core.engines.semantic import SemanticEngine, filenames_ignorelist, variable_rule
 from deepsecrets.core.helpers.finding_tags import WEAK_PASSWORD, tag_test_context
 from deepsecrets.core.helpers.variable_evaluator import HOPELESS_THRESHOLD, VariableEvaluator
 from deepsecrets.core.model.file import File
@@ -188,26 +188,23 @@ def _evaluate(evaluator: VariableEvaluator, scoring_rules: list, variable) -> di
         'dangerous': result.is_dangerous,
         'confidence': result.export_confidence,
         'allows_low_entropy': result.allows_low_entropy,
-        'rule_emitted': _rule_emitted(result),
-        'tags': _tags_emitted(result),
+        'rule_emitted': _rule_emitted(result, context.value),
+        'tags': _tags_emitted(result, context.value),
         'dangerous_without': counterfactual,
     }
 
 
-def _rule_emitted(result) -> Optional[str]:
-    """The rule SemanticEngine.search reports for an evaluated variable, or None."""
-    if not result.is_dangerous:
-        return None
-    if result.entropy_score > 0:
-        return 'S105'
-    return 'S106' if result.allows_low_entropy else None
+def _rule_emitted(result, value: str) -> Optional[str]:
+    """The rule SemanticEngine.search reports for an evaluated variable, or None: the engine's own decision."""
+    rule = variable_rule(result, value)
+    return rule.id if rule is not None else None
 
 
-def _tags_emitted(result) -> List[str]:
+def _tags_emitted(result, value: str) -> List[str]:
     """The tags SemanticEngine puts on the variable's finding: those of the scoring rules that fired, and
     weak-password on S106. test-context comes later, from the path (production findings carry it)."""
     tags = list(result.tags)
-    if _rule_emitted(result) == 'S106' and WEAK_PASSWORD not in tags:
+    if _rule_emitted(result, value) == 'S106' and WEAK_PASSWORD not in tags:
         tags.append(WEAK_PASSWORD)
     return tags
 
@@ -463,7 +460,8 @@ def _verdict(t: dict) -> dict:
         return {
             'stage': 'evaluation',
             'component': 'semantic_engine',
-            'detail': 'no entropy score, and no allows_low_entropy rule fired on the name (S106)',
+            'detail': 'no entropy score, and no allows_low_entropy rule fired on the name, or the weak value is too short or '
+            'letters alone (S106)',
         }
     return {'stage': 'evaluation', 'component': 'variable_evaluator', 'detail': 'scored as not dangerous'}
 

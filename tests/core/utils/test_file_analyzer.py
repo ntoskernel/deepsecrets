@@ -37,7 +37,9 @@ def _builtin_bundle(workdir):
 @pytest.mark.parametrize(
     'first',
     [
-        'x = "AKIAAAAABBBBBCCCCCDD"',  # a regex candidate, rejected (not random) under a name that proves nothing
+        # a regex candidate, rejected (not random) under a name that proves nothing; digits in it, since S106 does not
+        # report a weak value of letters alone
+        'x = "AKIAAAAABBBBBCCCCC22"',
         'label = "Zx8vQ2mK7pLr4NtY"',  # no finding at all
     ],
 )

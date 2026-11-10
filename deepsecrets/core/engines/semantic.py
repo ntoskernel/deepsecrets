@@ -72,7 +72,7 @@ class SemanticEngine(IEngine):
 
         try:
             result = self.variable_evaluator.evaluate(semantic.payload)
-            rule = variable_rule(result)
+            rule = variable_rule(result, semantic.payload.context.value)
             if rule is not None:
                 # the tags of the rules that fired; an S106 finding is a weak password too
                 tags = [*result.tags, WEAK_PASSWORD] if rule.id == 'S106' else result.tags
@@ -82,10 +82,23 @@ class SemanticEngine(IEngine):
         return findings
 
 
-def variable_rule(result: EvaluationResult) -> Optional[Rule]:
+# the shortest weak value S106 reports: shorter ones under password names are defaults (`admin`, `root`, `1234`)
+WEAK_VALUE_MIN_LENGTH = 7
+
+
+def could_be_chosen_password(value: str) -> bool:
+    """A weak value someone may have chosen as a password: 7 characters or more, and not letters alone. A plain word
+    under a password name is a placeholder or a default (`changeme`, `password`, `secret`): of the 704 S106 units
+    beyond SecretBench's labels, letters-only values are 496 noise to 5 secrets, and values of 6 characters or fewer
+    are 176 noise to none (judging-for-2.4.md)."""
+    value = value.strip('\'"`')
+    return len(value) >= WEAK_VALUE_MIN_LENGTH and not value.isalpha()
+
+
+def variable_rule(result: EvaluationResult, value: str) -> Optional[Rule]:
     """The rule a variable is reported under, or None. S105 when its value earns an entropy score. S106 when it earns
-    none (3 bits or less) but a rule allowed a low-entropy value: a password someone chose, else a placeholder, an id
-    or a map key. S106 has no value evidence, so its confidence is capped in the LOW tier."""
+    none (3 bits or less) but a rule allowed a low-entropy value and the value could be a chosen password: else it is
+    a placeholder, an id or a map key. S106 has no value evidence, so its confidence is capped in the LOW tier."""
     if not result.is_dangerous:
         return None
     if result.entropy_score > 0:
@@ -95,7 +108,7 @@ def variable_rule(result: EvaluationResult) -> Optional[Rule]:
             confidence=result.export_confidence,
             is_dynamic_confidence=True,
         )
-    if result.allows_low_entropy:
+    if result.allows_low_entropy and could_be_chosen_password(value):
         return Rule(
             id='S106',
             name='Variable Naming',

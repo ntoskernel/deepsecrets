@@ -16,6 +16,7 @@ class Target(str, Enum):
     VALUE_NORMALIZED = 'VALUE_NORMALIZED'
     VALUE_LENGTH = 'VALUE_LENGTH'
     VALUE_NORMALIZED_NATURALNESS_SCORE = 'VALUE_NORMALIZED_NATURALNESS_SCORE'
+    VALUE_SHAPE = 'VALUE_SHAPE'  # "file_name version": flags computed from the value (core/helpers/value_shape.py)
 
 
 target_to_fields = {
@@ -26,6 +27,7 @@ target_to_fields = {
     Target.VALUE_NORMALIZED: 'value_normalized',
     Target.VALUE_LENGTH: 'value_length',
     Target.VALUE_NORMALIZED_NATURALNESS_SCORE: 'value_normalized_naturalness_score',
+    Target.VALUE_SHAPE: 'value_shape',
 }
 
 ops = {
@@ -69,6 +71,9 @@ class VariableScoringRule(RegexRule):
     unless: List[ScoringCondition] = Field(default=[])
     # when the rule fires, a dangerous variable is reported even if its value earns no entropy score (S106)
     allows_low_entropy: bool = False
+    # when the rule fires, a reported finding of the variable carries this tag (core/helpers/finding_tags.py). A rule
+    # meant only to tag scores 0, so tagging never changes what is reported
+    tag: Optional[str] = None
 
     def _is_threshold_type(self):
         return self.threshold is not None and self.method is not None

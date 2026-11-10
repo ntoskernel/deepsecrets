@@ -63,7 +63,7 @@
         "evidence": "format",
         "name": "PGP private key block",
         "confidence": 10,
-        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
+        "pattern": "-BEGIN[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-----[^-]([\\s\\S]{50,15000}?)[^-](?:(?<=\\n)-)?-----END[\\S\\s]{0,10}PGP[\\S\\s]{0,10}PRIVATE[\\S\\s]{0,10}KEY[\\S\\s]{0,10}BLOCK-",
         "match_rules": {
             "1": {
                 "type": "value",
@@ -98,7 +98,8 @@
         "evidence": "format",
         "name": "Heroku API Key",
         "confidence": 10,
-        "pattern": "(?i)heroku.*?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        "pattern": "(?i)heroku.{0,34}?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        "description": "A UUID within 34 characters after the word heroku, as in `HEROKU_API_KEY=` or `heroku config:set KEY=`. Unbounded, the rule took any UUID later on the line: 24 units beyond SecretBench's labels, none a secret, most of them Content Security Policy text naming herokuapp.com"
     },
     {
         "id": "S17",
@@ -176,7 +177,7 @@
         "evidence": "format",
         "name": "Custom private key",
         "confidence": 10,
-        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----[^-]([\\s\\S]{50,15000}?)[^-]-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
+        "pattern": "-BEGIN[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-----[^-]([\\s\\S]{50,15000}?)[^-](?:(?<=\\n)-)?-----END[\\S\\s]{0,10}?PRIVATE[\\S\\s]{0,10}?KEY-",
         "match_rules": {
             "1": {
                 "type": "value",
@@ -522,7 +523,7 @@
         "evidence": "shape",
         "name": "Facebook app secret",
         "confidence": 10,
-        "pattern": "((?:facebook)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-f0-9]{32})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
+        "pattern": "((?:facebook)(?![\\w.-]{0,20}?\\.(?:js|css|png|jpe?g|gif|svg|html?|json|swf|php|py|rb|java|m|h)\\b)(?:[ \\t\\w.-]{0,20}))[\\s\\'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\\'\"\\s=]{0,5}([a-f0-9]{32})(?:[\\x60\\'\"\\s;]|\\\\[nr]|$)",
         "target_group": 2,
         "match_rules": {
             "1": {
@@ -532,7 +533,7 @@
                 "type": "value"
             }
         },
-        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `facebook-secret` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice)"
+        "description": "A value in the provider's format assigned to a name that mentions the provider; the keyword-first form of `facebook-secret` from gitleaks 8.30.1 (MIT, Copyright (c) 2019 Zachary Rice). Not when the name is a file name (`facebook-sdk.js`, `facebook.png`): a map of file names to MD5 checksums, 22 units beyond SecretBench's labels and none a secret"
     },
     {
         "id": "S55",
@@ -567,5 +568,110 @@
             }
         },
         "description": "A value in the provider's format within a few characters of the provider's name and a secret word, as in a call argument; adapted from `amplitude-secret-key` of Betterleaks 1.8.1 (MIT)"
+    },
+    {
+        "id": "S57",
+        "evidence": "format",
+        "name": "npm Access Token",
+        "description": "An npm registry token in an .npmrc line (//registry.npmjs.org/:_authToken=...): a legacy UUID token or an npm_ token. The frame belongs to .npmrc lines alone, so it needs no keyword",
+        "confidence": 10,
+        "pattern": ":_authToken=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|npm_[A-Za-z0-9]{36})\\b",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        }
+    },
+    {
+        "id": "S58",
+        "evidence": "format",
+        "name": "Private key without an END marker",
+        "description": "A BEGIN ... PRIVATE KEY line followed by at least three full base64 lines (60 to 76 characters) where the file ends or the block breaks off, with no private-key END marker in the next 15,000 characters: a truncated .pem, a PGP block cut short. A key with its END marker is the other private-key rules' (S1 to S5, S26)",
+        "confidence": 10,
+        "pattern": "-----BEGIN[ ](?:[A-Z0-9]+[ ]){0,3}PRIVATE[ ]KEY(?:[ ]BLOCK)?-----[ \\t]*\\r?\\n(?:[A-Za-z][\\w-]{0,30}:[ ][^\\r\\n]{0,200}\\r?\\n){0,8}(?:[ \\t]*\\r?\\n)?((?:[ \\t]*[A-Za-z0-9+/]{60,76}[ \\t]*\\r?\\n){3,}+)(?![\\s\\S]{0,15000}?-----END[ ](?:[A-Z0-9]+[ ]){0,3}PRIVATE[ ]KEY)",
+        "match_rules": {
+            "1": {
+                "type": "value",
+                "encoding": "base64"
+            }
+        }
+    },
+    {
+        "id": "S59",
+        "evidence": "shape",
+        "name": "Algolia API key in an algoliasearch call",
+        "confidence": 10,
+        "case_sensitive": true,
+        "pattern": "\\balgoliasearch\\s*\\(\\s*(['\"`])([A-Z0-9]{10})\\1\\s*,\\s*(['\"`])([a-f0-9]{32})\\3",
+        "target_group": 4,
+        "match_rules": {
+            "2": {
+                "type": "user"
+            },
+            "4": {
+                "type": "value"
+            }
+        },
+        "description": "algoliasearch('<application id>', '<key>'), any quote style, across lines: the client call names the provider and the argument position names the key. Search-only keys are public and a value cannot tell them from admin keys. On SecretBench 20 matches, 17 real groups and 2 look-alike groups (89%), 5 real units the scanner did not find and no new look-alike (2.3 design, R2)"
+    },
+    {
+        "id": "S60",
+        "evidence": "shape",
+        "name": "Facebook app secret in an OmniAuth provider",
+        "confidence": 10,
+        "pattern": ":facebook\\s*,\\s*(['\"])(\\d{10,20})\\1\\s*,\\s*(['\"])([a-f0-9]{32})\\3",
+        "target_group": 4,
+        "match_rules": {
+            "2": {
+                "type": "user"
+            },
+            "4": {
+                "type": "value"
+            }
+        },
+        "description": "OmniAuth's provider :facebook, \"<app id>\", \"<app secret>\" (Devise's config.omniauth too). S54 covers assignments only. On SecretBench 12 matches, 7 real groups and no look-alike, 3 real units the scanner did not find; its 3 unlabelled matches were judged app secrets (2.3 design, R2)"
+    },
+    {
+        "id": "S61",
+        "evidence": "shape",
+        "name": "Flickr API key in a Flickr call or URL",
+        "confidence": 10,
+        "pattern": "\\bflickr(?:_proxy_new\\s*\\(\\s*['\"]|\\.com/[^\\s'\"<>?]{0,80}\\?(?:[^\\s'\"<>&]{0,120}&(?:amp;)?){0,12}api_key=)([a-f0-9]{32})\\b",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        },
+        "description": "flickr_proxy_new(\"<key>\", \"<secret>\") and the api_key parameter of a flickr.com URL: only these frames, since a bare keyword-near form is 45% precise. Starts with the literal so it costs no more than its neighbours. On SecretBench 23 matches, 20 real groups and no look-alike, 3 real units the scanner did not find (2.3 design, R2)"
+    },
+    {
+        "id": "S62",
+        "evidence": "shape",
+        "name": "Pastebin developer key in a paste call",
+        "confidence": 10,
+        "pattern": "\\bpastebin\\w{0,10}\\(\\s*\\)\\.paste\\(\\s*['\"]([a-f0-9]{32})['\"]",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        },
+        "description": "PastebinAPI().paste('<developer key>', ...), the first argument of the pastebin package's paste call. On SecretBench 2 matches, 2 real groups, 1 real unit the scanner did not find (2.3 design, R2)"
+    },
+    {
+        "id": "S63",
+        "evidence": "shape",
+        "name": "MessageBird access key in a client call",
+        "confidence": 10,
+        "pattern": "messagebird['\"]?\\)?(?:\\.client|client|::client\\.new)?\\s*\\(\\s*['\"]([A-Za-z0-9]{25})['\"]",
+        "target_group": 1,
+        "match_rules": {
+            "1": {
+                "type": "value"
+            }
+        },
+        "description": "A MessageBird client built with its access key: messagebird.Client('<key>'), require('messagebird')('<key>'), MessageBird::Client.new('<key>'), new MessageBirdClient(\"<key>\"). On SecretBench 2 matches, 2 real groups, 1 real unit the scanner did not find (2.3 design, R2)"
     }
 ]

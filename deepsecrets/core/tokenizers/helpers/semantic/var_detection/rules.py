@@ -279,6 +279,14 @@ class VariableDetectionRules:
             },
             match_semantics={1: 'name_token', 2: 'value_token'},
         ),
+        # Dockerfile `ENV NAME value`, the space form: the instruction, then the name and the value as two texts to the
+        # end of the line. `ENV NAME=value` and `ARG NAME=value` are the ANY rule's
+        VariableDetector(
+            language=Language.DOCKER,
+            stream_pattern=re.compile('(u)(L)(L)(?:\n|$)'),
+            match_rules={1: Match(values=[re.compile('^ENV$', re.IGNORECASE)])},
+            match_semantics={2: 'name_token', 3: 'value_token'},
+        ),
     ]
 
     @classmethod
@@ -474,6 +482,15 @@ class CheapVariableDetectionRules(VariableDetectionRules):
             stream_pattern=re.compile(
                 r'<add\s+key\s*=\s*"([^"]{1,100})"\s+value\s*=\s*"([^"\s]{6,300})"', re.IGNORECASE
             ),
+            overlapped=False,
+            match_rules={},
+            match_semantics={1: 'name', 2: 'value'},
+        ),
+        # a C or Objective-C constant: #define NAME "value", #define NAME @"value". Pygments lexes the whole line as
+        # Comment.Preproc, and comments are dropped, so no lexer rule sees it
+        CheapVariableDetector(
+            language=Language.ANY,
+            stream_pattern=re.compile(r'^[ \t]*#[ \t]*define[ \t]+(\w+)[ \t]+@?"([^"\n]{6,300})"', re.MULTILINE),
             overlapped=False,
             match_rules={},
             match_semantics={1: 'name', 2: 'value'},

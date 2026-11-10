@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from deepsecrets.core.helpers.naturalness_scorer import naturalness_scorer
+from deepsecrets.core.helpers.value_shape import value_shape
 from deepsecrets.core.model.token import Token
 from deepsecrets.core.utils.string import StringUtils
 import regex as re
@@ -38,6 +39,8 @@ class Context:
     value_spaced: str = field(default_factory=str, repr=False)
     value_length: int = field(default_factory=int, repr=False)
     value_normalized_naturalness_score: float = field(default_factory=float, repr=False)
+    # flags of what the value's shape says it holds: 'file_name', 'version', 'sequence' (core/helpers/value_shape.py)
+    value_shape: str = field(default_factory=str, repr=False)
 
     def __post_init__(self):
         self.name_spaced, self.name_normalized, self.name_parts = self.normalize_punctuation(self.name)
@@ -47,6 +50,7 @@ class Context:
         self.name_length = len(self.name)
         self.value_length = len(self.value)
         self.value_normalized_naturalness_score = naturalness_scorer.calculate_score(self.value_normalized)
+        self.value_shape = value_shape(self.value)
 
     def normalize_punctuation(self, string: str, split_camel_case=True):
         normalized = string.replace(' ', '_')

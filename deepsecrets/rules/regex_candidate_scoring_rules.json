@@ -33,6 +33,14 @@
         "score": -100
     },
     {
+        "id": "RC_SEQUENCE",
+        "name": "A value that holds an ascending run",
+        "description": "6 or more characters each one code point above the previous, all digits or all letters of one case (xoxb-123456789012-..., sk_live_abcdef...): a placeholder or a made-up value. Such a run has the highest entropy its length allows, so RC_NOT_RANDOM cannot see it",
+        "target": "VALUE_SHAPE",
+        "pattern": "\\bsequence\\b",
+        "score": -100
+    },
+    {
         "id": "RC_NOT_RANDOM",
         "name": "Far from random",
         "description": "The value has under 75% of the entropy a random string of its length and alphabet is expected to have: a placeholder, a repeated character, a run of digits (xoxb-XXXXXXXX-..., AKIAAAAAAAAAAAAAAAAA)",
@@ -176,5 +184,23 @@
         "target": "FILEPATH",
         "pattern": "(.*\\.min\\.js$|/test/|/tests/|/spec/|/mock/|_test\\.)",
         "score": -1
+    },
+    {
+        "id": "RC_TAG_PUBLISHABLE",
+        "name": "Tag keys made to ship to clients",
+        "description": "Scores nothing: tags the finding publishable when the match is a Stripe publishable key (pk_test_, pk_live_) or a Mapbox public token (pk.ey...). S36 still reports pk_ keys. It reads the match, not the value: S36's value group leaves the pk_live_ prefix out",
+        "target": "MATCH",
+        "pattern": "^pk_(test|live)_|^pk\\.ey",
+        "score": 0,
+        "tag": "publishable"
+    },
+    {
+        "id": "RC_TAG_IDENTIFIER",
+        "name": "Tag AWS principal ids",
+        "description": "Scores nothing: tags an S35 match identifier when its prefix makes it the unique id of an AWS user, role, group, instance profile or policy (AIDA, AROA, AGPA, AIPA, ANPA, ANVA): it names a principal and grants nothing. Beyond SecretBench's labels they were 32 of S35's 72 units and none a secret; the labels count them real, so they stay reported",
+        "target": "KIND",
+        "pattern": "^(AGPA|AIDA|AROA|AIPA|ANPA|ANVA)$",
+        "score": 0,
+        "tag": "identifier"
     }
 ]

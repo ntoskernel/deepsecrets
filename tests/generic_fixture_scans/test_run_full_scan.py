@@ -2,6 +2,7 @@ from typing import List
 
 import pytest
 
+from deepsecrets import BASE_DIR
 from deepsecrets.cli import DeepSecretsCliTool
 
 
@@ -10,7 +11,7 @@ def args():
     return [
         '',
         '--target-dir',
-        '/app/tests/fixtures/',
+        f'{BASE_DIR}/tests/fixtures/',
         '--outfile',
         './fdsafad.json',
         '--outformat',

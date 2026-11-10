@@ -66,6 +66,8 @@ class RegexEngine(IEngine):
 
         context = self.candidate_context.from_match(rule, match.match, finding.detection, token.file.path)
         verdict = self.evaluator.evaluate(context)
+        for tag in verdict.tags:
+            finding.add_tag(tag)
         if verdict.rejected:
             if self.rejected_log is not None:
                 offset = token.span[0] if token.span else 0

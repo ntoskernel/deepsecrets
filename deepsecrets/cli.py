@@ -9,15 +9,26 @@ from multiprocessing import get_all_start_methods
 from deepsecrets import MODULE_NAME, console
 from deepsecrets.config import (
     CONFIDENCE_LEVELS,
+    CONFIDENCE_RANGE,
     DEFAULT_CONFIDENCE_LEVEL,
     DEFAULT_DEEP_MAX_SIZE,
     SCANNER_VERSION,
+    TIER_FLOORS,
     Config,
     Output,
 )
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.engines.semantic import SemanticEngine
+from deepsecrets.core.helpers.finding_tags import (
+    IDENTIFIER,
+    PUBLISHABLE,
+    RECORDED_TRAFFIC,
+    TAGS,
+    TEST_CONTEXT,
+    WEAK_PASSWORD,
+    WEB_PAGE,
+)
 from deepsecrets.core.model.finding import Finding
 from deepsecrets.core.model.response.dojo_sarif import DojoSarifResponseBuilder
 from deepsecrets.core.rulesets.false_findings import FalseFindingsBuilder
@@ -42,7 +53,11 @@ from rich import box
 from rich.text import Text
 from rich.align import Align
 
-DISABLED = 'disabled'
+
+def with_built_in(paths: List[str], shipped: str) -> List[str]:
+    """A ruleset flag's paths, with 'built-in' standing for the file shipped at `shipped` inside the package."""
+    built_in = get_path_inside_package(shipped)
+    return [path.replace('built-in', built_in) for path in paths]
 
 
 class ReturnCodes:
@@ -95,86 +110,93 @@ class DeepSecretsCliTool:
         console.line(2)
 
     def _build_argparser(self) -> None:
+        """The command line. Every ruleset flag takes a list of files, where 'built-in' stands for the shipped one."""
         parser = argparse.ArgumentParser(
             prog=MODULE_NAME,
             description='DeepSecrets - a better tool for secrets search',
             formatter_class=RawTextHelpFormatter,
         )
 
+        def ruleset_help(purpose: str, flag: str, example: str, *extra: str) -> str:
+            lines = [
+                purpose,
+                *extra,
+                '- Leave the flag out to use the built-in ruleset.',
+                "- Your own files replace the built-in ruleset; list 'built-in' among them to add it back",
+                f'e.g. {flag} built-in /root/{example}.json',
+            ]
+            return '\n'.join(lines) + '\n'
+
         parser.add_argument(
             '--target-dir',
             required=True,
             type=str,
-            help="Path to the directory with code you'd like to analyze",
+            help='The directory to scan',
         )
-
         parser.add_argument(
             '--regex-rules',
             nargs='*',
             type=str,
-            help='Paths to your Regex Rulesets.\n'
-            "- Set 'disable' to turn off regex checks\n"
-            '- Ignore this argument to use the built-in ruleset.\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
-            'eq. --regex-rules built-in /root/my_regex_rules.json\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Regex rulesets to match.',
+                '--regex-rules',
+                'my_regex_rules',
+                "- Set 'disable' to turn the regex checks off",
+            ),
         )
-
         parser.add_argument(
             '--regex-candidate-scoring-rules',
             nargs='*',
             type=str,
-            help='Controls rules for judging regex matches (candidates) before they are reported: placeholders,\n'
-            'language-like values, hosts, test paths. Used by regex rules that declare an "evidence" class.\n'
-            '- Ignore this argument to use the built-in ruleset\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
-            'eq. --regex-candidate-scoring-rules built-in /root/my_candidate_rules.json\n'
-            '- Give it no value to report regex matches unjudged, as before 2.2\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Rules that judge a regex match (a candidate) before it is reported: placeholders, values that\n'
+                'read as language, hosts, test paths. They judge the matches of regex rules with an "evidence" class.',
+                '--regex-candidate-scoring-rules',
+                'my_candidate_rules',
+            )
+            + '- Give the flag no value to report regex matches unjudged, as before 2.2\n',
         )
-
         parser.add_argument(
             '--hashed-values',
             nargs='*',
             type=str,
-            help='Path to your Hashed Values set.\n'
-            'Leave the flag out, or give it no value, to disable these checks\n',
+            help='A set of hashed values to look for.\nThe check is off when the flag is left out or has no value\n',
         )
-
         parser.add_argument(
             '--semantic-analysis',
             nargs='*',
             type=str,
-            help='Controls semantic checks (enabled by default)\n'
-            "- Set 'disable' to turn off semantic checks (not recommended)\n"
-            'eq. --semantic-analysis disable\n'
-            'Uses "--variable-scoring-rules" under the hood',
             default=['built-in'],
+            help='Semantic checks: variables judged by their names and values (on by default).\n'
+            "- Set 'disable' to turn them off (not recommended)\n"
+            'e.g. --semantic-analysis disable\n'
+            'The rules come from --variable-scoring-rules',
         )
-
         parser.add_argument(
             '--variable-scoring-rules',
             nargs='*',
             type=str,
-            help='Controls rules for assessing variables as dangerous based on names, values, langs and filenames\n'
-            '- Ignore this argument to use the built-in (mature and robust) ruleset\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to merge rulesets\n"
-            'eq. --variable-scoring-rules built-in /root/my_var_scoring_rules.json\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Rules that judge whether a variable holds a secret, by its name, its value and its file path.',
+                '--variable-scoring-rules',
+                'my_var_scoring_rules',
+            ),
         )
-
         parser.add_argument(
             '--excluded-paths',
             nargs='*',
             type=str,
-            help='Paths to your Excluded Paths file.\n'
-            "- Set 'disable' to scan everything (may affect performance)\n"
-            '- Ignore this argument to use the built-in ruleset.\n'
-            "- Using your own rulesets disables the default one. Add 'built-in' to the args list to enable it\n"
-            'eq. --excluded-paths built-in /root/my_excluded_paths.json\n',
             default=['built-in'],
+            help=ruleset_help(
+                'Files of path patterns to skip.',
+                '--excluded-paths',
+                'my_excluded_paths',
+                "- Set 'disable' to scan everything (slower)",
+            ),
         )
-
         parser.add_argument(
             '--skip-bundles',
             action='store_true',
@@ -182,7 +204,6 @@ class DeepSecretsCliTool:
             "--excluded-paths lists (except 'disable'). Most of them are larger than --deep-max-size and get the\n"
             'fast analysis anyway.\n',
         )
-
         parser.add_argument(
             '--deep-max-size',
             type=int,
@@ -191,60 +212,79 @@ class DeepSecretsCliTool:
             'without the language lexer, which costs most of the scan time on big files and rarely finds more there.\n'
             f'Default: {DEFAULT_DEEP_MAX_SIZE}. 0 gives every file the full analysis.\n',
         )
-
-        parser.add_argument(
+        floors = TIER_FLOORS
+        # one cut or the other: a named level, or a number. Neither has a default here: Python 3.11's argparse counts
+        # an option for the group only when its value is not the default object, so an interned 'low' slipped by
+        cut = parser.add_mutually_exclusive_group()
+        cut.add_argument(
             '--confidence-level',
             type=str,
-            default=DEFAULT_CONFIDENCE_LEVEL,
+            default=None,
             choices=list(CONFIDENCE_LEVELS),
-            help='The lowest confidence to report, from all to very-high (default: low).\n'
-            '"low" reports every finding; "medium", "high" and "very-high" keep confidence 3, 6 and 9 or more.\n'
+            help=f'The lowest confidence to report, from all to very-high (default: {DEFAULT_CONFIDENCE_LEVEL}).\n'
+            f'"low" reports every finding; "medium", "high" and "very-high" keep confidence {floors["medium"]}, '
+            f'{floors["high"]} and {floors["very-high"]} or more,\n'
+            'the findings of the SARIF tiers of the same names and above.\n'
             '"all" also reports the regex matches the scanner judged not to be secrets (placeholders, examples),\n'
             'at confidence 0 with an -INFO rule id.\n',
         )
-
+        cut.add_argument(
+            '--min-confidence',
+            type=int,
+            default=None,
+            choices=CONFIDENCE_RANGE,
+            metavar='N',
+            help='Report findings of confidence N or more, '
+            f'N from {CONFIDENCE_RANGE[0]} to {CONFIDENCE_RANGE[-1]}: any cut, where --confidence-level\n'
+            'offers the floors of the tiers. Like every level but "all", it leaves out the regex matches the\n'
+            'scanner judged not to be secrets. Not together with --confidence-level.\n',
+        )
+        parser.add_argument(
+            '--exclude-tags',
+            nargs='+',
+            choices=TAGS,
+            metavar='TAG',
+            help='Leave out the findings that carry any of these tags. A tag says what sort of secret a finding is:\n'
+            f'"{WEAK_PASSWORD}": a weak value under a password-like name (S106);\n'
+            f'"{PUBLISHABLE}": a key made to ship to clients (a site key, a Stripe pk_ key, a Mapbox pk. token);\n'
+            f'"{TEST_CONTEXT}": in a test, spec, fixture, mock, example or sample path, relative to --target-dir;\n'
+            f'"{RECORDED_TRAFFIC}": in recorded HTTP traffic (VCR cassettes, session recordings, HAR files), where\n'
+            'a variable is reported at LOW unless a typed rule finds it;\n'
+            f'"{IDENTIFIER}": an AWS id of a user, role, group or policy (AIDA..., AROA...), which grants nothing;\n'
+            f'"{WEB_PAGE}": in an HTML page, whose contents every browser that opens it receives.\n'
+            'The SARIF report carries the tags of each result in its "tags" property.\n'
+            f'e.g. --exclude-tags {TEST_CONTEXT} {PUBLISHABLE}\n',
+        )
         parser.add_argument(
             '--false-findings',
             nargs='*',
             type=str,
-            help='Paths to your False Findings file.\n'
-            'Use to filter findings you sure are false positives\n'
-            'File syntax is the same as in regex rules\n'
-            'eq. --false-findings /root/my_false_findings.json\n',
+            help='Files of patterns for findings you know are false positives: a finding whose value matches\n'
+            'one is dropped. The syntax is that of the regex rules\n'
+            'e.g. --false-findings /root/my_false_findings.json\n',
         )
-
-        parser.add_argument(
-            '-v',
-            '--verbose',
-            action='store_true',
-            help='Verbose mode',
-        )
-
+        parser.add_argument('-v', '--verbose', action='store_true', help='Verbose mode')
         parser.add_argument(
             '--reflect-findings-in-return-code',
             action='store_true',
-            help='Return code of 66 if any findings are detected during scan',
+            help='Exit with code 66 when the scan reports any finding',
         )
-
         parser.add_argument(
             '--process-count',
             type=int,
             default=0,
-            help='Number of processes in a pool for file analysis (one process per file)\n'
-            'Default: number of processor cores of your machine or cpu limit of your container from cgroup.\n'
-            'If all checks are failed the fallback value is 4',
+            help='How many worker processes analyse files, one file each at a time.\n'
+            "Default: the machine's processor count, or the CPU limit of the container (cgroup);\n"
+            '4 when neither can be read',
         )
-
         parser.add_argument(
             '--max-file-size',
             type=int,
             default=0,
-            help='Maximum size of a file (in bytes) the tool should analyze,\n'
-            'files with exceeding size will be ingored.\n'
-            'Big files (more than 5M) may contain useless blobs and cause performance degradation\n'
-            'Default: 0, which means "no limit".\n',
+            help='Skip files larger than this many bytes.\n'
+            'Very big files (over 5 MB) are mostly blobs and slow the scan down.\n'
+            'Default: 0, no limit.\n',
         )
-
         parser.add_argument(
             '--multiprocessing-context',
             type=str,
@@ -254,7 +294,6 @@ class DeepSecretsCliTool:
             help='How worker processes start. Default: forkserver where available (Linux, macOS), spawn elsewhere.\n'
             'forkserver workers share the scanner already loaded in the server instead of loading it again.\n',
         )
-
         parser.add_argument(
             '--ci',
             action=argparse.BooleanOptionalAction,
@@ -263,8 +302,7 @@ class DeepSecretsCliTool:
             'Default: on inside a CI service (CI, GITHUB_ACTIONS, GITLAB_CI and similar variables) or when the\n'
             'output is not a terminal; --no-ci forces the live display.\n',
         )
-
-        parser.add_argument('--outfile', required=True, type=str)
+        parser.add_argument('--outfile', required=True, type=str, help='Where to write the report')
         parser.add_argument(
             '--outformat',
             default='sarif',
@@ -274,14 +312,12 @@ class DeepSecretsCliTool:
             '"dojo-sarif": SARIF format (compatible with DefectDojo\'s parser)\n'
             '"json": the old internal format, removed in 2.2.0 (exits with an error)',
         )
-
         parser.add_argument(
             '--disable-masking',
             action='store_true',
-            help='Secrets are rendered MASKED inside the report by default.\n'
-            'Use this flag if you want to render found secrets in plaintext but be extremely careful.',
+            help='Write the secrets found into the report in plain text. They are masked by default;\n'
+            'be extremely careful with a report written with this flag.',
         )
-
         parser.add_argument(
             '--report-diagnostics',
             action='store_true',
@@ -289,88 +325,75 @@ class DeepSecretsCliTool:
             'run.artifacts (scan time in ms, status, skip reason, analysis depth) and per-file errors in\n'
             'run.invocations.\n',
         )
-
+        # for in-process callers and the benchmark harness
         parser.add_argument('--benchmarking-mode', help=argparse.SUPPRESS, action='store_true')
         parser.add_argument('--oneshot', help=argparse.SUPPRESS, type=str, default=None)
 
         self.argparser = parser
 
     def parse_arguments(self) -> None:
-        # a fresh config for every parse: nothing an earlier run set carries over (KI-CLI-12)
+        """Builds a fresh Config from the arguments, so nothing an earlier parse set carries over (KI-CLI-12). Paths
+        are checked here, before any scan starts."""
         config = self.config = Config()
+        args = self.argparser.parse_args(args=self.args[1:])
 
-        user_args = self.argparser.parse_args(args=self.args[1:])
-
-        if user_args.disable_masking:
-            config.set_disable_masking(True)
-
-        config.set_report_diagnostics(user_args.report_diagnostics)
-        config.set_confidence_level(user_args.confidence_level)
-
-        if user_args.benchmarking_mode:
-            config._set_benchmarking_mode(True)
+        config.set_disable_masking(args.disable_masking)
+        config.set_report_diagnostics(args.report_diagnostics)
+        config.set_confidence_level(args.confidence_level or DEFAULT_CONFIDENCE_LEVEL)
+        config.set_min_confidence(args.min_confidence)
+        config.set_excluded_tags(args.exclude_tags)
+        config._set_benchmarking_mode(args.benchmarking_mode)
+        config.return_code_if_findings = args.reflect_findings_in_return_code
 
         self.say_hello()
 
-        config.set_workdir(user_args.target_dir)
-        config.set_oneshot_path(user_args.oneshot)
-        config.set_max_file_size(user_args.max_file_size)
-        config.set_deep_max_size(user_args.deep_max_size)
-        config.set_process_count(user_args.process_count)
-        config.set_mp_context(user_args.multiprocessing_context or default_start_method())
-        config.set_ci_mode(is_ci_environment() if user_args.ci is None else user_args.ci)
-        config.set_verbose(user_args.verbose)
-        config.output = Output(type=user_args.outformat, path=user_args.outfile)
+        config.set_workdir(args.target_dir)
+        config.set_oneshot_path(args.oneshot)
+        config.set_max_file_size(args.max_file_size)
+        config.set_deep_max_size(args.deep_max_size)
+        config.set_process_count(args.process_count)
+        config.set_mp_context(args.multiprocessing_context or default_start_method())
+        config.set_ci_mode(is_ci_environment() if args.ci is None else args.ci)
+        config.set_verbose(args.verbose)
+        config.output = Output(type=args.outformat, path=args.outfile)
         # checked now, not when the report is written after the whole scan
-        report_dir = os.path.dirname(get_abspath(user_args.outfile))
+        report_dir = os.path.dirname(get_abspath(args.outfile))
         if not os.path.isdir(report_dir):
             raise FileNotFoundException(f'--outfile: the directory {report_dir} does not exist')
 
-        if user_args.reflect_findings_in_return_code:
-            config.return_code_if_findings = True
+        self._add_engines_and_rulesets(config, args)
 
-        EXCLUDE_PATHS_BUILTIN = get_path_inside_package('rules/excluded_paths.json')
-        if user_args.excluded_paths is not None:
-            rules = [rule.replace('built-in', EXCLUDE_PATHS_BUILTIN) for rule in user_args.excluded_paths]
-            if user_args.skip_bundles and 'disable' not in user_args.excluded_paths:
-                rules.append(get_path_inside_package('rules/excluded_bundles.json'))
-            config.set_global_exclusion_paths(rules)
+    @staticmethod
+    def _add_engines_and_rulesets(config: Config, args: argparse.Namespace) -> None:
+        """The engines the flags turn on, and the rule files each ruleset reads."""
+        if args.excluded_paths is not None:
+            paths = with_built_in(args.excluded_paths, 'rules/excluded_paths.json')
+            if args.skip_bundles and 'disable' not in args.excluded_paths:
+                paths.append(get_path_inside_package('rules/excluded_bundles.json'))
+            config.set_global_exclusion_paths(paths)
 
-        REGEX_BUILTIN_RULESET = get_path_inside_package('rules/regexes.json')
-        if user_args.regex_rules is not None:
-            rules = [rule.replace('built-in', REGEX_BUILTIN_RULESET) for rule in user_args.regex_rules]
+        if args.regex_rules is not None:
             config.engines.append(RegexEngine)
-            config.add_ruleset(RegexRulesetBuilder, rules)
-
-            CANDIDATE_BUILTIN_RULESET = get_path_inside_package('rules/regex_candidate_scoring_rules.json')
-            if user_args.regex_candidate_scoring_rules is not None:
-                rules = [
-                    rule.replace('built-in', CANDIDATE_BUILTIN_RULESET)
-                    for rule in user_args.regex_candidate_scoring_rules
-                ]
+            config.add_ruleset(RegexRulesetBuilder, with_built_in(args.regex_rules, 'rules/regexes.json'))
+            if args.regex_candidate_scoring_rules is not None:
+                rules = with_built_in(args.regex_candidate_scoring_rules, 'rules/regex_candidate_scoring_rules.json')
                 config.add_ruleset(RegexCandidateScoringRulesetBuilder, rules)
 
-        conf_semantic_analysis = user_args.semantic_analysis
-        if conf_semantic_analysis is not None and conf_semantic_analysis != DISABLED:
+        # the help's 'disable' is not honoured: the engine is on whatever the flag lists (KI-CLI-02)
+        if args.semantic_analysis is not None:
             config.engines.append(SemanticEngine)
-
-            VARIABLE_SCORING_RULESET = get_path_inside_package('rules/variable_scoring_rules.json')
-            if user_args.variable_scoring_rules is not None:
-                rules = [
-                    rule.replace('built-in', VARIABLE_SCORING_RULESET) for rule in user_args.variable_scoring_rules
-                ]
+            if args.variable_scoring_rules is not None:
+                rules = with_built_in(args.variable_scoring_rules, 'rules/variable_scoring_rules.json')
                 config.add_ruleset(VariableScoringRulesetBuilder, rules)
 
-        conf_hashed_ruleset = user_args.hashed_values
         # the flag without a value disables the check, as its help says; an empty ruleset would only keep the lexer on
         # every file for nothing (the hashed engine lexes files over --deep-max-size too)
-        if conf_hashed_ruleset and conf_hashed_ruleset != DISABLED:
+        if args.hashed_values:
             config.engines.append(HashedSecretEngine)
-            config.add_ruleset(HashedSecretsRulesetBuilder, conf_hashed_ruleset)
+            config.add_ruleset(HashedSecretsRulesetBuilder, args.hashed_values)
 
-        conf_false_findings_ruleset = user_args.false_findings
-        if conf_false_findings_ruleset is not None:
-            config.add_ruleset(FalseFindingsBuilder, conf_false_findings_ruleset)
+        if args.false_findings is not None:
+            config.add_ruleset(FalseFindingsBuilder, args.false_findings)
 
     def get_current_config(self) -> Config:
         return self.config

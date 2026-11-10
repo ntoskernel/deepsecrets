@@ -4,6 +4,7 @@ import random
 import pytest
 import regex as re
 
+from deepsecrets import BASE_DIR
 from deepsecrets.core.model.file import File
 
 LINE_BREAK = '\n'
@@ -11,7 +12,7 @@ LINE_BREAK = '\n'
 
 @pytest.mark.fixture_file_path('4.go')
 def test_basic_info(file: File):
-    assert file.path == '/app/tests/fixtures/4.go'
+    assert file.path == f'{BASE_DIR}/tests/fixtures/4.go'
     assert file.relative_path == 'tests/fixtures/4.go'
     assert file.extension == 'go'
     assert file.length == 395

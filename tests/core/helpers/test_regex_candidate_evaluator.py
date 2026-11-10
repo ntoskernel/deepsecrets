@@ -305,8 +305,31 @@ def test_a_wif_key_needs_its_checksum(candidate_rules, rules):
 def test_a_placeholder_token_is_far_from_random(candidate_rules, rules):
     _, verdict = judge(candidate_rules, rules['S0'], 'token = "xoxb-XXXXXXXXXX-XXXXXXXXXX-XXXXXXXXXXXX"')
     assert verdict.rejected and verdict.reason == 'RC_NOT_RANDOM'
-    _, kept = judge(candidate_rules, rules['S0'], 'token = "xoxb-123456789012-123456789012-Zk3pQ9rT2mX7vB1nW4yL8hJd"')
+    _, kept = judge(candidate_rules, rules['S0'], 'token = "xoxb-284716395021-509318274660-Zk3pQ9rT2mX7vB1nW4yL8hJd"')
     assert not kept.rejected
+
+
+@pytest.mark.parametrize(
+    'rule, text',
+    [
+        ('S0', 'token = "xoxb-123456789012-123456789012-Zk3pQ9rT2mX7vB1nW4yL8hJd"'),
+        ('S36', "k = 'sk_live_abcdefgh7Rt2Yb9NcF4sHd6JgA1e'"),
+        ('S19', 'db = "postgres://app:Tq7X123456bR2m@db.billing-prod.net/x"'),
+    ],
+    ids=['format, digits', 'format, letters', 'shape'],
+)
+def test_an_ascending_run_is_rejected(candidate_rules, rules, rule, text):
+    # a run has the highest entropy its length allows: RC_NOT_RANDOM cannot see it, the value's shape can
+    context, verdict = judge(candidate_rules, rules[rule], text)
+    assert 'sequence' in context.value_shape.split()
+    assert verdict.rejected and verdict.reason == 'RC_SEQUENCE'
+
+
+def test_an_ascending_run_is_reported_only_at_all(candidate_rules, rules):
+    text = 'token = "xoxb-123456789012-123456789012-Zk3pQ9rT2mX7vB1nW4yL8hJd"'
+    assert scan(RegexEngine(ruleset=[rules['S0']], candidate_rules=candidate_rules), text) == []
+    (finding,) = scan(RegexEngine(ruleset=[rules['S0']], candidate_rules=candidate_rules, report_rejected=True), text)
+    assert finding.rejected and finding.internal_score['candidate']['reason'] == 'RC_SEQUENCE'
 
 
 def test_a_comparison_on_a_text_field_is_refused_when_the_rules_load():
@@ -322,3 +345,63 @@ def test_an_empty_match_is_never_reported(candidate_rules, rules, report_rejecte
     engine = RegexEngine(ruleset=[rules['S41']], candidate_rules=candidate_rules, report_rejected=report_rejected)
     assert scan(engine, 'conn = "sqlserver://db.example.org;user=sa;password=;"') == []
     assert scan(RegexEngine(ruleset=[rules['S41']]), 'conn = "sqlserver://db.example.org;user=sa;password=;"') == []
+
+
+def key_lines(seed: int, n_bytes: int, width: int = 64) -> list:
+    import base64
+    import random
+    import textwrap
+
+    generator = random.Random(seed)
+    return textwrap.wrap(base64.b64encode(bytes(generator.randrange(256) for _ in range(n_bytes))).decode(), width)
+
+
+@pytest.mark.parametrize('marker', ['-', '+', ' '])
+@pytest.mark.parametrize(
+    'rule, begin, end',
+    [
+        ('S26', '-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----'),
+        ('S5', '-----BEGIN PGP PRIVATE KEY BLOCK-----', '-----END PGP PRIVATE KEY BLOCK-----'),
+    ],
+)
+def test_a_key_in_a_diff_is_found(candidate_rules, rules, rule, begin, end, marker):
+    # 2.3 (R3): a removed line's '-' before the five dashes of the END marker no longer hides the key
+    lines = [begin, *key_lines(5, 600), end]
+    diff = '--- a/key.pem\n+++ /dev/null\n@@ -1,12 +0,0 @@\n' + ''.join(f'{marker}{line}\n' for line in lines)
+    _, verdict = judge(candidate_rules, rules[rule], diff)
+    assert not verdict.rejected
+
+
+TRUNCATED = {
+    'pem': '-----BEGIN RSA PRIVATE KEY-----\n' + '\n'.join(key_lines(6, 900)[:6]) + '\n',
+    'pem cut mid-line': '-----BEGIN PRIVATE KEY-----\n' + '\n'.join(key_lines(7, 900)[:5]) + '\nMIIEvQIBADANBgk',
+    'pgp': '-----BEGIN PGP PRIVATE KEY BLOCK-----\nVersion: GnuPG v1\n\n' + '\n'.join(key_lines(8, 900)[:8]) + '\n',
+    'openssh': '-----BEGIN OPENSSH PRIVATE KEY-----\n' + '\n'.join(key_lines(9, 400, 70)[:4]) + '\n',
+    'in code': 'KEY = """-----BEGIN EC PRIVATE KEY-----\n' + '\n'.join(key_lines(10, 400)[:4]) + '\n"""\n',
+    'crlf': '-----BEGIN PRIVATE KEY-----\r\n' + '\r\n'.join(key_lines(11, 900)[:4]) + '\r\n',
+}
+
+
+@pytest.mark.parametrize('text', TRUNCATED.values(), ids=TRUNCATED.keys())
+def test_a_key_without_an_end_marker_is_found(candidate_rules, rules, text):
+    context, verdict = judge(candidate_rules, rules['S58'], text)
+    assert context.encoding == 'base64' and len(context.value) >= 3 * 60
+    assert not verdict.rejected
+
+
+def test_a_key_with_its_end_marker_is_left_to_the_other_rules(rules):
+    complete = '-----BEGIN RSA PRIVATE KEY-----\n' + '\n'.join(key_lines(12, 900)) + '\n-----END RSA PRIVATE KEY-----\n'
+    assert rules['S58'].matches(complete) == [] and rules['S1'].matches(complete)
+    # a placeholder between the markers stays rejected by the rule that reaches the END (RC_NOT_ENCODED)
+    lines = key_lines(13, 900)
+    placeholder = (
+        '-----BEGIN PRIVATE KEY-----\n' + '\n'.join(lines[:4]) + '\n...\n' + lines[4] + '\n-----END PRIVATE KEY-----\n'
+    )
+    assert rules['S58'].matches(placeholder) == []
+    # two full lines are not a key body
+    assert rules['S58'].matches('-----BEGIN PRIVATE KEY-----\n' + '\n'.join(lines[:2]) + '\n') == []
+
+
+def test_a_truncated_block_that_is_not_key_material_is_rejected(candidate_rules, rules):
+    _, verdict = judge(candidate_rules, rules['S58'], '-----BEGIN PRIVATE KEY-----\n' + ('A' * 64 + '\n') * 4)
+    assert verdict.rejected and verdict.reason == 'RC_LONG_NOT_RANDOM'

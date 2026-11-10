@@ -1,0 +1,200 @@
+name: Release Docker image
+
+# Admin only: builds docker/Dockerfile, which installs a release from PyPI, tests the image and pushes it to Docker Hub
+# and GHCR. Run it by hand to rebuild or retag a published version; release-pypi.yml calls it after an upload. The
+# job runs in the docker environment, whose required reviewers and DOCKERHUB_TOKEN live in the repository settings.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to install from PyPI; empty means the latest there
+        type: string
+        required: false
+        default: ""
+      latest:
+        description: Also tag it latest (turn this off when rebuilding an older version)
+        type: boolean
+        default: true
+      registry:
+        description: Registries to push to
+        type: choice
+        options: [ "both", "dockerhub", "ghcr" ]
+        default: both
+      dry_run:
+        description: Build and test only, log in and push nowhere
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: false
+        default: ""
+      latest:
+        type: boolean
+        default: true
+      registry:
+        type: string
+        default: both
+      dry_run:
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  image:
+    name: Build, test and push the image
+    runs-on: ubuntu-latest
+    environment: docker
+    permissions:
+      contents: read
+      packages: write # push to GHCR with GITHUB_TOKEN
+    steps:
+      - name: Require an admin
+        # $/ is the action at the commit being run: no checkout needed, and no earlier step can replace it
+        uses: $/.github/actions/require-admin
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve the version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          release='^[0-9]+(\.[0-9]+)*((a|b|rc)[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?$'
+          version=$INPUT_VERSION
+          if [ -z "$version" ]; then
+            version=$(curl --fail --silent --show-error --max-time 30 https://pypi.org/pypi/deepsecrets/json |
+              python3 -c 'import json, sys; print(json.load(sys.stdin)["info"]["version"])')
+          fi
+          if ! [[ $version =~ $release ]]; then
+            echo "::error::The version must be a release version such as 2.2.0"
+            exit 1
+          fi
+          # Right after an upload the simple index pip installs from can lag: wait up to 5 minutes for the version.
+          # The JSON form of the index lists every version (PEP 700)
+          listed='import json, sys; sys.exit(sys.argv[1] not in json.load(sys.stdin)["versions"])'
+          deadline=$((SECONDS + 300))
+          until curl --fail --silent --show-error --max-time 30 \
+              --header 'Accept: application/vnd.pypi.simple.v1+json' https://pypi.org/simple/deepsecrets/ |
+              python3 -c "$listed" "$version"; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::deepsecrets $version is not on PyPI"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Building deepsecrets $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Choose the registries
+        id: registry
+        env:
+          REGISTRY: ${{ inputs.registry }}
+        run: |
+          case $REGISTRY in
+            both) dockerhub=true ghcr=true ;;
+            dockerhub) dockerhub=true ghcr=false ;;
+            ghcr) dockerhub=false ghcr=true ;;
+            *)
+              echo "::error::The registry must be both, dockerhub or ghcr"
+              exit 1
+              ;;
+          esac
+          {
+            echo "dockerhub=$dockerhub"
+            echo "ghcr=$ghcr"
+            echo "images<<EOF"
+            if [ "$dockerhub" = true ]; then echo docker.io/ntoskernel/deepsecrets; fi
+            if [ "$ghcr" = true ]; then echo ghcr.io/ntoskernel/deepsecrets; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.registry.outputs.images }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest,enable=${{ inputs.latest }}
+
+      # No GitHub Actions cache anywhere in this job: a cache other runs can write is a way into a release
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+          cache-image: false
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          cache-binary: false
+
+      - name: Build for linux/amd64
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: docker
+          platforms: linux/amd64
+          build-args: DEEPSECRETS_VERSION=${{ steps.version.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: deepsecrets:smoke-test
+          load: true
+
+      - name: Smoke-test the image
+        # Before any registry login, so the image under test never shares the runner with a credential. These commands
+        # work on every release since 2.0.0; --ci is left out (it is new in 2.2.0, and CI mode starts without a TTY)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          installed=$(docker run --rm deepsecrets:smoke-test \
+            python -c 'from importlib.metadata import version; print(version("deepsecrets"))')
+          if [ "$installed" != "$VERSION" ]; then
+            echo "::error::The image has deepsecrets $installed, not $VERSION"
+            exit 1
+          fi
+          out="$RUNNER_TEMP/smoke"
+          mkdir -p "$out"
+          docker run --rm --volume "$GITHUB_WORKSPACE/tests/fixtures:/src:ro" --volume "$out:/out" \
+            deepsecrets:smoke-test deepsecrets --target-dir /src --outfile /out/report.sarif --outformat sarif
+          # At least one finding, never a count: the count depends on where the fixtures sit
+          count='import json, sys; print(sum(len(run.get("results") or []) for run in json.load(sys.stdin)["runs"]))'
+          findings=$(python3 -c "$count" < "$out/report.sarif")
+          echo "deepsecrets $installed found $findings secrets in tests/fixtures"
+          if [ "$findings" -lt 1 ]; then
+            echo "::error::The image found nothing in tests/fixtures"
+            exit 1
+          fi
+
+      - name: Log in to Docker Hub
+        if: ${{ !inputs.dry_run && steps.registry.outputs.dockerhub == 'true' }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ntoskernel
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        if: ${{ !inputs.dry_run && steps.registry.outputs.ghcr == 'true' }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build for linux/amd64 and linux/arm64 and push
+        # A dry run builds both platforms and pushes nothing. Provenance stays at the action's default
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: docker
+          platforms: linux/amd64,linux/arm64
+          build-args: DEEPSECRETS_VERSION=${{ steps.version.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          sbom: true
+          push: ${{ !inputs.dry_run }}

@@ -12,7 +12,8 @@ from typing import Dict, List, Optional
 
 from deepsecrets.config import DEFAULT_DEEP_MAX_SIZE, deep_analysis
 from deepsecrets.core.engines.regex import RegexEngine
-from deepsecrets.core.engines.semantic import SemanticEngine, filenames_ignorelist
+from deepsecrets.core.engines.semantic import SemanticEngine, filenames_ignorelist, variable_rule
+from deepsecrets.core.helpers.finding_tags import WEAK_PASSWORD, apply_path_context
 from deepsecrets.core.helpers.variable_evaluator import HOPELESS_THRESHOLD, VariableEvaluator
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.token import SemanticType, Token
@@ -32,7 +33,7 @@ from deepsecrets.core.utils.file_analyzer import EngineWithTokenizer, FileAnalyz
 from deepsecrets.core.utils.finding_merger import FindingMerger
 from deepsecrets.core.utils.fs import get_path_inside_package
 
-SCHEMA_VERSION = 5  # 2: the size tier ('tier' field, 'tier' verdict stage); 3: 'allows_low_entropy', S106 gating; 4: 'finding_evaluation'; 5: 'candidate_evaluation' (regex candidates judged in RegexEngine) replaces it
+SCHEMA_VERSION = 6  # 2: the size tier ('tier' field, 'tier' verdict stage); 3: 'allows_low_entropy', S106 gating; 4: 'finding_evaluation'; 5: 'candidate_evaluation' (regex candidates judged in RegexEngine) replaces it; 6: 'tags' in evaluations, candidate_evaluation and production findings
 WINDOW_BEFORE, WINDOW_AFTER = 6, 3
 
 
@@ -187,18 +188,25 @@ def _evaluate(evaluator: VariableEvaluator, scoring_rules: list, variable) -> di
         'dangerous': result.is_dangerous,
         'confidence': result.export_confidence,
         'allows_low_entropy': result.allows_low_entropy,
-        'rule_emitted': _rule_emitted(result),
+        'rule_emitted': _rule_emitted(result, context.value),
+        'tags': _tags_emitted(result, context.value),
         'dangerous_without': counterfactual,
     }
 
 
-def _rule_emitted(result) -> Optional[str]:
-    """The rule SemanticEngine.search reports for an evaluated variable, or None."""
-    if not result.is_dangerous:
-        return None
-    if result.entropy_score > 0:
-        return 'S105'
-    return 'S106' if result.allows_low_entropy else None
+def _rule_emitted(result, value: str) -> Optional[str]:
+    """The rule SemanticEngine.search reports for an evaluated variable, or None: the engine's own decision."""
+    rule = variable_rule(result, value)
+    return rule.id if rule is not None else None
+
+
+def _tags_emitted(result, value: str) -> List[str]:
+    """The tags SemanticEngine puts on the variable's finding: those of the scoring rules that fired, and
+    weak-password on S106. test-context comes later, from the path (production findings carry it)."""
+    tags = list(result.tags)
+    if _rule_emitted(result, value) == 'S106' and WEAK_PASSWORD not in tags:
+        tags.append(WEAK_PASSWORD)
+    return tags
 
 
 def _gate(token: Token, file: File) -> Optional[str]:
@@ -298,6 +306,8 @@ class FileReplay:
         tokenizers = [LexerTokenizer(deep_token_inspection=True)] if self.deep else []
         analyzer.add_engine(semantic_engine, tokenizers + [CheapVarSearchTokenizer(lexed=self.deep)])
         self.findings = FindingMerger(analyzer.process()).merge()
+        # as ScanMode tags (and, in recorded traffic, lowers) the merged findings of a scan
+        apply_path_context(self.findings)
         self.decisions = analyzer.decisions
         return self
 
@@ -371,6 +381,7 @@ def _trace_span(replay: FileReplay, span: Span, evaluator: VariableEvaluator) ->
                 'rule': f.final_rule.id if f.final_rule else f.rules[0].id,
                 'confidence': max(r.confidence for r in f.rules),
                 'exact': f.start_offset == s and f.end_offset == e,
+                'tags': sorted(f.tags),
             }
             for f in (_with_final_rule(f) for f in reported)
         ],
@@ -449,7 +460,8 @@ def _verdict(t: dict) -> dict:
         return {
             'stage': 'evaluation',
             'component': 'semantic_engine',
-            'detail': 'no entropy score, and no allows_low_entropy rule fired on the name (S106)',
+            'detail': 'no entropy score, and no allows_low_entropy rule fired on the name, or the weak value is too short or '
+            'letters alone (S106)',
         }
     return {'stage': 'evaluation', 'component': 'variable_evaluator', 'detail': 'scored as not dangerous'}
 

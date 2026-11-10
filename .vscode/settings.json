@@ -19,5 +19,6 @@
     },
     "python.analysis.typeCheckingMode": "standard",
     "python.analysis.indexing": true,
-    "python.analysis.diagnosticMode": "workspace"
+    "python.analysis.diagnosticMode": "workspace",
+    "python.terminal.useEnvFile": true
 }

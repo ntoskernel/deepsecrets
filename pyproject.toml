@@ -1,54 +1,77 @@
 [project]
 name = "deepsecrets"
-version = "2.2.0"
-description = "A better tool for secrets scanning"
-license = { text = "MIT" }
+version = "2.3.0"
+description = "Offline secrets scanner that understands code: credentials found by variable names, entropy and provider formats, with confidence tiers, tags and SARIF output"
 readme = "README.md"
-authors = [
-    { name = "Nikolai Khechumov", email = "khechumov@gmail.com" },
-    { name = "Nikolai Khechumov", email = "nikolai.khechumov@owasp.com" },
+# Apache-2.0 from 2.3.0; the code of the original release and contributions made before 2.3.0 stay under MIT (NOTICE)
+license = "Apache-2.0 AND MIT"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Nikolai Khechumov", email = "khechumov@gmail.com" }]
+maintainers = [{ name = "Nikolai Khechumov", email = "khechumov@gmail.com" }]
+keywords = [
+    "secrets",
+    "secret-scanning",
+    "secrets-detection",
+    "credentials",
+    "api-keys",
+    "passwords",
+    "leak-detection",
+    "security",
+    "appsec",
+    "devsecops",
+    "sast",
+    "static-analysis",
+    "sarif",
+    "owasp",
 ]
-maintainers = [
-    { name = "Nikolai Khechumov", email = "khechumov@gmail.com" },
-    { name = "Nikolai Khechumov", email = "nikolai.khechumov@owasp.com" },
-]
-
-keywords = ["security", "secrets", "credentials", "scanning", "appsec", "code", "search"]
-packages = [{include = "deepsecrets"}]
-requires-python = ">=3.11,<4.0.0"
-
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
-    "Topic :: Security"
-    
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
 ]
-
+# 3.11 for tomllib; the cap is puppetparser's (it requires Python <4.0). CI tests 3.11 to 3.14 (run-tests.yml)
+requires-python = ">=3.11,<4.0.0"
+# Pinned exactly on purpose: what the scanner reports depends on these versions (Pygments' token types and lexers,
+# regex semantics, PyYAML's leniency in the content probe, mmh3's hashed-rule ids), so a release reports the same
+# findings wherever it is installed. poetry.lock pins the transitive packages for development and CI
 dependencies = [
-  "pydantic (==2.13.5)",
-  "pyyaml (==6.0.3)",
-  "pygments (==2.21.0)",
-  "ordered-set (==4.1.0)",
-  "mmh3 (==5.3.0)",
-  "regex (==2026.9.3)",
-  "aenum (==3.1.17)",
-  "puppetparser == 0.2.14",
-  "sarif-om == 1.0.4",
-  "jschema-to-python == 1.2.3",
-  "rich (==15.0.0)",
+    "pydantic==2.13.5",
+    "pyyaml==6.0.3",
+    "pygments==2.21.0",
+    "ordered-set==4.1.0",
+    "mmh3==5.3.0",
+    "regex==2026.9.3",
+    "aenum==3.1.17",
+    "puppetparser==0.2.14",
+    "sarif-om==1.0.4",
+    "jschema-to-python==1.2.3",
+    "rich==15.0.0",
 ]
 
 [project.urls]
-homepage = "https://owasp.org/projects/deepsecrets"
-repository = "https://github.com/ntoskernel/deepsecrets"
-"Bug Tracker" = "https://github.com/ntoskernel/deepsecrets/issues"
+Homepage = "https://owasp.org/projects/deepsecrets"
+Source = "https://github.com/ntoskernel/deepsecrets"
+Issues = "https://github.com/ntoskernel/deepsecrets/issues"
+Changelog = "https://github.com/ntoskernel/deepsecrets/releases"
+Documentation = "https://github.com/ntoskernel/deepsecrets#readme"
+"Docker image" = "https://hub.docker.com/r/ntoskernel/deepsecrets"
 
 [project.scripts]
 deepsecrets = "deepsecrets:__main__.runnable_entrypoint"
 
 [tool.poetry]
+packages = [{ include = "deepsecrets" }]
 # The diagnostics tracer (python -m deepsecrets.diagnostics) is developer tooling: in the repository, not in builds.
 exclude = ["deepsecrets/diagnostics"]
 
@@ -62,14 +85,14 @@ pytest-cov = "7.1.0"
 black = "^26.5.1"
 
 [build-system]
-requires = ["poetry-core"]
+# 2.5 is the version the release builds were checked with: SPDX license expressions and license-files (PEP 639)
+requires = ["poetry-core>=2.5,<3"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 packages=["deepsecrets"]
 disallow_untyped_defs = false
-disallow_any_unimported = true
-disallow-any-unimported = false
+disallow_any_unimported = false
 no_implicit_optional = true
 check_untyped_defs = true
 warn_return_any = true
@@ -90,7 +113,7 @@ testpaths = ["tests"]
 
 [tool.black]
 line-length = 120
-skip-string-normalization = 1
+skip-string-normalization = true
 
 [tool.coverage]
 run.omit = ["deepsecrets/__main__.py"]

@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import List, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 from sarif_om import (
     SarifLog,
@@ -19,7 +19,7 @@ from sarif_om import (
     Notification,
     Region,
 )
-from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION
+from deepsecrets.config import SCANNER_NAME, SCANNER_URL, SCANNER_VERSION, TIER_FLOORS
 from deepsecrets.core.utils.fs import get_relative_path
 
 from deepsecrets.core.model.finding import Finding
@@ -28,6 +28,22 @@ from deepsecrets.core.model.rules.rule import Rule
 from deepsecrets.core.modes.iscan_mode import ScanMode
 
 SRC_PATH_BASE_ID = 'SRCROOT'
+
+
+def confidence_tiers(floors: Dict[str, int]) -> Dict[Tuple[float, float], dict]:
+    """Each tier's half-open confidence range [its floor, the next floor), keyed to its rule-id suffix, GitHub precision
+    and label: 'very-high' gives -VERY-HIGH, very-high, Very High. The lowest tier is open below, the highest above."""
+    ordered = sorted(floors.items(), key=lambda item: item[1])
+    tiers = {}
+    for index, (name, floor) in enumerate(ordered):
+        start = floor if index > 0 else float('-inf')
+        end = ordered[index + 1][1] if index + 1 < len(ordered) else float('inf')
+        tiers[(start, end)] = {
+            'suffix': f'-{name.upper()}',
+            'precision': name,
+            'label': name.replace('-', ' ').title(),
+        }
+    return tiers
 
 
 @dataclass
@@ -56,12 +72,8 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
     # same value, critical for GitHub (over 9.0), DefectDojo (9 or more) and GitLab alike. Confidence goes in the tier:
     # the rule id suffix, GitHub's rule-level `precision`, and the result's `confidence` property.
     SECURITY_SEVERITY = '10.00'
-    CONFIDENCE_TIERS = {
-        (9, float('inf')): {'suffix': '-VERY-HIGH', 'precision': 'very-high', 'label': 'Very High'},
-        (6, 9): {'suffix': '-HIGH', 'precision': 'high', 'label': 'High'},
-        (3, 6): {'suffix': '-MEDIUM', 'precision': 'medium', 'label': 'Medium'},
-        (float('-inf'), 3): {'suffix': '-LOW', 'precision': 'low', 'label': 'Low'},
-    }
+    # half-open confidence ranges built from TIER_FLOORS, the table --confidence-level reads too
+    CONFIDENCE_TIERS = confidence_tiers(TIER_FLOORS)
     # a regex candidate its evaluation rejected, reported only at --confidence-level all
     INFO_TIER = {'suffix': '-INFO', 'precision': 'low', 'label': 'Info'}
 
@@ -139,6 +151,10 @@ class DojoSarifResponseBuilder(BaseResponseBuilder):
             rules.append((finding.final_rule, finding.rejected))
             rule_meta = self._sarif_rule_meta_from_rule(finding.final_rule, finding.rejected)
             properties = {'confidence': finding.final_rule.confidence}
+            # SARIF's own property-bag array: what sort of finding it is. Rule ids, fingerprints and severity do not
+            # depend on it, and the rule descriptors carry no tags, since one rule id mixes tagged and untagged results
+            if finding.tags:
+                properties['tags'] = sorted(finding.tags)
             text = f'[Confidence {finding.final_rule.confidence}/10] Secret in code: {finding.final_rule.name}'
             if finding.rejected:
                 properties['rejected'] = True

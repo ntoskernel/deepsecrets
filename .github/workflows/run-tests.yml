@@ -1,21 +1,48 @@
 name: Recall and Performance Tests
 
+# The suite on every supported Python, with exactly the versions poetry.lock pins, outside the devcontainer: nothing
+# the development container adds (Node, Claude Code, host certificates, its user) can break or block this run.
+# release-pypi.yml calls it as its test gate and publishes nothing unless every entry passes.
+
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  tests:
+    # Required checks are named after these entries ("Python 3.11" ... "Python 3.14"), not "build"
+    name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.11", "3.12", "3.13", "3.14" ]
     steps:
-
-      - name: Checkout (GitHub)
-        uses: actions/checkout@v3
-
-      - name: Build and run dev container task
-        uses: devcontainers/ci@v0.3
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          runCmd: |
-            pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=deepsecrets
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the locked dependencies
+        # Poetry 2.3.3 generated poetry.lock; it runs from its own environment and gives the project a venv on the
+        # matrix interpreter
+        run: |
+          pipx install poetry==2.3.3
+          poetry env use python
+          poetry install --no-root --with test,dev
+
+      - name: Run the tests
+        run: poetry run python -m pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=deepsecrets

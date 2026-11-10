@@ -45,6 +45,33 @@
         "when": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
     },
     {
+        "id": "SEM_VAR_FILE_NAME_VALUES",
+        "name": "Ignore variable values that are file names, paths or object keys",
+        "description": "main.log, IMG_2041.JPG, /srv/tls/server.key, backups/x/main.log: a name, a dot and a one-case extension, alone or after a path. Not under a password name: people put dots in passwords",
+        "pattern": "\\bfile_name\\b",
+        "target": "VALUE_SHAPE",
+        "score": -100,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
+    },
+    {
+        "id": "SEM_VAR_VERSION_VALUES",
+        "name": "Ignore variable values that carry a version number",
+        "description": "3.0.17, 2.14.1-rc1: a version, a build or an artifact name. An IP address has four numbers and does not count. Not under a password name",
+        "pattern": "\\bversion\\b",
+        "target": "VALUE_SHAPE",
+        "score": -100,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
+    },
+    {
+        "id": "SEM_VAR_SEQUENCE_VALUES",
+        "name": "Ignore variable values that hold an ascending run",
+        "description": "123456, abcdef, ABCDEF: 6 or more characters each one code point above the previous, all digits or all letters of one case. Such a run has the highest entropy its length allows, so the entropy score cannot see it. Not under a password name: 123456 there is a weak password, S106's business",
+        "pattern": "\\bsequence\\b",
+        "target": "VALUE_SHAPE",
+        "score": -100,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "(passw(or)?d|pwd)$"}]
+    },
+    {
         "id": "SEM_VAR_FILE_PATHS",
         "enabled": true,
         "description": "Slightly reduce score for test/mock/minified files",
@@ -162,5 +189,33 @@
         "pattern": "(passw|pwd|pass$|secret)",
         "score": 0,
         "allows_low_entropy": true
+    },
+    {
+        "id": "SEM_VAR_TAG_PUBLISHABLE",
+        "name": "Tag keys made to ship to clients",
+        "description": "Scores nothing: tags the variable's finding publishable when its name says the key is public by design (reCAPTCHA and other site keys, public keys, Stripe publishable keys, Gigya, Algolia search-only and DocSearch keys, Application Insights instrumentation keys; since 2.3's judging, JW Player and Brightcove player keys, Sentry public keys, Segment write keys, Branch and Pusher app keys, Maps, geocoding and Street View keys, Bugsnag notifier keys and Next.js NEXT_PUBLIC_ variables, each family judged publishable beyond SecretBench's labels with no secret among them). Not when the name also says secret or private",
+        "target": "NAME_NORMALIZED",
+        "pattern": "sitekey|publickey|pubkey|publishable|clientkey|recaptcha|captcha|gigya|searchkey|searchonly|docsearch|instrumentationkey|jwplayer|playerkey|sentrypublic|writekey|branchkey|branchiokey|pusherappkey|pusherapikey|nextpublic|mapsapikey|geocode|streetview|bugsnag",
+        "score": 0,
+        "unless": [{"target": "NAME_NORMALIZED", "pattern": "secret|private"}],
+        "tag": "publishable"
+    },
+    {
+        "id": "SEM_VAR_TAG_PUBLISHABLE_VALUE",
+        "name": "Tag publishable keys by their value",
+        "description": "Scores nothing: tags the variable's finding publishable when its value is a Stripe publishable key (pk_test_, pk_live_) or a Mapbox public token (pk.ey...), whatever the name. The copy of RC_TAG_PUBLISHABLE for variables: a regex match covering a variable the semantic engine reports is not judged as a candidate, so only this rule can tag it",
+        "target": "VALUE",
+        "pattern": "^pk_(test|live)_|^pk\\.ey",
+        "score": 0,
+        "tag": "publishable"
+    },
+    {
+        "id": "SEM_VAR_TAG_IDENTIFIER_VALUE",
+        "name": "Tag AWS principal ids",
+        "description": "Scores nothing: tags the variable's finding identifier when its value is the unique id of an AWS user, role, group, instance profile or policy (AIDA, AROA, AGPA, AIPA, ANPA, ANVA), which names a principal and grants nothing. SecretBench labels such ids real, so they stay reported. The copy of RC_TAG_IDENTIFIER for variables",
+        "target": "VALUE",
+        "pattern": "^(AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[A-Z0-9]{16,17}$",
+        "score": 0,
+        "tag": "identifier"
     }
 ]

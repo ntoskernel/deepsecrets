@@ -15,6 +15,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from deepsecrets import BASE_DIR
 from deepsecrets.config import Config, Output
 from deepsecrets.core.engines.hashed_secret import HashedSecretEngine
 from deepsecrets.core.engines.regex import RegexEngine
@@ -96,13 +97,13 @@ def test_worker_relative_path_with_repeated_workdir(tmp_path: Path):
 def test_worker_runs_hashed_engine():
     builder = HashedSecretsRulesetBuilder().with_rules_from_file('tests/fixtures/hashed_secrets.json')
     bundle = AnalyzerBundle(
-        workdir='/app/tests/fixtures',
+        workdir=f'{BASE_DIR}/tests/fixtures',
         benchmarking_mode=False,
         engines={'hashed': True},
         rulesets={'hashed': builder.rules},
     )
     reporter = {}
-    result = CliScanMode._per_file_analyzer(bundle, '/app/tests/fixtures/1.py', 1, reporter)
+    result = CliScanMode._per_file_analyzer(bundle, f'{BASE_DIR}/tests/fixtures/1.py', 1, reporter)
 
     assert [finding.detection for finding in result.findings] == [HASHED_SECRET]
     assert isinstance(result.findings[0].rules[0], HashedSecretRule)
@@ -125,7 +126,7 @@ def test_run_terminates_when_a_worker_raises():
     _mock_progress_bar(mode)
     try:
         assert len(mode.filepaths) == 4
-        crashed = '/app/tests/fixtures/extless/json'
+        crashed = f'{BASE_DIR}/tests/fixtures/extless/json'
 
         findings, errors, _ = _run_with_timeout(mode)
 
@@ -152,7 +153,7 @@ def test_analyzer_bundle_carries_what_workers_read():
             'deep_max_size',
             'report_rejected',
         }
-        assert bundle.workdir == '/app/tests/fixtures/extless'
+        assert bundle.workdir == f'{BASE_DIR}/tests/fixtures/extless'
         assert bundle.engines == {'regex': True}
         assert list(bundle.rulesets) == ['regex']
         assert bundle.benchmarking_mode is False
@@ -408,7 +409,7 @@ def test_killed_worker_fails_its_file_instead_of_hanging_the_scan(ci_mode):
         outcome = _run_capturing(mode, timeout=120)
         assert 'error' not in outcome, outcome.get('error')
         _, errors, _ = outcome['result']
-        killed = '/app/tests/fixtures/extless/json'
+        killed = f'{BASE_DIR}/tests/fixtures/extless/json'
         assert len(errors[killed]) == 1 and errors[killed][0].startswith('WorkerLostError: the worker process')
         assert mode.stats.finished == 4 and mode.stats.failed_files == 1
         assert list(mode.lost_jobs) == [next(t for t, j in mode.file_jobs.items() if j.name == killed)]
@@ -528,12 +529,12 @@ def test_size_tier_gives_files_over_deep_max_size_no_lexer(monkeypatch, deep_max
         get_path_inside_package('rules/variable_scoring_rules.json')
     )
     bundle = AnalyzerBundle(
-        workdir='/app/tests/fixtures',
+        workdir=f'{BASE_DIR}/tests/fixtures',
         engines={'semantic': True},
         rulesets={'variable_scoring': scoring.rules},
         deep_max_size=deep_max_size,
     )
-    result = CliScanMode._per_file_analyzer(bundle, '/app/tests/fixtures/1.py', 1, {})
+    result = CliScanMode._per_file_analyzer(bundle, f'{BASE_DIR}/tests/fixtures/1.py', 1, {})
 
     assert result.status == 'ok'
     assert result.depth == ('deep' if lexed else 'shallow')
@@ -544,9 +545,12 @@ def test_hashed_values_keep_the_lexer_on_a_shallow_file():
     # hashed values are compared against lexer tokens: the tier must not cost --hashed-values its findings
     builder = HashedSecretsRulesetBuilder().with_rules_from_file('tests/fixtures/hashed_secrets.json')
     bundle = AnalyzerBundle(
-        workdir='/app/tests/fixtures', engines={'hashed': True}, rulesets={'hashed': builder.rules}, deep_max_size=1
+        workdir=f'{BASE_DIR}/tests/fixtures',
+        engines={'hashed': True},
+        rulesets={'hashed': builder.rules},
+        deep_max_size=1,
     )
-    result = CliScanMode._per_file_analyzer(bundle, '/app/tests/fixtures/1.py', 1, {})
+    result = CliScanMode._per_file_analyzer(bundle, f'{BASE_DIR}/tests/fixtures/1.py', 1, {})
 
     assert result.depth == 'shallow'
     assert [finding.detection for finding in result.findings] == [HASHED_SECRET]

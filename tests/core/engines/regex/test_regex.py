@@ -4,6 +4,7 @@ from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.model.file import File
 from deepsecrets.core.model.rules.regex import RegexRule
 from deepsecrets.core.model.token import Token
+from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
 from deepsecrets.core.rulesets.regex_candidate_scoring import RegexCandidateScoringRulesetBuilder
 from deepsecrets.core.tokenizers.full_content import FullContentTokenizer
 from deepsecrets.core.utils.fs import get_path_inside_package
@@ -174,13 +175,22 @@ PROVIDER_CASES = {
     'S47': ('bitly access token: {}', _random(HEX, 40, 6)),
     'S48': ('okta.api-token={}', '00' + _random(MIXED, 40, 7)),
     'S49': ('SNYK_TOKEN={}', '1f0c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b'),
-    'S50': ('TELEGRAM_TOKEN="{}"', '123456789:AA' + _random(MIXED, 33, 8)),
+    'S50': ('TELEGRAM_TOKEN="{}"', '583920174:AA' + _random(MIXED, 33, 8)),
     'S51': ('bot = Bot("{}")', '987654321:AA' + _random(MIXED, 33, 9)),
     'S52': ('url: {}', 'hooks.slack.com/workflows/' + _random(MIXED, 46, 10)),
     'S53': ('key = "{}"', 'sk_prod_' + _random(MIXED, 16, 11)),
     'S54': ('facebook_app_secret = "{}"', _random(HEX, 32, 12)),
     'S55': ('DROPBOX_APPKEY="{}"', _random(ALNUM, 15, 13)),
     'S56': ('amplitude.init(key, "{}")', _random(HEX, 32, 14)),
+    'S57': ('//registry.npmjs.org/:_authToken={}', 'npm_' + _random(MIXED, 36, 15)),
+    'S59': ("const client = algoliasearch('Q4XK2M7BTW', '{}');", _random(HEX, 32, 16)),
+    'S60': ('  provider :facebook, "5820193746281", "{}"', _random(HEX, 32, 17)),
+    'S61': (
+        'url = "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key={}&format=json"',
+        _random(HEX, 32, 18),
+    ),
+    'S62': ("result = PastebinAPI().paste('{}', 'text')", _random(HEX, 32, 19)),
+    'S63': ("client = messagebird.Client('{}')", _random(MIXED, 25, 20)),
 }
 
 
@@ -203,3 +213,58 @@ def test_provider_rules_find_their_tokens(regex_engine: RegexEngine, rule_id: st
         rule, match.match, line[match.start : match.end], '/repo/src/settings.py'
     )
     assert not RegexCandidateEvaluator(candidate_rules).evaluate(context).rejected
+
+
+# 2.3 (R2): the call forms report a value only in their frame
+PROVIDER_NEGATIVES = {
+    'S59': [
+        "algoliasearch('Q4XK2M7BTW', 'YOUR_SEARCH_ONLY_API_KEY')",
+        'algoliasearch(process.env.APP_ID, process.env.SEARCH_KEY)',
+    ],
+    'S60': [
+        'provider :facebook, ENV["FACEBOOK_KEY"], ENV["FACEBOOK_SECRET"]',
+        "provider :facebook, 'APP_ID', 'APP_SECRET'",
+    ],
+    'S61': [
+        'https://api.flickr.com/services/rest/?api_key={your api key}',
+        'see flickr: api_key is required',
+    ],
+    'S62': [
+        "result = PastebinAPI().paste(dev_key, 'text')",
+    ],
+    'S63': [
+        "client = messagebird.Client(os.environ['MESSAGEBIRD_ACCESS_KEY'])",
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    'rule_id, line', [(rule_id, line) for rule_id, lines in PROVIDER_NEGATIVES.items() for line in lines]
+)
+def test_provider_call_forms_need_their_frame(regex_engine: RegexEngine, rule_id: str, line: str):
+    rule = next(rule for rule in regex_engine.ruleset if rule.id == rule_id)
+    assert rule.matches(line) == []
+
+
+def _shipped_rule(rule_id: str) -> RegexRule:
+    builder = RegexRulesetBuilder()
+    builder.with_rules_from_file(get_path_inside_package('rules/regexes.json'))
+    return next(r for r in builder.rules if r.id == rule_id)
+
+
+def test_s12_takes_a_key_near_its_keyword_only():
+    rule = _shipped_rule('S12')
+    key = '01234567-89ab-cdef-0123-456789abcdef'
+    assert rule.match(_token(f'HEROKU_API_KEY={key}'))
+    assert rule.match(_token(f"heroku config:set API_TOKEN='{key}'"))
+    # a policy or a log line that names herokuapp.com and carries an unrelated UUID further on
+    assert rule.match(_token(f"connect-src https://*.herokuapp.com https://cdn.example.com; report-uri /r/{key}")) == []
+
+
+def test_s54_skips_checksum_maps_keyed_by_file_names():
+    rule = _shipped_rule('S54')
+    digest = '0123456789abcdef0123456789abcdef'
+    assert rule.match(_token(f'facebook_app_secret = "{digest}"'))
+    assert rule.match(_token(f'FACEBOOK_SECRET: {digest}'))
+    assert rule.match(_token(f'"facebook-sdk.js": "{digest}",')) == []
+    assert rule.match(_token(f'"images/facebook.png": "{digest}",')) == []

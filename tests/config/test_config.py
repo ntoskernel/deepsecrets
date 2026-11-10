@@ -1,3 +1,4 @@
+from deepsecrets import BASE_DIR
 from deepsecrets.config import Config, Output
 from deepsecrets.core.engines.regex import RegexEngine
 from deepsecrets.core.rulesets.regex import RegexRulesetBuilder
@@ -20,7 +21,7 @@ def test_config():
 
     assert exception is not None
 
-    assert config.workdir_path == '/app/tests'
+    assert config.workdir_path == f'{BASE_DIR}/tests'
     assert len(config.engines) == 1
     assert len(config.rulesets) == 1
-    assert config.rulesets[RegexRulesetBuilder] == ['/app/tests/fixtures/1.conf']
+    assert config.rulesets[RegexRulesetBuilder] == [f'{BASE_DIR}/tests/fixtures/1.conf']
